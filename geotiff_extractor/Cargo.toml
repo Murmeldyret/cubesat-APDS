@@ -17,3 +17,5 @@ path = "src/bin.rs"
 gdal = "0.16.0"
 image = "0.24.9"
 
+[dev-dependencies]
+mockall = "0.12.1"
