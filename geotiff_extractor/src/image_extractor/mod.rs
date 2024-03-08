@@ -14,13 +14,14 @@ pub trait Datasets {
     fn datasets_min_max(&self) -> BandsMinMax;
 }
 
+#[derive(Debug)]
 pub struct BandsMinMax {
-    red_min: f64,
-    red_max: f64,
-    green_min: f64,
-    green_max: f64,
-    blue_min: f64,
-    blue_max: f64,
+    pub red_min: f64,
+    pub red_max: f64,
+    pub green_min: f64,
+    pub green_max: f64,
+    pub blue_min: f64,
+    pub blue_max: f64,
 }
 
 impl Datasets for GDALDataset {
@@ -42,7 +43,7 @@ impl Datasets for GDALDataset {
     fn datasets_min_max(&self) -> BandsMinMax {
         let datasets = &self.dataset;
 
-        let amount_images = datasets.len();
+        let amount_images = datasets.len() as f64;
 
         let something: Vec<StatisticsMinMax> = (1..4)
             .into_iter()
@@ -63,15 +64,21 @@ impl Datasets for GDALDataset {
             })
             .collect();
 
-        dbg!(&something);
+        let avg_min_max: Vec<StatisticsMinMax> = something
+            .into_iter()
+            .map(|min_max| StatisticsMinMax {
+                min: min_max.min / amount_images,
+                max: min_max.max / amount_images,
+            })
+            .collect();
 
         BandsMinMax {
-            red_min: something[0].min,
-            red_max: something[0].max,
-            green_min: something[1].min,
-            green_max: something[1].max,
-            blue_min: something[2].min,
-            blue_max: something[2].max,
+            red_min: avg_min_max[0].min,
+            red_max: avg_min_max[0].max,
+            green_min: avg_min_max[1].min,
+            green_max: avg_min_max[1].max,
+            blue_min: avg_min_max[2].min,
+            blue_max: avg_min_max[2].max,
         }
     }
 }
