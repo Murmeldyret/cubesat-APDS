@@ -16,6 +16,7 @@ path = "src/bin.rs"
 [dependencies]
 gdal = "0.16.0"
 image = "0.24.9"
+rayon = "1.9.0"
 
 [dev-dependencies]
 mockall = "0.12.1"
