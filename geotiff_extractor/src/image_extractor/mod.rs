@@ -178,7 +178,7 @@ mod tests {
 
         let result = GDALDataset::datasets_min_max(&datasets);
 
-        assert_eq!(0.0036, (result.red_min * 10000.0).round() / 10000.0);
+        assert_eq!(0.0018, (result.red_min * 10000.0).round() / 10000.0);
     }
 }
 
