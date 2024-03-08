@@ -45,7 +45,7 @@ impl Datasets for GDALDataset {
 
         let amount_images = datasets.len() as f64;
 
-        let something: Vec<StatisticsMinMax> = (1..4)
+        let sum_min_max: Vec<StatisticsMinMax> = (1..4)
             .into_iter()
             .map(|i| {
                 datasets
@@ -64,7 +64,7 @@ impl Datasets for GDALDataset {
             })
             .collect();
 
-        let avg_min_max: Vec<StatisticsMinMax> = something
+        let avg_min_max: Vec<StatisticsMinMax> = sum_min_max
             .into_iter()
             .map(|min_max| StatisticsMinMax {
                 min: min_max.min / amount_images,
