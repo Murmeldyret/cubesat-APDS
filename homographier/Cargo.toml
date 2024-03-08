@@ -6,4 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-opencv = "0.88.8"
+opencv = {version = "0.88.8",features = []}
+rgb = "0.8.37"
