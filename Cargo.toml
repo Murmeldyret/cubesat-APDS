@@ -1,4 +1,4 @@
 [workspace]
 
-members = ["geotiff_extractor"]
+members = ["geotiff_extractor","homographier"]
 resolver = "2"
