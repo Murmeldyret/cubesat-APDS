@@ -154,7 +154,7 @@ mod tests {
 
         let result = GDALDataset::datasets_min_max(&datasets);
 
-        assert_eq!(0.0017, (result.red_min * 10000.0).round() / 10000.log10());
+        assert_eq!(0.0017, (result.red_min * 10000.0).round() / 10000.0);
     }
 
     #[test]
@@ -163,13 +163,22 @@ mod tests {
 
         current_dir.pop();
 
-        let path1 = current_dir
-            .clone()
-            .push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+        let mut path1 = current_dir.clone();
+        path1.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
 
-        let path2 = current_dir
-            .clone()
-            .push("resources/test/Geotiff/MOSAIC-0000018944-0000018944.tif");
+        let mut path2 = current_dir.clone();
+        path2.push("resources/test/Geotiff/MOSAIC-0000018944-0000018944.tif");
+
+        let dataset1 = Dataset::open(path1.as_path()).expect("Could not open dataset");
+        let dataset2 = Dataset::open(path2.as_path()).expect("Could not open dataset");
+
+        let datasets = GDALDataset {
+            dataset: vec![dataset1, dataset2],
+        };
+
+        let result = GDALDataset::datasets_min_max(&datasets);
+
+        assert_eq!(0.0036, (result.red_min * 10000.0).round() / 10000.0);
     }
 }
 
