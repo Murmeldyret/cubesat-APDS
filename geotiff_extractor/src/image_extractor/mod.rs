@@ -1,16 +1,22 @@
 use gdal::errors;
-use gdal::raster::StatisticsMinMax;
+use gdal::raster::{RasterCreationOption, StatisticsMinMax};
 use gdal::Dataset;
 
-use rayon::prelude::*;
+use std::path::Path;
 
-struct GDALDataset {
-    pub dataset: Vec<Dataset>,
+use gdal::programs::raster::build_vrt;
+
+pub struct RawDataset {
+    pub datasets: Vec<Dataset>,
+}
+
+pub struct MosaicedDataset {
+    pub dataset: Dataset,
 }
 
 pub trait Datasets {
-    fn import_datasets(paths: &[&str]) -> Result<GDALDataset, errors::GdalError>;
-    fn mosaic_datasets(_datasets: &GDALDataset) -> Result<GDALDataset, errors::GdalError>;
+    fn import_datasets(paths: &[&str]) -> Result<RawDataset, errors::GdalError>;
+    fn mosaic_datasets(&self) -> Result<MosaicedDataset, errors::GdalError>;
     fn datasets_min_max(&self) -> BandsMinMax;
 }
 
@@ -24,24 +30,49 @@ pub struct BandsMinMax {
     pub blue_max: f64,
 }
 
-impl Datasets for GDALDataset {
-    fn import_datasets(paths: &[&str]) -> Result<GDALDataset, errors::GdalError> {
+impl Datasets for RawDataset {
+    fn import_datasets(paths: &[&str]) -> Result<RawDataset, errors::GdalError> {
         let ds = paths.into_iter().map(|p| Dataset::open(p)).collect();
         let unwrapped_data = match ds {
             Ok(data) => data,
             Err(e) => return Err(e),
         };
-        Ok(GDALDataset {
-            dataset: unwrapped_data,
+        Ok(RawDataset {
+            datasets: unwrapped_data,
         })
     }
 
-    fn mosaic_datasets(_datasets: &GDALDataset) -> Result<GDALDataset, errors::GdalError> {
-        todo!()
+    fn mosaic_datasets(&self) -> Result<MosaicedDataset, errors::GdalError> {
+        let result_vrt = build_vrt(Some(Path::new("ressources/dataset")), &self.datasets, None)?;
+
+        let create_options = vec![
+            RasterCreationOption {
+                key: "COMPRESS",
+                value: "LZW",
+            },
+            RasterCreationOption {
+                key: "PREDICTOR",
+                value: "YES",
+            },
+            RasterCreationOption {
+                key: "BIGTIFF",
+                value: "YES",
+            },
+        ];
+
+        result_vrt.create_copy(
+            &gdal::DriverManager::get_driver_by_name("COG")?,
+            Path::new("ressources/dataset/"),
+            &create_options,
+        )?;
+
+        Ok(MosaicedDataset {
+            dataset: result_vrt,
+        })
     }
 
     fn datasets_min_max(&self) -> BandsMinMax {
-        let datasets = &self.dataset;
+        let datasets = &self.datasets;
 
         let amount_images = datasets.len() as f64;
 
@@ -92,7 +123,7 @@ mod tests {
     fn import_dataset_missing() {
         let wrong_paths = vec!["/somewhere/where/nothing/exists"];
 
-        let result = GDALDataset::import_datasets(&wrong_paths);
+        let result = RawDataset::import_datasets(&wrong_paths);
 
         assert!(result.is_err());
     }
@@ -103,15 +134,15 @@ mod tests {
             env::var("CARGO_MANIFEST_DIR").expect("Expected CARGO_MANIFEST_DIR to be set");
 
         let path = format!(
-            "{}/../resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif",
+            "{}/../ressources/test/Geotiff/MOSAIC-0000018944-0000037888.tif",
             manifest
         ); //TODO: Fix path
 
         let path_vec = vec![path.as_str()];
 
-        let result = GDALDataset::import_datasets(&path_vec);
+        let result = RawDataset::import_datasets(&path_vec);
 
-        assert!(result.is_ok_and(|d| d.dataset.capacity() == 1))
+        assert!(result.is_ok_and(|d| d.datasets.capacity() == 1))
     }
 
     #[test]
@@ -120,11 +151,11 @@ mod tests {
             env::var("CARGO_MANIFEST_DIR").expect("Expected CARGO_MANIFEST_DIR to be set");
 
         let path1 = format!(
-            "{}/../resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif",
+            "{}/../ressources/test/Geotiff/MOSAIC-0000018944-0000037888.tif",
             manifest
         );
         let path2 = format!(
-            "{}/../resources/test/Geotiff/MOSAIC-0000018944-0000018944.tif",
+            "{}/../ressources/test/Geotiff/MOSAIC-0000018944-0000018944.tif",
             manifest
         );
 
@@ -136,9 +167,9 @@ mod tests {
             .collect::<Result<Vec<Dataset>, errors::GdalError>>()
             .expect("Could not open test files.");
 
-        let datasets = GDALDataset { dataset: datasets };
+        let datasets = RawDataset { datasets };
 
-        let result = GDALDataset::mosaic_datasets(&datasets);
+        let result = RawDataset::mosaic_datasets(&datasets);
 
         assert!(result.is_ok())
     }
@@ -149,7 +180,7 @@ mod tests {
 
         current_dir.pop();
 
-        current_dir.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+        current_dir.push("ressources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
 
         dbg!(&current_dir);
 
@@ -157,9 +188,9 @@ mod tests {
 
         let dataset: Vec<Dataset> = vec![ds];
 
-        let datasets = GDALDataset { dataset: dataset };
+        let datasets = RawDataset { datasets: dataset };
 
-        let result = GDALDataset::datasets_min_max(&datasets);
+        let result = RawDataset::datasets_min_max(&datasets);
 
         assert_eq!(0.0017, (result.red_min * 10000.0).round() / 10000.0);
     }
@@ -171,19 +202,19 @@ mod tests {
         current_dir.pop();
 
         let mut path1 = current_dir.clone();
-        path1.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+        path1.push("ressources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
 
         let mut path2 = current_dir.clone();
-        path2.push("resources/test/Geotiff/MOSAIC-0000018944-0000018944.tif");
+        path2.push("ressources/test/Geotiff/MOSAIC-0000018944-0000018944.tif");
 
         let dataset1 = Dataset::open(path1.as_path()).expect("Could not open dataset");
         let dataset2 = Dataset::open(path2.as_path()).expect("Could not open dataset");
 
-        let datasets = GDALDataset {
-            dataset: vec![dataset1, dataset2],
+        let datasets = RawDataset {
+            datasets: vec![dataset1, dataset2],
         };
 
-        let result = GDALDataset::datasets_min_max(&datasets);
+        let result = RawDataset::datasets_min_max(&datasets);
 
         assert_eq!(0.0018, (result.red_min * 10000.0).round() / 10000.0);
     }
