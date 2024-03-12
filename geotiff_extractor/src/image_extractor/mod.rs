@@ -167,6 +167,7 @@ mod tests {
 
     #[test]
     fn combining_dataset() {
+        //TODO: The test should cleanup after itself. Maybe use tmp files.
         let mut current_dir = env::current_dir().expect("Current directory not set.");
 
         current_dir.pop();
