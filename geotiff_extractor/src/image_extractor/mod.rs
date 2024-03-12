@@ -15,7 +15,7 @@ pub struct MosaicedDataset {
 }
 
 pub trait Datasets {
-    fn import_datasets(paths: &[&str]) -> Result<RawDataset, errors::GdalError>;
+    fn import_datasets(paths: &[&Path]) -> Result<RawDataset, errors::GdalError>;
     fn mosaic_datasets(&self) -> Result<MosaicedDataset, errors::GdalError>;
     fn datasets_min_max(&self) -> BandsMinMax;
 }
@@ -31,7 +31,7 @@ pub struct BandsMinMax {
 }
 
 impl Datasets for RawDataset {
-    fn import_datasets(paths: &[&str]) -> Result<RawDataset, errors::GdalError> {
+    fn import_datasets(paths: &[&Path]) -> Result<RawDataset, errors::GdalError> {
         let ds = paths.into_iter().map(|p| Dataset::open(p)).collect();
         let unwrapped_data = match ds {
             Ok(data) => data,
@@ -43,7 +43,11 @@ impl Datasets for RawDataset {
     }
 
     fn mosaic_datasets(&self) -> Result<MosaicedDataset, errors::GdalError> {
-        let result_vrt = build_vrt(Some(Path::new("ressources/dataset")), &self.datasets, None)?;
+        let result_vrt = build_vrt(
+            Some(Path::new("ressources/dataset/dataset.vrt")),
+            &self.datasets,
+            None,
+        )?;
 
         let create_options = vec![
             RasterCreationOption {
@@ -58,11 +62,15 @@ impl Datasets for RawDataset {
                 key: "BIGTIFF",
                 value: "YES",
             },
+            RasterCreationOption {
+                key: "NUM_THREADS",
+                value: "ALL_CPUS",
+            },
         ];
 
         result_vrt.create_copy(
             &gdal::DriverManager::get_driver_by_name("COG")?,
-            Path::new("ressources/dataset/"),
+            Path::new("ressources/dataset/dataset.tif"),
             &create_options,
         )?;
 
@@ -121,7 +129,7 @@ mod tests {
 
     #[test]
     fn import_dataset_missing() {
-        let wrong_paths = vec!["/somewhere/where/nothing/exists"];
+        let wrong_paths = vec![Path::new("/Nowhere")];
 
         let result = RawDataset::import_datasets(&wrong_paths);
 
@@ -130,19 +138,20 @@ mod tests {
 
     #[test]
     fn import_dataset_exists() {
-        let manifest =
-            env::var("CARGO_MANIFEST_DIR").expect("Expected CARGO_MANIFEST_DIR to be set");
+        let mut current_dir = env::current_dir().expect("Current directory not set.");
 
-        let path = format!(
-            "{}/../ressources/test/Geotiff/MOSAIC-0000018944-0000037888.tif",
-            manifest
-        ); //TODO: Fix path
+        current_dir.pop();
 
-        let path_vec = vec![path.as_str()];
+        dbg!(&current_dir);
+
+        let mut path = current_dir.clone();
+        path.push("ressources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+
+        let path_vec = vec![path.as_path()];
 
         let result = RawDataset::import_datasets(&path_vec);
 
-        assert!(result.is_ok_and(|d| d.datasets.capacity() == 1))
+        assert!(result.is_ok_and(|d| d.datasets[0].raster_size() == (7309, 4322)))
     }
 
     #[test]
