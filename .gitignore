@@ -39,5 +39,5 @@ Cargo.lock
 # End of https://www.toptal.com/developers/gitignore/api/rust,visualstudiocode
 
 # Ignore test images. They are too large for github
-ressources/test/Geotiff/*
-ressources/dataset/*
+resources/test/Geotiff/*
+resources/dataset/*
