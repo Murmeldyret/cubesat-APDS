@@ -19,7 +19,10 @@ pub struct MosaicedDataset {
 pub trait Datasets {
     fn import_datasets(paths: &[&Path]) -> Result<RawDataset, errors::GdalError>;
     fn mosaic_datasets(&self, output_path: &Path) -> Result<MosaicedDataset, errors::GdalError>;
-    fn datasets_min_max(&self) -> BandsMinMax;
+}
+
+pub trait MosaicDataset {
+    fn datasets_min_max(&self) -> Result<BandsMinMax, errors::GdalError>;
 }
 
 #[derive(Debug)]
@@ -68,46 +71,31 @@ impl Datasets for RawDataset {
     }
 
     // TODO: Gdal finds the collected min and max of datasets when they are turned into a virtual raster. Therefore this should just lookup the min and max of this raster instead of finding the average.
-    fn datasets_min_max(&self) -> BandsMinMax {
-        let datasets = &self.datasets;
+}
 
-        let amount_images = datasets.len() as f64;
+impl MosaicDataset for MosaicedDataset {
+    fn datasets_min_max(&self) -> Result<BandsMinMax, errors::GdalError> {
+        let dataset = &self.dataset;
 
-        let sum_min_max: Vec<StatisticsMinMax> = (1..4)
+        let min_max: Vec<StatisticsMinMax> = (1..4)
             .into_iter()
             .map(|i| {
-                datasets
-                    .into_iter()
-                    .fold(StatisticsMinMax { min: 0.0, max: 0.0 }, |min_max, ds| {
-                        let ds_min_max = ds
-                            .rasterband(i)
-                            .unwrap()
-                            .compute_raster_min_max(true)
-                            .unwrap();
-                        StatisticsMinMax {
-                            min: ds_min_max.min + min_max.min,
-                            max: ds_min_max.max + min_max.max,
-                        }
-                    })
+                let ds_min_max = dataset.rasterband(i)?.compute_raster_min_max(true)?;
+                Ok::<StatisticsMinMax, errors::GdalError>(StatisticsMinMax {
+                    min: ds_min_max.min,
+                    max: ds_min_max.max,
+                })
             })
-            .collect();
+            .collect::<Result<Vec<StatisticsMinMax>, errors::GdalError>>()?;
 
-        let avg_min_max: Vec<StatisticsMinMax> = sum_min_max
-            .into_iter()
-            .map(|min_max| StatisticsMinMax {
-                min: min_max.min / amount_images,
-                max: min_max.max / amount_images,
-            })
-            .collect();
-
-        BandsMinMax {
-            red_min: avg_min_max[0].min,
-            red_max: avg_min_max[0].max,
-            green_min: avg_min_max[1].min,
-            green_max: avg_min_max[1].max,
-            blue_min: avg_min_max[2].min,
-            blue_max: avg_min_max[2].max,
-        }
+        Ok(BandsMinMax {
+            red_min: min_max[0].min,
+            red_max: min_max[0].max,
+            green_min: min_max[1].min,
+            green_max: min_max[1].max,
+            blue_min: min_max[2].min,
+            blue_max: min_max[2].max,
+        })
     }
 }
 
@@ -209,37 +197,14 @@ mod tests {
 
         let ds = Dataset::open(current_dir.as_path()).expect("Could not open dataset");
 
-        let dataset: Vec<Dataset> = vec![ds];
+        let dataset = MosaicedDataset { dataset: ds };
 
-        let datasets = RawDataset { datasets: dataset };
+        let result = MosaicDataset::datasets_min_max(&dataset);
 
-        let result = RawDataset::datasets_min_max(&datasets);
-
-        assert_eq!(0.0017, (result.red_min * 10000.0).round() / 10000.0);
-    }
-
-    #[test]
-    fn find_min_max_multiple_dataset() {
-        let mut current_dir = env::current_dir().expect("Current directory not set.");
-
-        current_dir.pop();
-
-        let mut path1 = current_dir.clone();
-        path1.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
-
-        let mut path2 = current_dir.clone();
-        path2.push("resources/test/Geotiff/MOSAIC-0000018944-0000018944.tif");
-
-        let dataset1 = Dataset::open(path1.as_path()).expect("Could not open dataset");
-        let dataset2 = Dataset::open(path2.as_path()).expect("Could not open dataset");
-
-        let datasets = RawDataset {
-            datasets: vec![dataset1, dataset2],
-        };
-
-        let result = RawDataset::datasets_min_max(&datasets);
-
-        assert_eq!(0.0018, (result.red_min * 10000.0).round() / 10000.0);
+        assert_eq!(
+            0.0017,
+            (result.unwrap().red_min * 10000.0).round() / 10000.0
+        );
     }
 }
 
