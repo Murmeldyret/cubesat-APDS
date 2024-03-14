@@ -1,86 +1,132 @@
-# syntax=docker/dockerfile:1
+# Ubuntu 22.04 container builds OpenCV from source with the maximum possible enabled amount of features
 
-# Comments are provided throughout this file to help you get started.
-# If you need more help, visit the Dockerfile reference guide at
-# https://docs.docker.com/go/dockerfile-reference/
+FROM ubuntu:22.04
 
-# Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
+RUN set -xeu && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -y && \
+    apt-get autoremove -y --purge && \
+    apt-get -y autoclean
 
-ARG RUST_VERSION=1.76.0
-ARG APP_NAME=
+RUN set -xeu && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y curl clang libclang-dev \
+    cmake python3-numpy libatlas-base-dev libceres-dev libeigen3-dev liblapacke-dev libprotobuf-dev protobuf-compiler nvidia-cuda-dev libtesseract-dev \
+    libwebp-dev libpng-dev libtiff-dev libopenexr-dev libgdal-dev libopenjp2-7-dev libopenjpip-server libopenjpip-dec-server libopenjp2-tools libhdf5-dev \
+    libavcodec-dev libavformat-dev libavutil-dev  libgphoto2-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libva-dev libdc1394-dev \
+    libfreetype6-dev libharfbuzz-dev qtbase5-dev libvtk9-dev libogre-1.12-dev
 
-################################################################################
-# xx is a helper for cross-compilation.
-# See https://github.com/tonistiigi/xx/ for more information.
-FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.3.0 AS xx
+RUN set -xeu && \
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile=minimal
 
-################################################################################
-# Create a stage for building the application.
-FROM --platform=$BUILDPLATFORM rust:${RUST_VERSION}-alpine AS build
-ARG APP_NAME
-WORKDIR /app
+ENV PATH="${PATH}:/root/.cargo/bin"
 
-# Copy cross compilation utilities from the xx stage.
-COPY --from=xx / /
+ARG OPENCV_VERSION=4.8.0
 
-# Install host build dependencies.
-RUN apk add --no-cache clang lld musl-dev git file
+RUN set -xeu && \
+    mkdir -p /root/dist && \
+    curl -sSfL "https://github.com/opencv/opencv/archive/refs/tags/${OPENCV_VERSION}.tar.gz" | tar xz -C /root/dist && \
+    curl -sSfL "https://github.com/opencv/opencv_contrib/archive/refs/tags/${OPENCV_VERSION}.tar.gz" | tar xz -C /root/dist && \
+    sed -ri 's/Ptr<FarnebackOpticalFlow> cv::cuda::FarnebackOpticalFlow::create/Ptr<cv::cuda::FarnebackOpticalFlow> cv::cuda::FarnebackOpticalFlow::create/' "/root/dist/opencv_contrib-${OPENCV_VERSION}/modules/cudaoptflow/src/farneback.cpp" # patch for version 4.8.0
 
-# This is the architecture you’re building for, which is passed in by the builder.
-# Placing it here allows the previous steps to be cached across architectures.
-ARG TARGETPLATFORM
+RUN set -xeu && \
+    mkdir -p /root/build && \
+    cmake -B /root/build -S "/root/dist/opencv-${OPENCV_VERSION}" -D OPENCV_EXTRA_MODULES_PATH="/root/dist/opencv_contrib-${OPENCV_VERSION}/modules" -D CMAKE_INSTALL_PREFIX=/usr \
+    	-D BUILD_CUDA_STUBS=ON \
+    	-D BUILD_DOCS=OFF \
+    	-D BUILD_EXAMPLES=OFF \
+    	-D BUILD_IPP_IW=ON \
+    	-D BUILD_ITT=ON \
+    	-D BUILD_JASPER=OFF \
+    	-D BUILD_JAVA=OFF \
+    	-D BUILD_JPEG=OFF \
+    	-D BUILD_OPENEXR=OFF \
+    	-D BUILD_PERF_TESTS=OFF \
+    	-D BUILD_PNG=OFF \
+    	-D BUILD_PROTOBUF=OFF \
+    	-D BUILD_SHARED_LIBS=ON \
+    	-D BUILD_TBB=OFF \
+    	-D BUILD_TESTS=OFF \
+    	-D BUILD_TIFF=OFF \
+    	-D BUILD_WEBP=OFF \
+    	-D BUILD_WITH_DYNAMIC_IPP=OFF \
+    	-D BUILD_ZLIB=OFF \
+    	-D BUILD_opencv_apps=OFF \
+    	-D BUILD_opencv_python2=OFF \
+    	-D BUILD_opencv_python3=OFF \
+    	-D CMAKE_BUILD_TYPE=Release \
+    	-D ENABLE_CONFIG_VERIFICATION=OFF \
+    	-D CV_ENABLE_INTRINSICS=ON \
+    	-D ENABLE_PIC=ON \
+    	-D INSTALL_CREATE_DISTRIB=OFF \
+    	-D INSTALL_PYTHON_EXAMPLES=OFF \
+    	-D INSTALL_C_EXAMPLES=OFF \
+    	-D INSTALL_TESTS=OFF \
+    	-D OPENCV_ENABLE_NONFREE=ON \
+    	-D OPENCV_FORCE_3RDPARTY_BUILD=OFF \
+    	-D OPENCV_GENERATE_PKGCONFIG=OFF \
+    	-D PROTOBUF_UPDATE_FILES=ON \
+    	-D WITH_1394=ON \
+    	-D WITH_ADE=ON \
+    	-D WITH_ARAVIS=OFF \
+    	-D WITH_CLP=OFF \
+    	-D WITH_CUBLAS=OFF \
+    	-D WITH_CUDA=OFF \
+    	-D WITH_CUFFT=OFF \
+    	-D WITH_EIGEN=ON \
+    	-D WITH_FFMPEG=ON \
+    	-D WITH_GDAL=ON \
+    	-D WITH_GDCM=OFF \
+    	-D WITH_GIGEAPI=OFF \
+    	-D WITH_GPHOTO2=ON \
+    	-D WITH_GSTREAMER=ON \
+    	-D WITH_GSTREAMER_0_10=OFF \
+    	-D WITH_GTK=OFF \
+    	-D WITH_GTK_2_X=OFF \
+    	-D WITH_HALIDE=OFF \
+    	-D WITH_IMGCODEC_HDcR=ON \
+    	-D WITH_IMGCODEC_PXM=ON \
+    	-D WITH_IMGCODEC_SUNRASTER=ON \
+    	-D WITH_INF_ENGINE=OFF \
+    	-D WITH_IPP=ON \
+    	-D WITH_ITT=ON \
+    	-D WITH_JASPER=OFF \
+    	-D WITH_JPEG=ON \
+    	-D WITH_LAPACK=ON \
+    	-D WITH_LIBV4L=OFF \
+    	-D WITH_MATLAB=OFF \
+    	-D WITH_MFX=OFF \
+    	-D WITH_NVCUVID=OFF \
+    	-D WITH_OPENCL=ON \
+    	-D WITH_OPENCLAMDBLAS=ON \
+    	-D WITH_OPENCLAMDFFT=ON \
+    	-D WITH_OPENCL_SVM=ON \
+    	-D WITH_OPENEXR=ON \
+    	-D WITH_OPENGL=ON \
+    	-D WITH_OPENMP=OFF \
+    	-D WITH_OPENNI2=OFF \
+    	-D WITH_OPENNI=OFF \
+    	-D WITH_OPENVX=OFF \
+    	-D WITH_PNG=ON \
+    	-D WITH_PROTOBUF=ON \
+    	-D WITH_PTHREADS_PF=ON \
+    	-D WITH_PVAPI=OFF \
+    	-D WITH_QT=ON \
+    	-D WITH_QUIRC=ON \
+    	-D WITH_TBB=ON \
+    	-D WITH_TIFF=ON \
+    	-D WITH_UNICAP=OFF \
+    	-D WITH_V4L=ON \
+    	-D WITH_VA=ON \
+    	-D WITH_VA_INTEL=ON \
+    	-D WITH_VTK=ON \
+    	-D WITH_WEBP=ON \
+    	-D WITH_XIMEA=OFF \
+    	-D WITH_XINE=OFF \
+    	-D OpenGL_GL_PREFERENCE=LEGACY && \
+    make -C /root/build -j`nproc` install
 
-# Install cross compilation build dependencies.
-RUN xx-apk add --no-cache musl-dev gcc
+WORKDIR /program
 
-# Build the application.
-# Leverage a cache mount to /usr/local/cargo/registry/
-# for downloaded dependencies, a cache mount to /usr/local/cargo/git/db
-# for git repository dependencies, and a cache mount to /app/target/ for 
-# compiled dependencies which will speed up subsequent builds.
-# Leverage a bind mount to the src directory to avoid having to copy the
-# source code into the container. Once built, copy the executable to an
-# output directory before the cache mounted /app/target is unmounted.
-RUN --mount=type=bind,source=src,target=src \
-    --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
-    --mount=type=bind,source=Cargo.lock,target=Cargo.lock \
-    --mount=type=cache,target=/app/target/,id=rust-cache-${APP_NAME}-${TARGETPLATFORM} \
-    --mount=type=cache,target=/usr/local/cargo/git/db \
-    --mount=type=cache,target=/usr/local/cargo/registry/ \
-xx-cargo build --locked --release --target-dir ./target && \
-cp ./target/$(xx-cargo --print-target-triple)/release/$APP_NAME /bin/server && \
-xx-verify /bin/server
+COPY * .
 
-################################################################################
-# Create a new stage for running the application that contains the minimal
-# runtime dependencies for the application. This often uses a different base
-# image from the build stage where the necessary files are copied from the build
-# stage.
-#
-# The example below uses the alpine image as the foundation for running the app.
-# By specifying the "3.18" tag, it will use version 3.18 of alpine. If
-# reproducability is important, consider using a digest
-# (e.g., alpine@sha256:664888ac9cfd28068e062c991ebcff4b4c7307dc8dd4df9e728bedde5c449d91).
-FROM alpine:3.18 AS final
-
-# Create a non-privileged user that the app will run under.
-# See https://docs.docker.com/go/dockerfile-user-best-practices/
-ARG UID=10001
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/nonexistent" \
-    --shell "/sbin/nologin" \
-    --no-create-home \
-    --uid "${UID}" \
-    appuser
-USER appuser
-
-# Copy the executable from the "build" stage.
-COPY --from=build /bin/server /bin/
-
-# Expose the port that the application listens on.
-EXPOSE 8089
-
-# What the container should run when it is started.
-CMD ["/bin/server"]
+ENTRYPOINT [ "executable" ]
