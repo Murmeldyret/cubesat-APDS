@@ -12,8 +12,8 @@ use std::boxed::Box;
 /// Assumes that a 0 dimension Mat is erroneous, 
 pub struct Cmat (Mat);
 impl Cmat {
-    pub fn imread_checked(filename: &str, flags: i32)-> Result<Self, Box<dyn std::error::Error>> {
-        let res = opencv::imgcodecs::imread(&filename, flags).map_err(Err(()))?;
+    pub fn imread_checked(filename: &str, flags: i32)-> Result<Self, ()> {
+        let res = opencv::imgcodecs::imread(&filename, flags).map_err(|err|())?;
 
         todo!()
     }
