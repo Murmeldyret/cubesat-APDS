@@ -16,13 +16,20 @@ pub struct MosaicedDataset {
     pub dataset: Dataset,
 }
 
+pub struct RGBDataset {
+    pub dataset: Vec<f32>,
+    pub width: i32,
+    pub height: i32,
+}
+
 pub trait Datasets {
-    fn import_datasets(paths: &[&Path]) -> Result<RawDataset, errors::GdalError>;
+    fn import_datasets(paths: &[String]) -> Result<RawDataset, errors::GdalError>;
     fn mosaic_datasets(&self, output_path: &Path) -> Result<MosaicedDataset, errors::GdalError>;
 }
 
 pub trait MosaicDataset {
     fn datasets_min_max(&self) -> Result<BandsMinMax, errors::GdalError>;
+    // fn to_rgb(&self)
 }
 
 #[derive(Debug)]
@@ -38,7 +45,7 @@ pub struct BandsMinMax {
 impl Datasets for RawDataset {
     /// The function will import multiple datasets from a vector of paths.
     /// Providing the function of a slice of [Path]s then it will return a [Result<RawDataset>]
-    fn import_datasets(paths: &[&Path]) -> Result<RawDataset, errors::GdalError> {
+    fn import_datasets(paths: &[String]) -> Result<RawDataset, errors::GdalError> {
         let ds = paths.into_iter().map(|p| Dataset::open(p)).collect(); // Opens every dataset that a path points to.
         let unwrapped_data = match ds {
             Ok(data) => data,
@@ -130,7 +137,12 @@ mod tests {
     fn import_dataset_missing() {
         let wrong_paths = vec![Path::new("/Nowhere")];
 
-        let result = RawDataset::import_datasets(&wrong_paths);
+        let string_vec: Vec<String> = wrong_paths
+            .into_iter()
+            .map(|p| p.to_string_lossy().into())
+            .collect();
+
+        let result = RawDataset::import_datasets(&string_vec);
 
         assert!(result.is_err());
     }
@@ -146,7 +158,7 @@ mod tests {
         let mut path = current_dir.clone();
         path.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
 
-        let path_vec = vec![path.as_path()];
+        let path_vec = vec![path.to_string_lossy().into()];
 
         let result = RawDataset::import_datasets(&path_vec);
 
