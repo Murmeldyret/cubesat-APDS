@@ -9,7 +9,7 @@ use std::boxed::Box;
 
 /// checked Mat type
 /// # Notes
-/// Guarantees that a contained mat contains data, but makes no assumptions about valididity
+/// Guarantees that a contained mat contains data, but makes no assumptions about validity
 pub struct Cmat (Mat);
 impl Cmat {
     pub fn imread_checked(filename: &str, flags: i32)-> Result<Self, ()> {
