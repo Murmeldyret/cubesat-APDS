@@ -16,7 +16,7 @@ impl Cmat {
         let res = opencv::imgcodecs::imread(&filename, flags).map_err(|_err|())?;
 
         match res.empty() {
-            true => Ok(Cmat(res)),
+            true => Ok(Cmat(res)),// yderligere validering er for nørder
             false => Err(()),
         }
     }
