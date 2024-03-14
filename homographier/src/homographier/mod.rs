@@ -9,13 +9,16 @@ use std::boxed::Box;
 
 /// checked Mat type
 /// # Notes
-/// Assumes that a 0 dimension Mat is erroneous, 
+/// Guarantees that a contained mat contains data, but makes no assumptions about valididity
 pub struct Cmat (Mat);
 impl Cmat {
     pub fn imread_checked(filename: &str, flags: i32)-> Result<Self, ()> {
-        let res = opencv::imgcodecs::imread(&filename, flags).map_err(|err|())?;
+        let res = opencv::imgcodecs::imread(&filename, flags).map_err(|_err|())?;
 
-        todo!()
+        match res.empty() {
+            true => Ok(Cmat(res)),
+            false => Err(()),
+        }
     }
 }
 
