@@ -142,16 +142,25 @@ fn creation_options() -> Vec<RasterCreationOption<'static>> {
 }
 
 #[derive(Debug, Clone)]
-pub enum GammaCorrectionError {
-    OutOfRange,
+pub enum PixelConversion {
+    GammaOutOfRange,
+    FloatToIntegerError,
 }
 
-fn gamma_correction(input_value: f32) -> Result<f32, GammaCorrectionError> {
+fn gamma_correction(input_value: f32) -> Result<f32, PixelConversion> {
     if input_value < 0.0 || input_value > 1.0 {
-        return Err(GammaCorrectionError::OutOfRange);
+        return Err(PixelConversion::GammaOutOfRange);
     }
 
     Ok(input_value.powf(2.2))
+}
+
+fn f32_to_u8(input_value: f32, min: f32, max: f32) -> Result<u8, PixelConversion> {
+    let float = (input_value - min) / (max - min);
+
+    let normal_float = gamma_correction(float)?;
+
+    Ok((normal_float * 255.0).round() as u8)
 }
 
 #[cfg(test)]
@@ -183,7 +192,7 @@ mod tests {
 
         let result = RawDataset::import_datasets(&path_vec);
 
-        assert!(result.is_ok_and(|d| d.datasets[0].raster_size() == (7309, 4322)))
+        assert!(result.is_ok_and(|d| d.datasets[0].raster_size() == (7309, 4322)));
     }
 
     #[test]
@@ -215,7 +224,7 @@ mod tests {
 
         let result = datasets.mosaic_datasets(output_path.as_path());
 
-        assert!(result.is_ok())
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -270,6 +279,18 @@ mod tests {
         let output_value = gamma_correction(input_value);
 
         assert!(output_value.is_err());
+    }
+
+    //TODO: Gamma skal mockes, men det gidder jeg ikke lige nu.
+    #[test]
+    fn convert_f32_to_u8_success() {
+        let input_value = 0.2;
+        let min = 0.1;
+        let max = 0.3;
+
+        let output_value = f32_to_u8(input_value, min, max);
+
+        assert!(output_value.is_ok_and(|result| result == 55));
     }
 }
 
