@@ -1,3 +1,5 @@
+use std::env;
+
 use opencv::{
     calib3d::{find_homography, prelude::*, RANSAC},
     core::{InputArray, ToInputArray},
@@ -5,21 +7,24 @@ use opencv::{
     prelude::*,
 };
 use rgb::*;
-use std::boxed::Box;
 
 /// checked Mat type
 /// # Notes
 /// Guarantees that a contained mat contains data, but makes no assumptions about validity
-pub struct Cmat (Mat);
+pub struct Cmat(Mat);
 impl Cmat {
-    pub fn imread_checked(filename: &str, flags: i32)-> Result<Self, ()> {
-        let res = opencv::imgcodecs::imread(&filename, flags).map_err(|_err|())?;
+    pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, ()> {
+        let res = Cmat(opencv::imgcodecs::imread(&filename, flags).map_err(|_err| ())?);
 
-        match res.empty() {
-            true => Ok(Cmat(res)),// yderligere validering er for nørder
+        res.check()
+    }
+    fn check(self) -> Result<Self, ()> {
+        match self.0.empty() {
+            true => Ok(self),
             false => Err(()),
         }
     }
+    //further checked functions go here
 }
 
 fn raster_to_mat(pixels: &[RGB<f32>]) -> Mat {
@@ -45,10 +50,31 @@ fn find_homography_mat(
 
 #[test]
 fn homography_success() {
-    let input = opencv::imgcodecs::imread("./billed.png", ImreadModes::IMREAD_COLOR.into()).unwrap();
-    let reference = opencv::imgcodecs::imread("./billed.png", ImreadModes::IMREAD_COLOR.into()).unwrap();
-    dbg!(&input);
-    let res = find_homography_mat(&input, &reference,None);
+    let mut img_dir = env::current_dir().expect("Current directory not set.");
+    img_dir.pop();
+    img_dir.push("images");
+    // dbg!(current_dir);
 
+    let mut input_path = img_dir.clone();
+    input_path.push("3.png");
+    let mut reference_path = img_dir.clone();
+    reference_path.push("1.png");
+
+    let input = opencv::imgcodecs::imread(
+        input_path.to_str().unwrap(),
+        ImreadModes::IMREAD_COLOR.into(),
+    )
+    .unwrap();
+    let reference = opencv::imgcodecs::imread(
+        reference_path.to_str().unwrap(),
+        ImreadModes::IMREAD_COLOR.into(),
+    )
+    .unwrap();
+    dbg!(&input);
+    dbg!(&reference);
+    let res = find_homography_mat(&input, &reference, None);
+    let res = res.inspect_err(|e| {
+        dbg!(e);
+    });
     assert!(res.is_ok())
 }
