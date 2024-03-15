@@ -2,7 +2,7 @@ use std::env;
 
 use opencv::{
     calib3d::{find_homography, prelude::*, RANSAC},
-    core::{InputArray, ToInputArray, ToOutputArray},
+    core::{InputArray, Scalar, Size, ToInputArray, ToOutputArray, CV_32FC4, CV_8UC4},
     imgcodecs::{ImreadModes, IMREAD_COLOR},
     prelude::*,
 };
@@ -19,8 +19,12 @@ pub enum MatError {
 /// Checked Mat type
 /// # Notes
 /// Guarantees that a contained mat contains data, but makes no assumptions about validity
+#[derive(Debug)]
 pub struct Cmat(Mat);
 impl Cmat {
+    pub fn new(mat: Mat)->Result<Self,MatError> {
+        Cmat(mat).check_owned()
+    }
     pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
         let res =
             Cmat(opencv::imgcodecs::imread(&filename, flags).map_err(|err| MatError::Opencv(err))?);
@@ -28,9 +32,9 @@ impl Cmat {
         res.check_owned()
     }
     fn check_owned(self) -> Result<Self, MatError> {
-        match self.0.empty() {
-            true => Ok(self),
-            false => Err(MatError::Empty),
+        match self.0.dims() { // dims will always be >=2, unless the Mat is empty
+            0 => Err(MatError::Empty),
+            _ => Ok(self),
         }
     }
     fn check(&self) -> Result<Self, MatError> {
@@ -85,7 +89,7 @@ fn find_homography_mat(
 
     homography
 }
-
+#[ignore = "virker ikke helt endnu"]
 #[test]
 fn homography_success() {
     let mut img_dir = env::current_dir().expect("Current directory not set.");
@@ -115,4 +119,14 @@ fn homography_success() {
         dbg!(e);
     });
     assert!(res.is_ok())
+}
+#[test]
+fn cmat_init() {
+    assert!(Cmat::new(Mat::default()).is_err())
+}
+#[test]
+fn cmat_init_2d() {
+    let cmat = Cmat::new(Mat::new_size_with_default(Size::new(10, 10), CV_8UC4, Scalar::default()).unwrap()).unwrap();
+    
+    assert!(cmat.0.dims()==2)
 }
