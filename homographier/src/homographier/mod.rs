@@ -2,29 +2,67 @@ use std::env;
 
 use opencv::{
     calib3d::{find_homography, prelude::*, RANSAC},
-    core::{InputArray, ToInputArray},
+    core::{InputArray, ToInputArray, ToOutputArray},
     imgcodecs::{ImreadModes, IMREAD_COLOR},
     prelude::*,
 };
 use rgb::*;
 
-/// checked Mat type
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum MatError {
+    Opencv(opencv::Error),
+    Empty,
+    Unknown,
+}
+
+/// Checked Mat type
 /// # Notes
 /// Guarantees that a contained mat contains data, but makes no assumptions about validity
 pub struct Cmat(Mat);
 impl Cmat {
-    pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, ()> {
-        let res = Cmat(opencv::imgcodecs::imread(&filename, flags).map_err(|_err| ())?);
+    pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
+        let res =
+            Cmat(opencv::imgcodecs::imread(&filename, flags).map_err(|err| MatError::Opencv(err))?);
 
-        res.check()
+        res.check_owned()
     }
-    fn check(self) -> Result<Self, ()> {
+    fn check_owned(self) -> Result<Self, MatError> {
         match self.0.empty() {
             true => Ok(self),
-            false => Err(()),
+            false => Err(MatError::Empty),
         }
     }
+    fn check(&self) -> Result<Self, MatError> {
+        todo!()
+    }
+
     //further checked functions go here
+}
+impl ToInputArray for Cmat {
+    fn input_array(&self) -> opencv::Result<opencv::core::_InputArray> {
+        let res = self.check().map_err(|err| match err {
+            MatError::Opencv(inner) => inner,
+            _ => opencv::Error {
+                code: -2,
+                message: "unknown error".into(),
+            },
+        })?;
+        res.input_array()
+    }
+}
+impl ToOutputArray for Cmat {
+    fn output_array(&mut self) -> opencv::Result<opencv::core::_OutputArray> {
+        self.check()
+            .map_err(|err| match err {
+                MatError::Opencv(inner) => inner,
+                _ => opencv::Error {
+                    code: -2,
+                    message: "unknown error".into(),
+                },
+            })?
+            .output_array()
+    }
 }
 
 fn raster_to_mat(pixels: &[RGB<f32>]) -> Mat {
@@ -62,12 +100,12 @@ fn homography_success() {
 
     let input = opencv::imgcodecs::imread(
         input_path.to_str().unwrap(),
-        ImreadModes::IMREAD_COLOR.into(),
+        ImreadModes::IMREAD_UNCHANGED.into(),
     )
     .unwrap();
     let reference = opencv::imgcodecs::imread(
         reference_path.to_str().unwrap(),
-        ImreadModes::IMREAD_COLOR.into(),
+        ImreadModes::IMREAD_UNCHANGED.into(),
     )
     .unwrap();
     dbg!(&input);
