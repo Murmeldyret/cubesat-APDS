@@ -17,12 +17,23 @@ pub struct RawDataset {
 }
 pub struct DatasetOptions {
     pub scaling: Option<(usize, usize)>,
+    pub red_band_index: Option<isize>,
+    pub green_band_index: Option<isize>,
+    pub blue_band_index: Option<isize>,
 }
 
-impl Default for DatasetOptions {
-    fn default() -> Self {
+impl DatasetOptions {
+    pub fn new(
+        scaling: Option<(usize, usize)>,
+        red_band_index: Option<isize>,
+        green_band_index: Option<isize>,
+        blue_band_index: Option<isize>,
+    ) -> Self {
         Self {
-            scaling: Some((1024, 1024)),
+            scaling,
+            red_band_index,
+            green_band_index,
+            blue_band_index,
         }
     }
 }
@@ -400,5 +411,4 @@ mod tests {
         assert!(image.is_ok_and(|image_vec| image_vec.len() == 1024 * 1024));
     }
 }
-
 
