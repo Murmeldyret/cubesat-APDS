@@ -4,30 +4,55 @@ use gdal::Dataset;
 
 use std::path::Path;
 
+use gdal::raster::ResampleAlg;
+
 use gdal::programs::raster::build_vrt;
+
+#[cfg(test)]
+use mockall::{automock, mock, predicate::*};
 
 // A struct for handling raw datasets from disk in Geotiff format
 pub struct RawDataset {
     pub datasets: Vec<Dataset>,
 }
-pub struct DatasetOptions {}
+pub struct DatasetOptions {
+    pub scaling: Option<(i64, i64)>,
+}
+
+impl Default for DatasetOptions {
+    fn default() -> Self {
+        Self {
+            scaling: Some((1024, 1024)),
+        }
+    }
+}
 
 // The converted mosaic dataset in COG format
 pub struct MosaicedDataset {
     pub dataset: Dataset,
-    pub options: Option<DatasetOptions>,
+    pub options: DatasetOptions,
 }
 
+#[cfg_attr(test, automock)]
 pub trait Datasets {
     fn import_datasets(paths: &[String]) -> Result<RawDataset, errors::GdalError>;
-    fn mosaic_datasets(&self, output_path: &Path) -> Result<MosaicedDataset, errors::GdalError>;
+    fn to_mosaic_dataset(&self, output_path: &Path) -> Result<MosaicedDataset, errors::GdalError>;
 }
 
+#[cfg_attr(test, automock)]
 pub trait MosaicDataset {
+    fn import_mosaic_dataset(path: &str) -> Result<MosaicedDataset, errors::GdalError>;
     fn datasets_min_max(&self) -> Result<BandsMinMax, errors::GdalError>;
     fn get_dimensions(&self) -> Result<(i64, i64), errors::GdalError>;
-    fn set_scaling(&self, dimensions: (i32, i32));
-    fn to_rgb(&self) -> rgb::RGB8;
+    fn set_scaling(&self, dimensions: (i64, i64));
+    fn to_rgb(
+        &self,
+        window: (isize, isize),
+        window_size: (usize, usize),
+        size: (usize, usize),
+    ) -> Result<Vec<rgb::RGBA8>, errors::GdalError>;
+    fn detect_nodata(&self) -> bool;
+    fn fill_nodata(&self);
 }
 
 #[derive(Debug)]
@@ -38,6 +63,13 @@ pub struct BandsMinMax {
     pub green_max: f64,
     pub blue_min: f64,
     pub blue_max: f64,
+}
+
+#[derive(Debug, Clone)]
+pub enum PixelConversion {
+    GammaOutOfRange,
+    FloatToIntegerError,
+    NotANumber,
 }
 
 impl Datasets for RawDataset {
@@ -55,7 +87,7 @@ impl Datasets for RawDataset {
     }
 
     /// Returns a mosaic dataset that is a combined version of the [RawDataset] dataset provided.
-    fn mosaic_datasets(&self, output_path: &Path) -> Result<MosaicedDataset, errors::GdalError> {
+    fn to_mosaic_dataset(&self, output_path: &Path) -> Result<MosaicedDataset, errors::GdalError> {
         let mut vrt_path = output_path.to_path_buf();
         let mut cog_path = output_path.to_path_buf();
 
@@ -74,7 +106,9 @@ impl Datasets for RawDataset {
 
         Ok(MosaicedDataset {
             dataset: mosaic,
-            options: None,
+            options: DatasetOptions {
+                scaling: Some((1024, 1024)),
+            },
         })
     }
 
@@ -110,11 +144,48 @@ impl MosaicDataset for MosaicedDataset {
         todo!()
     }
 
-    fn set_scaling(&self, dimensions: (i32, i32)) {
+    fn set_scaling(&self, dimensions: (i64, i64)) {
         todo!()
     }
 
-    fn to_rgb(&self) -> rgb::RGB8 {
+    fn to_rgb(
+        &self,
+        window: (isize, isize),
+        window_size: (usize, usize),
+        size: (usize, usize),
+    ) -> Result<Vec<rgb::RGBA8>, errors::GdalError> {
+        let red_band = self.dataset.rasterband(1)?;
+        let green_band = self.dataset.rasterband(2)?;
+        let blue_band = self.dataset.rasterband(3)?;
+
+        let min_max = self.datasets_min_max()?;
+
+        let red_vec: Result<Vec<u8>, PixelConversion> = red_band
+            .read_as::<f32>(window, window_size, size, Some(ResampleAlg::Lanczos))?
+            .data
+            .into_iter()
+            .map(|p| f32_to_u8(p, min_max.red_min as f32, min_max.red_max as f32))
+            .collect();
+
+        let red_vec = match red_vec {
+            Ok(vec) => vec,
+            Err(_) => return Err(errors::GdalError::BadArgument("".to_string())),
+        };
+
+        dbg!(red_vec);
+
+        todo!()
+    }
+
+    fn detect_nodata(&self) -> bool {
+        todo!()
+    }
+
+    fn fill_nodata(&self) {
+        todo!()
+    }
+
+    fn import_mosaic_dataset(path: &str) -> Result<MosaicedDataset, errors::GdalError> {
         todo!()
     }
 }
@@ -141,12 +212,6 @@ fn creation_options() -> Vec<RasterCreationOption<'static>> {
     create_options
 }
 
-#[derive(Debug, Clone)]
-pub enum PixelConversion {
-    GammaOutOfRange,
-    FloatToIntegerError,
-}
-
 fn gamma_correction(input_value: f32) -> Result<f32, PixelConversion> {
     if input_value < 0.0 || input_value > 1.0 {
         return Err(PixelConversion::GammaOutOfRange);
@@ -156,6 +221,10 @@ fn gamma_correction(input_value: f32) -> Result<f32, PixelConversion> {
 }
 
 fn f32_to_u8(input_value: f32, min: f32, max: f32) -> Result<u8, PixelConversion> {
+    if input_value.is_nan() {
+        return Err(PixelConversion::NotANumber);
+    }
+
     let float = (input_value - min) / (max - min);
 
     let normal_float = gamma_correction(float)?;
@@ -222,7 +291,7 @@ mod tests {
 
         let datasets = RawDataset { datasets };
 
-        let result = datasets.mosaic_datasets(output_path.as_path());
+        let result = datasets.to_mosaic_dataset(output_path.as_path());
 
         assert!(result.is_ok());
     }
@@ -241,7 +310,7 @@ mod tests {
 
         let dataset = MosaicedDataset {
             dataset: ds,
-            options: None,
+            options: DatasetOptions { scaling: None },
         };
 
         let result = MosaicDataset::datasets_min_max(&dataset);
@@ -291,6 +360,44 @@ mod tests {
         let output_value = f32_to_u8(input_value, min, max);
 
         assert!(output_value.is_ok_and(|result| result == 55));
+    }
+
+    #[test]
+    fn convert_f32_to_u8_nan() {
+        let input_value = f32::NAN;
+        let min = 0.1;
+        let max = 0.3;
+
+        let output_value = f32_to_u8(input_value, min, max);
+
+        assert!(output_value.is_err_and(|error| match error {
+            PixelConversion::NotANumber => true,
+            _ => false,
+        }));
+    }
+
+    #[test]
+    fn dataset_to_rgb() {
+        let mut current_dir = env::current_dir().expect("Current directory not set.");
+
+        current_dir.pop();
+
+        current_dir.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+
+        dbg!(&current_dir);
+
+        let ds = Dataset::open(current_dir.as_path()).expect("Could not open dataset");
+
+        let dataset = MosaicedDataset {
+            dataset: ds,
+            options: DatasetOptions { scaling: None },
+        };
+
+        let window_size = dataset.dataset.raster_size();
+
+        let image: Result<Vec<rgb::RGBA8>, _> = dataset.to_rgb((0, 0), window_size, (1024, 1024));
+
+        assert!(image.is_ok_and(|image_vec| image_vec.len() == 1024 * 1024));
     }
 }
 
