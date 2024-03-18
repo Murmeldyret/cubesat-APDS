@@ -16,7 +16,7 @@ pub struct RawDataset {
     pub datasets: Vec<Dataset>,
 }
 pub struct DatasetOptions {
-    pub scaling: Option<(i64, i64)>,
+    pub scaling: Option<(usize, usize)>,
 }
 
 impl Default for DatasetOptions {
@@ -44,7 +44,7 @@ pub trait MosaicDataset {
     fn import_mosaic_dataset(path: &str) -> Result<MosaicedDataset, errors::GdalError>;
     fn datasets_min_max(&self) -> Result<BandsMinMax, errors::GdalError>;
     fn get_dimensions(&self) -> Result<(i64, i64), errors::GdalError>;
-    fn set_scaling(&self, dimensions: (i64, i64));
+    fn set_scaling(&self, dimensions: (usize, usize));
     fn to_rgb(
         &self,
         window: (isize, isize),
@@ -144,7 +144,7 @@ impl MosaicDataset for MosaicedDataset {
         todo!()
     }
 
-    fn set_scaling(&self, dimensions: (i64, i64)) {
+    fn set_scaling(&self, dimensions: (usize, usize)) {
         todo!()
     }
 
@@ -400,4 +400,5 @@ mod tests {
         assert!(image.is_ok_and(|image_vec| image_vec.len() == 1024 * 1024));
     }
 }
+
 
