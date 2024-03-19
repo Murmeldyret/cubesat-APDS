@@ -209,6 +209,20 @@ impl MosaicDataset for MosaicedDataset {
     }
 }
 
+fn extract_band(
+    band: &gdal::raster::RasterBand,
+    window: (isize, isize),
+    window_size: (usize, usize),
+    size: (usize, usize),
+) -> Vec<f32> {
+    todo!()
+}
+
+/// Assumes a [Vec<Vec<u8>>] in the order R,G,B.
+fn band_merger(bands: &[Vec<f32>], min_max: &BandsMinMax) -> Vec<u8> {
+    todo!()
+}
+
 fn creation_options() -> Vec<RasterCreationOption<'static>> {
     let create_options = vec![
         RasterCreationOption {
@@ -427,6 +441,58 @@ mod tests {
         let image: Result<Vec<rgb::RGBA8>, _> = dataset.to_rgb((0, 0), window_size, (1024, 1024));
 
         assert!(image.is_ok_and(|image_vec| image_vec.len() == 1024 * 1024));
+    }
+
+    #[test]
+    fn band_extraction() {
+        let mut current_dir = env::current_dir().expect("Current directory not set.");
+
+        current_dir.pop();
+
+        current_dir.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+
+        dbg!(&current_dir);
+
+        let ds = Dataset::open(current_dir.as_path()).expect("Could not open dataset");
+
+        let dataset = MosaicedDataset {
+            dataset: ds,
+            options: DatasetOptions {
+                scaling: None,
+                red_band_index: None,
+                green_band_index: None,
+                blue_band_index: None,
+            },
+        };
+
+        let red_band = dataset.dataset.rasterband(1).expect("Could not open band");
+
+        let band_vec = extract_band(&red_band, (0, 0), dataset.dataset.raster_size(), (20, 20));
+
+        assert_ne!(band_vec.len(), 400);
+    }
+
+    #[test]
+    fn merging_bands() {
+        let red = vec![0.0, 0.5, 1.0];
+        let green = vec![0.0, 0.5, 1.0];
+        let blue = vec![0.0, 0.5, 1.0];
+
+        let combined = vec![red, green, blue];
+
+        let min_max = BandsMinMax {
+            red_min: -1.0,
+            red_max: 2.0,
+            green_min: -1.0,
+            green_max: 2.0,
+            blue_min: -1.0,
+            blue_max: 2.0,
+        };
+
+        let merged_bands = band_merger(&combined, &min_max);
+
+        assert_eq!(merged_bands.len(), 12);
+        assert_eq!(merged_bands[0], 23)
     }
 }
 
