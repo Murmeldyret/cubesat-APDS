@@ -329,7 +329,12 @@ mod tests {
 
         let dataset = MosaicedDataset {
             dataset: ds,
-            options: DatasetOptions { scaling: None },
+            options: DatasetOptions {
+                scaling: None,
+                red_band_index: None,
+                green_band_index: None,
+                blue_band_index: None,
+            },
         };
 
         let result = MosaicDataset::datasets_min_max(&dataset);
@@ -409,7 +414,12 @@ mod tests {
 
         let dataset = MosaicedDataset {
             dataset: ds,
-            options: DatasetOptions { scaling: None },
+            options: DatasetOptions {
+                scaling: None,
+                red_band_index: None,
+                green_band_index: None,
+                blue_band_index: None,
+            },
         };
 
         let window_size = dataset.dataset.raster_size();

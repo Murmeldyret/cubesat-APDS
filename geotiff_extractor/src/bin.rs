@@ -22,6 +22,6 @@ fn main() {
 
     let output_path = format!("{}/{}", current_dir.to_string_lossy(), "resources/dataset");
 
-    let mosaic = raw_dataset.mosaic_datasets(&Path::new(output_path.as_str()));
+    let _mosaic = raw_dataset.to_mosaic_dataset(&Path::new(output_path.as_str()));
 }
 
