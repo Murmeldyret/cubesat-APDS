@@ -64,6 +64,7 @@ pub trait MosaicDataset {
     ) -> Result<Vec<rgb::RGBA8>, errors::GdalError>;
     fn detect_nodata(&self) -> bool;
     fn fill_nodata(&self);
+    fn set_bands(&self, red_band: isize, green_band: isize, blue_band: isize);
 }
 
 #[derive(Debug)]
@@ -119,6 +120,9 @@ impl Datasets for RawDataset {
             dataset: mosaic,
             options: DatasetOptions {
                 scaling: Some((1024, 1024)),
+                red_band_index: Some(1),
+                green_band_index: Some(2),
+                blue_band_index: Some(3),
             },
         })
     }
@@ -197,6 +201,10 @@ impl MosaicDataset for MosaicedDataset {
     }
 
     fn import_mosaic_dataset(path: &str) -> Result<MosaicedDataset, errors::GdalError> {
+        todo!()
+    }
+
+    fn set_bands(&self, red_band: isize, green_band: isize, blue_band: isize) {
         todo!()
     }
 }
