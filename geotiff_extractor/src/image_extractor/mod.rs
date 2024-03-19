@@ -169,27 +169,20 @@ impl MosaicDataset for MosaicedDataset {
         window_size: (usize, usize),
         size: (usize, usize),
     ) -> Result<Vec<rgb::RGBA8>, errors::GdalError> {
-        let red_band = self.dataset.rasterband(1)?;
-        let green_band = self.dataset.rasterband(2)?;
-        let blue_band = self.dataset.rasterband(3)?;
+        let red_band = extract_band(&self.dataset.rasterband(1)?, window, window_size, size)?;
+        let green_band = extract_band(&self.dataset.rasterband(2)?, window, window_size, size)?;
+        let blue_band = extract_band(&self.dataset.rasterband(3)?, window, window_size, size)?;
+
+        let bands = vec![red_band, green_band, blue_band];
 
         let min_max = self.datasets_min_max()?;
 
-        let red_vec: Result<Vec<u8>, PixelConversion> = red_band
-            .read_as::<f32>(window, window_size, size, Some(ResampleAlg::Lanczos))?
-            .data
-            .into_iter()
-            .map(|p| f32_to_u8(p, min_max.red_min as f32, min_max.red_max as f32))
-            .collect();
-
-        let red_vec = match red_vec {
-            Ok(vec) => vec,
-            Err(_) => return Err(errors::GdalError::BadArgument("".to_string())),
+        let combined_bands = match band_merger(&bands, &min_max) {
+            Ok(combined_bands) => combined_bands,
+            Err(_) => return Err(errors::GdalError::CastToF64Error),
         };
 
-        dbg!(red_vec);
-
-        todo!()
+        Ok(combined_bands)
     }
 
     fn detect_nodata(&self) -> bool {
@@ -214,13 +207,50 @@ fn extract_band(
     window: (isize, isize),
     window_size: (usize, usize),
     size: (usize, usize),
-) -> Vec<f32> {
-    todo!()
+) -> Result<Vec<f32>, errors::GdalError> {
+    let band_vec = band
+        .read_as::<f32>(window, window_size, size, Some(ResampleAlg::Lanczos))?
+        .data;
+
+    Ok(band_vec)
 }
 
 /// Assumes a [Vec<Vec<u8>>] in the order R,G,B.
-fn band_merger(bands: &[Vec<f32>], min_max: &BandsMinMax) -> Vec<u8> {
-    todo!()
+fn band_merger(
+    bands: &[Vec<f32>],
+    min_max: &BandsMinMax,
+) -> Result<Vec<rgb::RGBA8>, PixelConversion> {
+    let mut combined_bands: Vec<rgb::RGBA8> = Vec::with_capacity(bands[0].len() * 4);
+
+    for i in 0..bands[0].len() {
+        let mut alpha = 0;
+
+        if bands
+            .into_iter()
+            .fold(true, |acc, band| band[i].is_nan() && acc)
+        {
+            alpha = 255;
+        }
+
+        let red =
+            f32_to_u8(bands[0][i], min_max.red_min as f32, min_max.red_max as f32).unwrap_or(0);
+        let green = f32_to_u8(
+            bands[1][i],
+            min_max.green_min as f32,
+            min_max.green_max as f32,
+        )
+        .unwrap_or(0);
+        let blue = f32_to_u8(
+            bands[2][i],
+            min_max.blue_min as f32,
+            min_max.blue_max as f32,
+        )
+        .unwrap_or(0);
+
+        combined_bands.push(rgb::RGBA8::new(red, green, blue, alpha));
+    }
+
+    Ok(combined_bands)
 }
 
 fn creation_options() -> Vec<RasterCreationOption<'static>> {
@@ -422,8 +452,6 @@ mod tests {
 
         current_dir.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
 
-        dbg!(&current_dir);
-
         let ds = Dataset::open(current_dir.as_path()).expect("Could not open dataset");
 
         let dataset = MosaicedDataset {
@@ -438,9 +466,11 @@ mod tests {
 
         let window_size = dataset.dataset.raster_size();
 
-        let image: Result<Vec<rgb::RGBA8>, _> = dataset.to_rgb((0, 0), window_size, (1024, 1024));
+        let image: Result<Vec<rgb::RGBA8>, _> = dataset.to_rgb((0, 0), window_size, (20, 20));
 
-        assert!(image.is_ok_and(|image_vec| image_vec.len() == 1024 * 1024));
+        // dbg!(&image.as_ref().unwrap().len());
+
+        assert!(image.is_ok_and(|image_vec| image_vec.len() == 20 * 20));
     }
 
     #[test]
@@ -467,9 +497,12 @@ mod tests {
 
         let red_band = dataset.dataset.rasterband(1).expect("Could not open band");
 
-        let band_vec = extract_band(&red_band, (0, 0), dataset.dataset.raster_size(), (20, 20));
+        let band_vec =
+            extract_band(&red_band, (0, 0), dataset.dataset.raster_size(), (20, 20)).unwrap();
 
-        assert_ne!(band_vec.len(), 400);
+        dbg!(&band_vec);
+
+        assert_eq!(band_vec.len(), 400);
     }
 
     #[test]
@@ -489,10 +522,10 @@ mod tests {
             blue_max: 2.0,
         };
 
-        let merged_bands = band_merger(&combined, &min_max);
+        let merged_bands = band_merger(&combined, &min_max).expect("Could not merge bands");
 
-        assert_eq!(merged_bands.len(), 12);
-        assert_eq!(merged_bands[0], 23)
+        assert_eq!(merged_bands.len(), 3);
+        assert_eq!(merged_bands[0].r, 23);
     }
 }
 
