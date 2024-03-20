@@ -41,3 +41,7 @@ Cargo.lock
 # Ignore test images. They are too large for github
 resources/test/Geotiff/*
 resources/dataset/*
+DUNK.code-workspace
+images/*
+resources/.DS_Store
+resources/test/.DS_Store

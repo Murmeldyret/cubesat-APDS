@@ -10,7 +10,7 @@ name = "geotiff_lib"
 path = "src/lib.rs"
 
 [dependencies]
-gdal = "0.16.0"
+gdal = {version ="0.16.0", features = ["bindgen"]}
 gdal-sys = "0.9.1"
 rgb = "0.8.37"
 
