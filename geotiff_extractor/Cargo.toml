@@ -9,10 +9,6 @@ edition = "2021"
 name = "geotiff_lib"
 path = "src/lib.rs"
 
-[[bin]]
-name = "geotiff_bin"
-path = "src/bin.rs"
-
 [dependencies]
 gdal = "0.16.0"
 gdal-sys = "0.9.1"

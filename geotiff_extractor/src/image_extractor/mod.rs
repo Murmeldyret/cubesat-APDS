@@ -63,7 +63,7 @@ pub trait MosaicDataset {
         size: (usize, usize),
     ) -> Result<Vec<rgb::RGBA8>, errors::GdalError>;
     fn detect_nodata(&self) -> bool;
-    fn fill_nodata(&self);
+    fn fill_nodata(&mut self);
     fn set_bands(&self, red_band: isize, green_band: isize, blue_band: isize);
 }
 
@@ -189,7 +189,7 @@ impl MosaicDataset for MosaicedDataset {
         todo!()
     }
 
-    fn fill_nodata(&self) {
+    fn fill_nodata(&mut self) {
         todo!()
     }
 
