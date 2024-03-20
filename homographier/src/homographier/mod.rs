@@ -108,7 +108,10 @@ fn find_homography_mat(
 }
 mod test {
     use crate::homographier::*;
-    use opencv::{core::*, imgcodecs::{ImreadModes, IMREAD_UNCHANGED}};
+    use opencv::{
+        core::*,
+        imgcodecs::{ImreadModes, IMREAD_UNCHANGED},
+    };
     use rgb::alt::BGRA8;
     use std::env;
 
@@ -168,16 +171,16 @@ mod test {
         // mat.at_2d::<Vec4b>(1, 1).unwrap()
     }
     #[test]
-    fn vec4b() {
+    fn image_correct_pixels() {
         let mut img_dir = env::current_dir().expect("Current directory not set.");
         img_dir.pop();
         img_dir.push("images");
 
         img_dir.push("1.png");
-        let img = Cmat::<BGRA>::imread_checked(img_dir.to_str().unwrap(), IMREAD_UNCHANGED.into()).expect("could not find image at location");
+        let img = Cmat::<BGRA>::imread_checked(img_dir.to_str().unwrap(), IMREAD_UNCHANGED.into())
+            .expect("could not find image at location");
 
-        assert_eq!(img.mat.depth(),CV_8U);
-        assert_eq!(img.mat.channels(),4);
-
+        assert_eq!(img.mat.depth(), CV_8U);
+        assert_eq!(img.mat.channels(), 4);
     }
 }
