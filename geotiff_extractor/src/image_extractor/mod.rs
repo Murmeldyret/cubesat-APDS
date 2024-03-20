@@ -15,25 +15,57 @@ use mockall::{automock, mock, predicate::*};
 pub struct RawDataset {
     pub datasets: Vec<Dataset>,
 }
+
+#[derive(Debug, PartialEq)]
 pub struct DatasetOptions {
+    pub scaling: (usize, usize),
+    pub red_band_index: isize,
+    pub green_band_index: isize,
+    pub blue_band_index: isize,
+}
+
+impl DatasetOptions {
+    pub fn builder() -> DatasetOptionsBuilder {
+        DatasetOptionsBuilder::default()
+    }
+}
+
+#[derive(Default)]
+pub struct DatasetOptionsBuilder {
     pub scaling: Option<(usize, usize)>,
     pub red_band_index: Option<isize>,
     pub green_band_index: Option<isize>,
     pub blue_band_index: Option<isize>,
 }
 
-impl DatasetOptions {
-    pub fn new(
-        scaling: Option<(usize, usize)>,
-        red_band_index: Option<isize>,
-        green_band_index: Option<isize>,
-        blue_band_index: Option<isize>,
-    ) -> Self {
-        Self {
-            scaling,
-            red_band_index,
-            green_band_index,
-            blue_band_index,
+impl DatasetOptionsBuilder {
+    pub fn new() -> DatasetOptionsBuilder {
+        DatasetOptionsBuilder::default()
+    }
+
+    pub fn set_scaling(mut self, x: usize, y: usize) -> DatasetOptionsBuilder {
+        self.scaling = Some((x, y));
+        self
+    }
+
+    pub fn set_band_indexes(
+        mut self,
+        red: isize,
+        green: isize,
+        blue: isize,
+    ) -> DatasetOptionsBuilder {
+        self.red_band_index = Some(red);
+        self.green_band_index = Some(green);
+        self.blue_band_index = Some(blue);
+        self
+    }
+
+    pub fn build(self) -> DatasetOptions {
+        DatasetOptions {
+            scaling: self.scaling.unwrap_or((1024, 1024)),
+            red_band_index: self.red_band_index.unwrap_or(1),
+            green_band_index: self.green_band_index.unwrap_or(2),
+            blue_band_index: self.blue_band_index.unwrap_or(3),
         }
     }
 }
@@ -118,12 +150,7 @@ impl Datasets for RawDataset {
 
         Ok(MosaicedDataset {
             dataset: mosaic,
-            options: DatasetOptions {
-                scaling: Some((1024, 1024)),
-                red_band_index: Some(1),
-                green_band_index: Some(2),
-                blue_band_index: Some(3),
-            },
+            options: DatasetOptionsBuilder::new().build(),
         })
     }
 
@@ -373,12 +400,7 @@ mod tests {
 
         let dataset = MosaicedDataset {
             dataset: ds,
-            options: DatasetOptions {
-                scaling: None,
-                red_band_index: None,
-                green_band_index: None,
-                blue_band_index: None,
-            },
+            options: DatasetOptionsBuilder::new().build(),
         };
 
         let result = MosaicDataset::datasets_min_max(&dataset);
@@ -456,12 +478,7 @@ mod tests {
 
         let dataset = MosaicedDataset {
             dataset: ds,
-            options: DatasetOptions {
-                scaling: None,
-                red_band_index: None,
-                green_band_index: None,
-                blue_band_index: None,
-            },
+            options: DatasetOptionsBuilder::new().build(),
         };
 
         let window_size = dataset.dataset.raster_size();
@@ -487,12 +504,7 @@ mod tests {
 
         let dataset = MosaicedDataset {
             dataset: ds,
-            options: DatasetOptions {
-                scaling: None,
-                red_band_index: None,
-                green_band_index: None,
-                blue_band_index: None,
-            },
+            options: DatasetOptionsBuilder::new().build(),
         };
 
         let red_band = dataset.dataset.rasterband(1).expect("Could not open band");
@@ -526,6 +538,37 @@ mod tests {
 
         assert_eq!(merged_bands.len(), 3);
         assert_eq!(merged_bands[0].r, 23);
+    }
+
+    #[test]
+    fn option_builder_test() {
+        let dataset_options = DatasetOptions {
+            scaling: (2048, 1024),
+            red_band_index: 4,
+            green_band_index: 3,
+            blue_band_index: 2,
+        };
+
+        let dataset_options_from_builder: DatasetOptions = DatasetOptionsBuilder::new()
+            .set_scaling(2048, 1024)
+            .set_band_indexes(4, 3, 2)
+            .build();
+
+        assert_eq!(dataset_options, dataset_options_from_builder);
+    }
+
+    #[test]
+    fn option_builder_default_test() {
+        let dataset_options = DatasetOptions {
+            scaling: (1024, 1024),
+            red_band_index: 1,
+            green_band_index: 2,
+            blue_band_index: 3,
+        };
+
+        let dataset_options_from_builder: DatasetOptions = DatasetOptionsBuilder::new().build();
+
+        assert_eq!(dataset_options, dataset_options_from_builder);
     }
 }
 
