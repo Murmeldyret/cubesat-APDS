@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 opencv = {version = "0.88.8",features = ["clang-runtime","calib3d"]}
 rgb = "0.8.37"
+
+[lints]
+workspace = true

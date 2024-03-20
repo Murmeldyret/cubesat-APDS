@@ -45,7 +45,7 @@ impl<T> Cmat<T> {
     }
     pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
         // let res =
-        Cmat::new(opencv::imgcodecs::imread(&filename, flags).map_err(|err| MatError::Opencv(err))?)
+        Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
     }
     fn check_owned(self) -> Result<Self, MatError> {
         match self.mat.dims() {
@@ -85,7 +85,6 @@ impl<T> ToOutputArray for Cmat<T> {
             .output_array()
     }
 }
-
 fn raster_to_mat(pixels: &[RGBA<u8>]) -> Mat {
     todo!()
 }
@@ -104,8 +103,10 @@ fn find_homography_mat(
         reproj_threshold.unwrap_or(10.0),
     ); // RANSAC is used since some feature matching may be erroneous.
 
-    homography
+    // homography
+    todo!()
 }
+#[allow(clippy::unwrap_used)]
 mod test {
     use crate::homographier::*;
     use opencv::{
@@ -113,12 +114,20 @@ mod test {
         imgcodecs::{ImreadModes, IMREAD_UNCHANGED},
     };
     use rgb::alt::BGRA8;
-    use std::env;
+    use std::{env, io, path::PathBuf};
+
+    fn path_to_test_images() -> io::Result<PathBuf> {
+        let mut img_dir = env::current_dir()?;
+
+        img_dir.pop();
+        img_dir.push("resources/test/images");
+        Ok(img_dir)
+    }
 
     #[ignore = "virker ikke helt endnu"]
     #[test]
     fn homography_success() {
-        let mut img_dir = env::current_dir().expect("Current directory not set.");
+        let mut img_dir = path_to_test_images().expect("epic fail");
         img_dir.pop();
         img_dir.push("images");
         // dbg!(current_dir);
@@ -138,14 +147,15 @@ mod test {
             ImreadModes::IMREAD_UNCHANGED.into(),
         )
         .unwrap();
-        dbg!(&input);
-        dbg!(&reference);
+        // dbg!(&input);
+        // dbg!(&reference);
         let res = find_homography_mat(&input, &reference, None);
         let res = res.inspect_err(|e| {
-            dbg!(e);
+            // dbg!(e);
         });
         assert!(res.is_ok())
     }
+
     #[test]
     fn cmat_init() {
         assert!(Cmat::<BGRA>::new(Mat::default()).is_err())
@@ -159,8 +169,9 @@ mod test {
 
         assert!(cmat.mat.dims() == 2)
     }
+
     #[test]
-    #[ignore = ""]
+    #[ignore]
     fn mat_ones() {
         let mat: Mat = Mat::ones(2, 2, CV_8UC4).unwrap().to_mat().unwrap();
         // dbg!(mat.at_2d::<i32>(1, 1).unwrap());
@@ -170,9 +181,10 @@ mod test {
         // pixels.as_bgra();
         // mat.at_2d::<Vec4b>(1, 1).unwrap()
     }
+
     #[test]
     fn image_correct_pixels() {
-        let mut img_dir = env::current_dir().expect("Current directory not set.");
+        let mut img_dir = path_to_test_images().expect("epic fail");
         img_dir.pop();
         img_dir.push("images");
 
