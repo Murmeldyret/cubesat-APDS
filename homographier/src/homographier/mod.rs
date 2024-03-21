@@ -1,8 +1,8 @@
-use std::{env, marker::PhantomData};
+use std::{env, marker::PhantomData, ops::Index};
 
 use opencv::{
     calib3d::{find_homography, prelude::*, RANSAC},
-    core::{InputArray, Scalar, Size, ToInputArray, ToOutputArray, CV_32FC4, CV_8UC4},
+    core::{InputArray, Scalar, Size, ToInputArray, ToOutputArray, Vec4b, CV_8UC4},
     imgcodecs::{ImreadModes, IMREAD_COLOR},
     prelude::*,
 };
@@ -14,7 +14,7 @@ pub trait PixelElemType {
 pub struct BGRA;
 impl PixelElemType for BGRA {
     fn to_cv_const(&self) -> i32 {
-        todo!()
+        CV_8UC4
     }
 }
 
@@ -43,10 +43,12 @@ impl<T> Cmat<T> {
         }
         .check_owned()
     }
+
     pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
         // let res =
         Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
     }
+
     fn check_owned(self) -> Result<Self, MatError> {
         match self.mat.dims() {
             // dims will always be >=2, unless the Mat is empty
@@ -54,12 +56,23 @@ impl<T> Cmat<T> {
             _ => Ok(self),
         }
     }
+
+    /// Creates a Cmat from a copied 1-dimensional slice
+    pub fn from_2d_slice(slice: &[impl AsRef<[T]>]) -> Result<Self, MatError>
+    where
+        T: DataType,
+    {
+        let mat = Mat::from_slice_2d::<T>(&slice).map_err(MatError::Opencv)?;
+        Cmat::new(mat)
+    }
+
     fn check(&self) -> Result<Self, MatError> {
         todo!()
     }
 
     //further checked functions go here
 }
+
 impl<T> ToInputArray for Cmat<T> {
     fn input_array(&self) -> opencv::Result<opencv::core::_InputArray> {
         let res = self.check().map_err(|err| match err {
@@ -106,6 +119,7 @@ fn find_homography_mat(
     // homography
     todo!()
 }
+
 #[allow(clippy::unwrap_used)]
 mod test {
     use crate::homographier::*;
@@ -116,6 +130,7 @@ mod test {
     use rgb::alt::BGRA8;
     use std::{env, io, path::PathBuf};
 
+    type Image<T> = Vec<Vec<T>>;
     fn path_to_test_images() -> io::Result<PathBuf> {
         let mut img_dir = env::current_dir()?;
 
@@ -194,5 +209,46 @@ mod test {
 
         assert_eq!(img.mat.depth(), CV_8U);
         assert_eq!(img.mat.channels(), 4);
+    }
+
+    #[test]
+    fn cmat_from_slice() {
+        let pixel: Vec4b = Vec4b::new(1, 2, 3, 4);
+        let mut image: Image<Vec4b> = Vec::new();
+        const IMG_SIZE: usize = 4;
+
+        //matrix init
+        for i in 0..IMG_SIZE {
+            image.insert(i, Vec::new());
+            image[i].reserve(IMG_SIZE);
+
+            for j in 0..IMG_SIZE {
+                let scalar: u8 = 1 + j as u8;
+                image[i].insert(
+                    j,
+                    pixel
+                        .clone()
+                        .mul(Vec4b::new(scalar, scalar, scalar, scalar)),
+                );
+            }
+        }
+        let cmat = Cmat::from_2d_slice(&image).unwrap();
+        let first_pixel = Vec4b::new(1, 2, 3, 4);
+        let sixteenth_pixel = first_pixel.mul(Vec4b::new(4, 4, 4, 4));
+
+        // asserts that pixels are stored row major i.e.
+        // [[<1,2,3,4>,<2,4,6,8>,<3,6,9,12>,<4,8,12,16>],
+        // [[<1,2,3,4>,<2,4,6,8>,<3,6,9,12>,<4,8,12,16>],
+        // [[<1,2,3,4>,<2,4,6,8>,<3,6,9,12>,<4,8,12,16>],
+        // [[<1,2,3,4>,<2,4,6,8>,<3,6,9,12>,<4,8,12,16>]]
+
+        assert_eq!(cmat.mat.at_2d::<Vec4b>(0, 0).unwrap().clone(), first_pixel);
+        assert_eq!(
+            cmat.mat
+                .at_2d::<Vec4b>((IMG_SIZE as i32) - 1, (IMG_SIZE as i32) - 1)
+                .unwrap()
+                .clone(),
+            sixteenth_pixel
+        );
     }
 }
