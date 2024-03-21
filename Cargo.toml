@@ -1,4 +1,4 @@
 [workspace]
 
-members = ["geotiff_extractor"]
+members = [ "feature_database","geotiff_extractor"]
 resolver = "2"
