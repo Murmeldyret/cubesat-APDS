@@ -1,4 +1,4 @@
-use std::{env, marker::PhantomData, ops::Index};
+use std::{marker::PhantomData};
 
 use opencv::{
     calib3d::{find_homography, prelude::*, RANSAC},
@@ -62,7 +62,7 @@ impl<T> Cmat<T> {
     where
         T: DataType,
     {
-        let mat = Mat::from_slice_2d::<T>(&slice).map_err(MatError::Opencv)?;
+        let mat = Mat::from_slice_2d::<T>(slice).map_err(MatError::Opencv)?;
         Cmat::new(mat)
     }
 
@@ -121,6 +121,7 @@ fn find_homography_mat(
 }
 
 #[allow(clippy::unwrap_used)]
+#[allow(unused_variables)]
 mod test {
     use crate::homographier::*;
     use opencv::{
