@@ -27,11 +27,11 @@ pub struct InsertImage {
 #[diesel(table_name = keypoint)]
 pub struct Keypoint {
     id: i32,
-    x_coord: f32,
-    y_coord: f32,
-    size: f32,
-    angle: f32,
-    response: f32,
+    x_coord: f64,
+    y_coord: f64,
+    size: f64,
+    angle: f64,
+    response: f64,
     octave: i32,
     class_id: i32,
     image_id: i32,
@@ -40,11 +40,11 @@ pub struct Keypoint {
 #[derive(Insertable)]
 #[diesel(table_name = keypoint)]
 pub struct InsertKeypoint {
-    x_coord: f32,
-    y_coord: f32,
-    size: f32,
-    angle: f32,
-    response: f32,
+    x_coord: f64,
+    y_coord: f64,
+    size: f64,
+    angle: f64,
+    response: f64,
     octave: i32,
     class_id: i32,
     image_id: i32,
