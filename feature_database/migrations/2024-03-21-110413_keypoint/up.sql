@@ -11,4 +11,4 @@ CREATE TABLE "keypoint" (
   "image_id" integer
 );
 
-ALTER TABLE "keypoints" ADD FOREIGN KEY ("image_id") REFERENCES "image" ("id");
+ALTER TABLE "keypoint" ADD FOREIGN KEY ("image_id") REFERENCES "image" ("id");

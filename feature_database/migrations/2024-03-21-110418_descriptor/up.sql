@@ -4,4 +4,4 @@ CREATE TABLE "descriptor" (
   "value" bytea
 );
 
-ALTER TABLE "descriptors" ADD FOREIGN KEY ("id") REFERENCES "keypoints" ("id");
+ALTER TABLE "descriptor" ADD FOREIGN KEY ("id") REFERENCES "keypoint" ("id");

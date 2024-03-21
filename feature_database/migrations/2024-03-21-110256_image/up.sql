@@ -7,5 +7,3 @@ CREATE TABLE "image" (
   "y_end" integer,
   "level_of_detail" integer
 );
-
-ALTER TABLE "image" ADD FOREIGN KEY ("level_of_detail") REFERENCES "level_of_detail" ("id");
