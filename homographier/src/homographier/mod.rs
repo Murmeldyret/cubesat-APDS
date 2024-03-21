@@ -67,7 +67,7 @@ impl<T> Cmat<T> {
     }
 
     fn check(&self) -> Result<Self, MatError> {
-        todo!()
+        unimplemented!("er muligvis ikke nødvendig")
     }
 
     //further checked functions go here
@@ -99,8 +99,10 @@ impl<T> ToOutputArray for Cmat<T> {
     }
 }
 fn raster_to_mat(pixels: &[RGBA<u8>]) -> Mat {
+    //RGBA<u8> is equivalent to opencv's Vec4b, which implements DataType
     todo!()
 }
+
 
 fn find_homography_mat(
     input: &impl ToInputArray,
@@ -140,7 +142,7 @@ mod test {
         Ok(img_dir)
     }
 
-    #[ignore = "virker ikke helt endnu"]
+    #[ignore = "Skal bruge Akaze keypoints"]
     #[test]
     fn homography_success() {
         let mut img_dir = path_to_test_images().expect("epic fail");
