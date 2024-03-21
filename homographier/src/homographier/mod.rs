@@ -1,4 +1,4 @@
-use std::{marker::PhantomData};
+use std::marker::PhantomData;
 
 use opencv::{
     calib3d::{find_homography, prelude::*, RANSAC},
@@ -98,13 +98,38 @@ impl<T> ToOutputArray for Cmat<T> {
             .output_array()
     }
 }
-fn raster_to_mat(pixels: &[RGBA<u8>]) -> Mat {
+
+pub fn raster_to_mat(pixels: &[RGBA8], w: i32, h: i32) -> Result<Cmat<Vec4b>, MatError> {
     //RGBA<u8> is equivalent to opencv's Vec4b, which implements DataType
+    if pixels.len() != (w * h) as usize {
+        return Err(MatError::Unknown);
+    }
+
+    let image: Vec<Vec<Vec4b>> = Vec::new();
+
+
     todo!()
 }
 
+fn raster_1d_to_2d(pixels: &[RGBA8], w: i32, vec: Option<Vec<Vec<RGBA8>>>)->Result<Vec<Vec<RGBA8>>,()> {
+    let (first_row, rest) = pixels.split_at(w as usize);
+    let mut vec = vec.unwrap_or(Vec::new());
 
-fn find_homography_mat(
+    vec.push(first_row.to_vec());
+
+    match rest.len() {
+        0 => Ok(vec),
+        _=> raster_1d_to_2d(pixels, w, Some(vec))?
+    }
+    // todo!()
+}
+
+fn rbga8_to_vec4b(pixel: RGBA8) -> Vec4b {
+    Vec4b::new(pixel.b, pixel.g, pixel.r, pixel.a)
+    // todo!()
+}
+
+pub fn find_homography_mat(
     input: &impl ToInputArray,
     reference: &impl ToInputArray,
     reproj_threshold: Option<f64>,
