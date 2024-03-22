@@ -5,22 +5,22 @@ use crate::schema::*;
 #[derive(Queryable, Selectable)]
 #[diesel(table_name = image)]
 pub struct Image {
-    id: i32,
-    x_start: i32,
-    y_start: i32,
-    x_end: i32,
-    y_end: i32,
-    level_of_detail: i32,
+    pub id: i32,
+    pub x_start: i32,
+    pub y_start: i32,
+    pub x_end: i32,
+    pub y_end: i32,
+    pub level_of_detail: i32,
 }
 
 #[derive(Insertable)]
 #[diesel(table_name = image)]
 pub struct InsertImage {
-    x_start: i32,
-    y_start: i32,
-    x_end: i32,
-    y_end: i32,
-    level_of_detail: i32,
+    pub x_start: i32,
+    pub y_start: i32,
+    pub x_end: i32,
+    pub y_end: i32,
+    pub level_of_detail: i32,
 }
 
 #[derive(Queryable, Selectable)]
