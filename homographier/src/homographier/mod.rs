@@ -163,23 +163,21 @@ pub fn find_homography_mat(
     todo!()
 }
 
+// clippy er dum, så vi sætter den lige på plads
 #[allow(clippy::unwrap_used)]
 #[allow(unused_variables)]
+#[allow(unused_imports)]
+#[allow(dead_code)]
 mod test {
-    #[allow(unused_imports)]
     use crate::homographier::*;
     use opencv::{
         core::*,
         imgcodecs::{ImreadModes, IMREAD_UNCHANGED},
     };
 
-    // clippy er dum, så vi sætter den lige på plads
-    #[allow(unused_imports)]
     use rgb::alt::BGRA8;
     use std::{env, io, path::PathBuf};
-    #[allow(dead_code)]
     type Image<T> = Vec<Vec<T>>;
-    #[allow(dead_code)]
     fn path_to_test_images() -> io::Result<PathBuf> {
         let mut img_dir = env::current_dir()?;
 
