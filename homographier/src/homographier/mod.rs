@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use opencv::{
     calib3d::{find_homography, RANSAC},
     core::{ToInputArray, ToOutputArray, Vec4b, CV_8UC4},
-    prelude::*,
+    prelude::*, Error,
 };
 use rgb::*;
 
@@ -26,6 +26,8 @@ pub enum MatError {
     Empty,
     /// Matrix is not rectangular (columns or rows with differing lengths)
     Jagged,
+    // /// Tried to access matrix element outside bounds
+    // OutOfBounds,
     /// An unknown error
     Unknown,
 }
@@ -75,6 +77,18 @@ impl<T> Cmat<T> {
     }
 
     //further checked functions go here
+}
+
+impl<T: DataType> Cmat<T> {
+    /// Checked element access
+    /// Will return [`MatError::OutOfBounds`] if either row or column exceeds matrix width and size respectively
+    pub fn at_2d(&self, row: i32, col: i32)->Result<&T,MatError> {
+
+        let size = self.mat.size().map_err(|_err| MatError::Unknown)?;
+        if (row > size.width) || (col > size.height) { return Err(MatError::Opencv(Error::new(-211, ""))) }
+
+        self.mat.at_2d::<T>(row, col).map_err(MatError::Opencv)
+    }
 }
 
 impl<T> ToInputArray for Cmat<T> {
@@ -136,12 +150,10 @@ fn raster_1d_to_2d(
         _ if len == 0 => raster_1d_to_2d(rest, w, Some(vec)),
         _ => Err(()), // if there is not enough pixels to fill a row
     }
-    // todo!()
 }
 
 fn rbga8_to_vec4b(pixel: RGBA8) -> Vec4b {
     Vec4b::new(pixel.b, pixel.g, pixel.r, pixel.a)
-    // todo!()
 }
 
 pub fn find_homography_mat(
@@ -183,6 +195,23 @@ mod test {
         img_dir.pop();
         img_dir.push("resources/test/images");
         Ok(img_dir)
+    }
+    
+    fn test_image(size: usize) ->Cmat<Vec4b> { 
+        let pixel = RGBA8::new(1, 1, 1, 1);
+        let image: Vec<RGBA8> = vec![pixel; size * size];
+        let image: Vec<RGBA8> = image
+            .into_iter()
+            .enumerate()
+            .map(|p| {
+                let row = (p.0 / size) + 1;
+                let col = (p.0 % size) + 1;
+                let p = p.1;
+                RGBA8::new(p.r, p.g * col as u8, p.b * row as u8, p.a)
+            })
+            .collect();
+        let image = raster_to_mat(&image, size as i32, size as i32);
+        image.unwrap()
     }
 
     #[ignore = "Skal bruge Akaze keypoints"]
@@ -346,5 +375,15 @@ mod test {
                 .clone(),
             Vec4b::new(IMG_SIZE as u8, 1, 1, 1)
         )
+    }
+
+    #[test]
+    fn cmat_at_2d_works() {
+        const IMG_SIZE: usize = 4;
+        let image = test_image(IMG_SIZE);
+        
+        assert!(image.at_2d(3, 5).is_err_and(|x| if let MatError::Opencv(e) = x {e.code_as_enum()==Some(Code::StsOutOfRange)} else {false} ));
+        assert!(image.at_2d(5, 3).is_err_and(|x| if let MatError::Opencv(e) = x {e.code_as_enum()==Some(Code::StsOutOfRange)} else {false} ));
+        assert_eq!(image.at_2d(3, 3).unwrap().clone(),Vec4b::new(4, 4, 1, 1));
     }
 }
