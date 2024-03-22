@@ -3,32 +3,32 @@
 diesel::table! {
     descriptor (id) {
         id -> Int4,
-        value -> Nullable<Bytea>,
+        value -> Bytea,
     }
 }
 
 diesel::table! {
     image (id) {
         id -> Int4,
-        x_start -> Nullable<Int4>,
-        y_start -> Nullable<Int4>,
-        x_end -> Nullable<Int4>,
-        y_end -> Nullable<Int4>,
-        level_of_detail -> Nullable<Int4>,
+        x_start -> Int4,
+        y_start -> Int4,
+        x_end -> Int4,
+        y_end -> Int4,
+        level_of_detail -> Int4,
     }
 }
 
 diesel::table! {
     keypoint (id) {
         id -> Int4,
-        x_coord -> Nullable<Float8>,
-        y_coord -> Nullable<Float8>,
-        size -> Nullable<Float8>,
-        angle -> Nullable<Float8>,
-        response -> Nullable<Float8>,
-        octave -> Nullable<Int4>,
-        class_id -> Nullable<Int4>,
-        image_id -> Nullable<Int4>,
+        x_coord -> Float8,
+        y_coord -> Float8,
+        size -> Float8,
+        angle -> Float8,
+        response -> Float8,
+        octave -> Int4,
+        class_id -> Int4,
+        image_id -> Int4,
     }
 }
 

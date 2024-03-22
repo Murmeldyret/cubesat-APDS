@@ -1,14 +1,14 @@
 -- Your SQL goes here
 CREATE TABLE "keypoint" (
   "id" integer PRIMARY KEY,
-  "x_coord" float,
-  "y_coord" float,
-  "size" float,
-  "angle" float,
-  "response" float,
-  "octave" integer,
-  "class_id" integer,
-  "image_id" integer
+  "x_coord" float NOT NULL,
+  "y_coord" float NOT NULL,
+  "size" float NOT NULL,
+  "angle" float NOT NULL,
+  "response" float NOT NULL,
+  "octave" integer NOT NULL,
+  "class_id" integer NOT NULL,
+  "image_id" integer NOT NULL
 );
 
 ALTER TABLE "keypoint" ADD FOREIGN KEY ("image_id") REFERENCES "image" ("id");
