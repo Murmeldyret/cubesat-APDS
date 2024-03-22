@@ -166,6 +166,7 @@ pub fn find_homography_mat(
 #[allow(clippy::unwrap_used)]
 #[allow(unused_variables)]
 mod test {
+    #[allow(unused_imports)]
     use crate::homographier::*;
     use opencv::{
         core::*,
