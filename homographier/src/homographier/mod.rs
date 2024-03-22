@@ -21,8 +21,13 @@ impl PixelElemType for BGRA {
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum MatError {
+    /// Inner openCV errors
     Opencv(opencv::Error),
+    /// The mat is empty, and not considered valid
     Empty,
+    /// Matrix is not rectangular (columns or rows with differing lengths)
+    Jagged,
+    /// An unknown error
     Unknown,
 }
 
@@ -105,21 +110,32 @@ pub fn raster_to_mat(pixels: &[RGBA8], w: i32, h: i32) -> Result<Cmat<Vec4b>, Ma
         return Err(MatError::Unknown);
     }
 
-    let image: Vec<Vec<Vec4b>> = Vec::new();
+    let rows = raster_1d_to_2d(pixels, w, None).map_err(|_err| MatError::Jagged)?;
 
+    let converted: Vec<Vec<Vec4b>> = rows
+        .into_iter()
+        .map(|row| row.into_iter().map(|p| rbga8_to_vec4b(p)).collect())
+        .collect();
 
-    todo!()
+    Cmat::from_2d_slice(&converted)
 }
 
-fn raster_1d_to_2d(pixels: &[RGBA8], w: i32, vec: Option<Vec<Vec<RGBA8>>>)->Result<Vec<Vec<RGBA8>>,()> {
+fn raster_1d_to_2d(
+    pixels: &[RGBA8],
+    w: i32,
+    vec: Option<Vec<Vec<RGBA8>>>,
+) -> Result<Vec<Vec<RGBA8>>, ()> {
     let (first_row, rest) = pixels.split_at(w as usize);
     let mut vec = vec.unwrap_or(Vec::new());
 
     vec.push(first_row.to_vec());
 
+    let len = pixels.len() % (0 as usize);
+
     match rest.len() {
         0 => Ok(vec),
-        _=> raster_1d_to_2d(pixels, w, Some(vec))?
+        _ if len == 0 => raster_1d_to_2d(pixels, w, Some(vec)),
+        _ => Err(()), // if there is not enough pixels to fill a row
     }
     // todo!()
 }
