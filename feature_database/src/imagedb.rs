@@ -1,5 +1,6 @@
 use diesel::pg::PgConnection;
 use diesel::result::Error as DieselError;
+use diesel::prelude::*;
 
 use crate::models;
 
@@ -9,8 +10,18 @@ pub enum Image<'a> {
 }
 
 impl ImageDatabase for Image<'_> {
-    fn create_image(conn: &mut PgConnection, image: Image) -> Result<(), DieselError> {
-        todo!()
+    fn create_image(conn: &mut PgConnection, input_image: Image) -> Result<(), DieselError> {
+        match input_image {
+            Image::One(single_image) => create_image_in_database(conn, &single_image)?,
+            Image::Multiple(multiple_images) => {
+                let results: Result<Vec<()>, DieselError> = multiple_images
+                    .into_iter()
+                    .map(|img| create_image_in_database(conn, &img))
+                    .collect();
+
+            }
+        }
+        Ok(())
     }
 
     fn read_image_from_id(conn: &mut PgConnection, id: i32) -> Result<models::Image, DieselError> {
@@ -37,6 +48,21 @@ impl ImageDatabase for Image<'_> {
 
     fn delete_image(conn: &mut PgConnection, id: i32) -> Result<(), DieselError> {
         todo!()
+    }
+}
+
+fn create_image_in_database(
+    connection: &mut PgConnection,
+    insert_image: &models::InsertImage,
+) -> Result<(), DieselError> {
+    let result = diesel::insert_into(crate::schema::image::table)
+        .values(insert_image)
+        .returning(models::Image::as_returning())
+        .get_result(connection);
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e)
     }
 }
 
@@ -90,8 +116,19 @@ mod image_tests {
         let database_url =
             env::var("DATABASE_URL").expect("DATABASE_URL must be set for tests to work");
 
-        Connection::establish(&database_url)
-            .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
+        let mut connection = Connection::establish(&database_url)
+            .unwrap_or_else(|_| panic!("Error connecting to {}", database_url));
+
+
+            // TODO: This can be done smarter :)
+            diesel::sql_query("DELETE FROM descriptor" ).execute(&mut connection).unwrap();
+            diesel::sql_query("ALTER SEQUENCE descriptor_id_seq RESTART WITH 1" ).execute(&mut connection).unwrap();
+            diesel::sql_query("DELETE FROM keypoint").execute(&mut connection).unwrap();
+            diesel::sql_query("ALTER SEQUENCE keypoint_id_seq RESTART WITH 1").execute(&mut connection).unwrap();
+            diesel::sql_query("DELETE FROM image").execute(&mut connection).unwrap();
+            diesel::sql_query("ALTER SEQUENCE image_id_seq RESTART WITH 1").execute(&mut connection).unwrap();
+
+            connection
     }
 
     #[test]
@@ -115,7 +152,7 @@ mod image_tests {
             .find(1)
             .select(models::Image::as_select())
             .first(connection)
-            .unwrap();
+            .expect("Could not find created image");
 
         assert_eq!(fetched_image.x_start, *insert_image.x_start);
         assert_eq!(fetched_image.y_start, *insert_image.y_start);
@@ -311,7 +348,10 @@ mod image_tests {
 
         let result = Image::delete_image(connection, 1);
 
-        let db_result = image.select(models::Image::as_select()).load(connection).expect("Error loading images");
+        let db_result = image
+            .select(models::Image::as_select())
+            .load(connection)
+            .expect("Error loading images");
 
         assert!(result.is_ok());
         assert_eq!(db_result.len(), 3);
