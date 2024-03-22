@@ -130,11 +130,11 @@ fn raster_1d_to_2d(
 
     vec.push(first_row.to_vec());
 
-    let len = pixels.len() % (0 as usize);
+    let len = pixels.len() % (w as usize);
 
     match rest.len() {
         0 => Ok(vec),
-        _ if len == 0 => raster_1d_to_2d(pixels, w, Some(vec)),
+        _ if len == 0 => raster_1d_to_2d(rest, w, Some(vec)),
         _ => Err(()), // if there is not enough pixels to fill a row
     }
     // todo!()
@@ -294,5 +294,65 @@ mod test {
                 .clone(),
             sixteenth_pixel
         );
+    }
+
+    #[test]
+    fn raster_to_mat_works() {
+        const IMG_SIZE: usize = 4;
+        let pixel = RGBA8::new(1, 1, 1, 1);
+        let image: Vec<RGBA8> = vec![pixel; IMG_SIZE * IMG_SIZE];
+        let image: Vec<RGBA8> = image
+            .into_iter()
+            .enumerate()
+            .map(|p| {
+                let row = (p.0 / IMG_SIZE) + 1;
+                let col = (p.0 % IMG_SIZE) + 1;
+                let p = p.1;
+                RGBA8::new(p.r, p.g * col as u8, p.b * row as u8, p.a)
+            })
+            .collect();
+        let image = raster_to_mat(&image, IMG_SIZE as i32, IMG_SIZE as i32);
+
+        assert!(image.is_ok());
+        let image = image.unwrap();
+        // assumes BGRA AND row major ordering
+        assert_eq!(
+            image.mat.at_2d::<Vec4b>(0, 0).unwrap().clone(),
+            Vec4b::new(1, 1, 1, 1)
+        );
+        assert_eq!(
+            image
+                .mat
+                .at_2d::<Vec4b>((IMG_SIZE - 1) as i32, (IMG_SIZE - 1) as i32)
+                .unwrap()
+                .clone(),
+            Vec4b::new(IMG_SIZE as u8, IMG_SIZE as u8, 1, 1)
+        );
+        assert_eq!(
+            image
+                .mat
+                .at_2d::<Vec4b>(0, (IMG_SIZE - 1) as i32)
+                .unwrap()
+                .clone(),
+            Vec4b::new(1, IMG_SIZE as u8, 1, 1)
+        );
+        assert_eq!(
+            image
+                .mat
+                .at_2d::<Vec4b>((IMG_SIZE - 1) as i32, 0)
+                .unwrap()
+                .clone(),
+            Vec4b::new(IMG_SIZE as u8, 1, 1, 1)
+        )
+        // for i in 0..IMG_SIZE {
+        //     image.insert(i, Vec::new());
+        //     image[i].reserve(IMG_SIZE);
+
+        //     for j in 0..IMG_SIZE {
+        //         let mul_vec = pixel.clone().mul(Vec4b::new(i as u8, j as u8,1,1));
+        //         image[i].insert(j, mul_vec);
+
+        //     }
+        // }
     }
 }
