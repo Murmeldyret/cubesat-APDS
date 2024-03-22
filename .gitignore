@@ -42,3 +42,6 @@ resources/
 DUNK.code-workspace
 images/*
 .DS_Store
+
+# de andre vscode ignores virker ikke, oh well
+.vscode/launch.json
