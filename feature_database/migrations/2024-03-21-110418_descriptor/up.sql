@@ -1,6 +1,6 @@
 -- Your SQL goes here
 CREATE TABLE "descriptor" (
-  "id" integer PRIMARY KEY,
+  "id" SERIAL PRIMARY KEY,
   "value" bytea NOT NULL
 );
 

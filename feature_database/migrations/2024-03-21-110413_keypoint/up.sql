@@ -1,6 +1,6 @@
 -- Your SQL goes here
 CREATE TABLE "keypoint" (
-  "id" integer PRIMARY KEY,
+  "id" SERIAL PRIMARY KEY,
   "x_coord" float NOT NULL,
   "y_coord" float NOT NULL,
   "size" float NOT NULL,
