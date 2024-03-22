@@ -126,7 +126,7 @@ fn raster_1d_to_2d(
     vec: Option<Vec<Vec<RGBA8>>>,
 ) -> Result<Vec<Vec<RGBA8>>, ()> {
     let (first_row, rest) = pixels.split_at(w as usize);
-    let mut vec = vec.unwrap_or(Vec::new());
+    let mut vec = vec.unwrap_or_default();
 
     vec.push(first_row.to_vec());
 
@@ -151,7 +151,7 @@ pub fn find_homography_mat(
     reproj_threshold: Option<f64>,
 ) -> Result<Mat, opencv::Error> {
     let mut mask = Mat::default();
-    let homography = find_homography(
+    let _homography = find_homography(
         input,
         reference,
         &mut mask,
@@ -171,10 +171,14 @@ mod test {
         core::*,
         imgcodecs::{ImreadModes, IMREAD_UNCHANGED},
     };
+
+    // clippy er dum, så vi sætter den lige på plads
+    #[allow(unused_imports)]
     use rgb::alt::BGRA8;
     use std::{env, io, path::PathBuf};
-
+    #[allow(dead_code)]
     type Image<T> = Vec<Vec<T>>;
+    #[allow(dead_code)]
     fn path_to_test_images() -> io::Result<PathBuf> {
         let mut img_dir = env::current_dir()?;
 
@@ -344,15 +348,5 @@ mod test {
                 .clone(),
             Vec4b::new(IMG_SIZE as u8, 1, 1, 1)
         )
-        // for i in 0..IMG_SIZE {
-        //     image.insert(i, Vec::new());
-        //     image[i].reserve(IMG_SIZE);
-
-        //     for j in 0..IMG_SIZE {
-        //         let mul_vec = pixel.clone().mul(Vec4b::new(i as u8, j as u8,1,1));
-        //         image[i].insert(j, mul_vec);
-
-        //     }
-        // }
     }
 }
