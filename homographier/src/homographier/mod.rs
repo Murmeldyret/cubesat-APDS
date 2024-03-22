@@ -1,9 +1,8 @@
 use std::marker::PhantomData;
 
 use opencv::{
-    calib3d::{find_homography, prelude::*, RANSAC},
-    core::{InputArray, Scalar, Size, ToInputArray, ToOutputArray, Vec4b, CV_8UC4},
-    imgcodecs::{ImreadModes, IMREAD_COLOR},
+    calib3d::{find_homography, RANSAC},
+    core::{ToInputArray, ToOutputArray, Vec4b, CV_8UC4},
     prelude::*,
 };
 use rgb::*;
@@ -114,7 +113,7 @@ pub fn raster_to_mat(pixels: &[RGBA8], w: i32, h: i32) -> Result<Cmat<Vec4b>, Ma
 
     let converted: Vec<Vec<Vec4b>> = rows
         .into_iter()
-        .map(|row| row.into_iter().map(|p| rbga8_to_vec4b(p)).collect())
+        .map(|row| row.into_iter().map(rbga8_to_vec4b).collect())
         .collect();
 
     Cmat::from_2d_slice(&converted)
