@@ -1,6 +1,7 @@
+use crate::schema::image::dsl::image as schema_image;
 use diesel::pg::PgConnection;
-use diesel::result::Error as DieselError;
 use diesel::prelude::*;
+use diesel::result::Error as DieselError;
 
 use crate::models;
 
@@ -14,18 +15,22 @@ impl ImageDatabase for Image<'_> {
         match input_image {
             Image::One(single_image) => create_image_in_database(conn, &single_image)?,
             Image::Multiple(multiple_images) => {
-                let results: Result<Vec<()>, DieselError> = multiple_images
+                let result: Result<Vec<()>, DieselError> = multiple_images
                     .into_iter()
                     .map(|img| create_image_in_database(conn, &img))
                     .collect();
 
+                    match result{
+                    Ok(_) => return Ok(()),
+                    Err(e) => return Err(e),
+                    }
             }
         }
         Ok(())
     }
 
     fn read_image_from_id(conn: &mut PgConnection, id: i32) -> Result<models::Image, DieselError> {
-        todo!()
+        schema_image.find(id).select(models::Image::as_select()).first(conn)
     }
 
     fn find_images_from_dimensions(
@@ -36,6 +41,7 @@ impl ImageDatabase for Image<'_> {
         y_end: i32,
         level_of_detail: i32,
     ) -> Result<Vec<i32>, DieselError> {
+        schema_image.
         todo!()
     }
 
@@ -62,7 +68,7 @@ fn create_image_in_database(
 
     match result {
         Ok(_) => Ok(()),
-        Err(e) => Err(e)
+        Err(e) => Err(e),
     }
 }
 
@@ -91,7 +97,6 @@ mod image_tests {
 
     use super::*;
     use crate::schema::image::dsl::*;
-    use diesel::prelude::*;
     use dotenvy::dotenv;
     use once_cell::sync::Lazy;
 
@@ -119,16 +124,27 @@ mod image_tests {
         let mut connection = Connection::establish(&database_url)
             .unwrap_or_else(|_| panic!("Error connecting to {}", database_url));
 
+        // TODO: This can be done smarter :)
+        diesel::sql_query("DELETE FROM descriptor")
+            .execute(&mut connection)
+            .unwrap();
+        diesel::sql_query("ALTER SEQUENCE descriptor_id_seq RESTART WITH 1")
+            .execute(&mut connection)
+            .unwrap();
+        diesel::sql_query("DELETE FROM keypoint")
+            .execute(&mut connection)
+            .unwrap();
+        diesel::sql_query("ALTER SEQUENCE keypoint_id_seq RESTART WITH 1")
+            .execute(&mut connection)
+            .unwrap();
+        diesel::sql_query("DELETE FROM image")
+            .execute(&mut connection)
+            .unwrap();
+        diesel::sql_query("ALTER SEQUENCE image_id_seq RESTART WITH 1")
+            .execute(&mut connection)
+            .unwrap();
 
-            // TODO: This can be done smarter :)
-            diesel::sql_query("DELETE FROM descriptor" ).execute(&mut connection).unwrap();
-            diesel::sql_query("ALTER SEQUENCE descriptor_id_seq RESTART WITH 1" ).execute(&mut connection).unwrap();
-            diesel::sql_query("DELETE FROM keypoint").execute(&mut connection).unwrap();
-            diesel::sql_query("ALTER SEQUENCE keypoint_id_seq RESTART WITH 1").execute(&mut connection).unwrap();
-            diesel::sql_query("DELETE FROM image").execute(&mut connection).unwrap();
-            diesel::sql_query("ALTER SEQUENCE image_id_seq RESTART WITH 1").execute(&mut connection).unwrap();
-
-            connection
+        connection
     }
 
     #[test]
