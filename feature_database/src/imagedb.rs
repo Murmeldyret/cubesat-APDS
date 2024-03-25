@@ -1,4 +1,4 @@
-use crate::schema::image::dsl::image as schema_image;
+use crate::schema::image::dsl;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::result::Error as DieselError;
@@ -30,7 +30,7 @@ impl ImageDatabase for Image<'_> {
     }
 
     fn read_image_from_id(conn: &mut PgConnection, id: i32) -> Result<models::Image, DieselError> {
-        schema_image.find(id).select(models::Image::as_select()).first(conn)
+        dsl::image.find(id).select(models::Image::as_select()).first(conn)
     }
 
     fn find_images_from_dimensions(
@@ -41,8 +41,7 @@ impl ImageDatabase for Image<'_> {
         y_end: i32,
         level_of_detail: i32,
     ) -> Result<Vec<i32>, DieselError> {
-        schema_image.
-        todo!()
+        dsl::image.filter(dsl::x_end.ge(x_start)).filter(dsl::x_start.le(x_end)).filter(dsl::y_end.ge(y_start)).filter(dsl::y_start.le(y_end)).select(dsl::id).load(conn)
     }
 
     fn find_images_from_lod(
