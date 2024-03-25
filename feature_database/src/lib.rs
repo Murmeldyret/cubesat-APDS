@@ -1,17 +1,16 @@
-pub mod models;
-pub mod schema;
 pub mod imagedb;
 pub mod keypointdb;
-
+pub mod models;
+pub mod schema;
 
 #[cfg(test)]
 pub mod testhelpers {
-use std::env;
+    use std::env;
     use std::sync::{Arc, Mutex};
 
+    use diesel::prelude::*;
     use dotenvy::dotenv;
     use once_cell::sync::Lazy;
-    use diesel::prelude::*;
 
     static DATABASE_LOCK: Lazy<Arc<Mutex<i32>>> = Lazy::new(|| Arc::new(Mutex::new(0)));
     static RESERVER_LOCK: Lazy<Arc<Mutex<i32>>> = Lazy::new(|| Arc::new(Mutex::new(0)));

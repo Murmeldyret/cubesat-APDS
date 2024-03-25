@@ -571,4 +571,3 @@ mod tests {
         assert_eq!(dataset_options, dataset_options_from_builder);
     }
 }
-

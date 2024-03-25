@@ -28,29 +28,28 @@ pub struct InsertImage<'a> {
 #[diesel(table_name = keypoint)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Keypoint {
-    id: i32,
-    x_coord: f64,
-    y_coord: f64,
-    size: f64,
-    angle: f64,
-    response: f64,
-    octave: i32,
-    class_id: i32,
-    descriptor: Vec<u8>,
-    image_id: i32,
+    pub id: i32,
+    pub x_coord: f64,
+    pub y_coord: f64,
+    pub size: f64,
+    pub angle: f64,
+    pub response: f64,
+    pub octave: i32,
+    pub class_id: i32,
+    pub descriptor: Vec<u8>,
+    pub image_id: i32,
 }
 
 #[derive(Insertable, Clone)]
 #[diesel(table_name = keypoint)]
 pub struct InsertKeypoint<'a> {
-    x_coord: &'a f64,
-    y_coord: &'a f64,
-    size: &'a f64,
-    angle: &'a f64,
-    response: &'a f64,
-    octave: &'a i32,
-    class_id: &'a i32,
-    descriptor: &'a Vec<u8>,
-    image_id: &'a i32,
+    pub x_coord: &'a f64,
+    pub y_coord: &'a f64,
+    pub size: &'a f64,
+    pub angle: &'a f64,
+    pub response: &'a f64,
+    pub octave: &'a i32,
+    pub class_id: &'a i32,
+    pub descriptor: &'a[u8],
+    pub image_id: &'a i32,
 }
-

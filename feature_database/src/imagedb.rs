@@ -20,17 +20,20 @@ impl ImageDatabase for Image<'_> {
                     .map(|img| create_image_in_database(conn, &img))
                     .collect();
 
-                    match result{
+                match result {
                     Ok(_) => return Ok(()),
                     Err(e) => return Err(e),
-                    }
+                }
             }
         }
         Ok(())
     }
 
     fn read_image_from_id(conn: &mut PgConnection, id: i32) -> Result<models::Image, DieselError> {
-        dsl::ref_image.find(id).select(models::Image::as_select()).first(conn)
+        dsl::ref_image
+            .find(id)
+            .select(models::Image::as_select())
+            .first(conn)
     }
 
     fn find_images_from_dimensions(
@@ -41,20 +44,30 @@ impl ImageDatabase for Image<'_> {
         y_end: i32,
         level_of_detail: i32,
     ) -> Result<Vec<i32>, DieselError> {
-        dsl::ref_image.filter(dsl::x_end.ge(x_start)).filter(dsl::x_start.le(x_end)).filter(dsl::y_end.ge(y_start)).filter(dsl::y_start.le(y_end)).filter(dsl::level_of_detail.eq(level_of_detail)).select(dsl::id).load(conn)
+        dsl::ref_image
+            .filter(dsl::x_end.ge(x_start))
+            .filter(dsl::x_start.le(x_end))
+            .filter(dsl::y_end.ge(y_start))
+            .filter(dsl::y_start.le(y_end))
+            .filter(dsl::level_of_detail.eq(level_of_detail))
+            .select(dsl::id)
+            .load(conn)
     }
 
     fn find_images_from_lod(
         conn: &mut PgConnection,
         level_of_detail: i32,
     ) -> Result<Vec<i32>, DieselError> {
-        dsl::ref_image.filter(dsl::level_of_detail.eq(level_of_detail)).select(dsl::id).load(conn)
+        dsl::ref_image
+            .filter(dsl::level_of_detail.eq(level_of_detail))
+            .select(dsl::id)
+            .load(conn)
     }
 
     fn delete_image(conn: &mut PgConnection, id: i32) -> Result<(), DieselError> {
         match diesel::delete(dsl::ref_image.find(id)).execute(conn) {
             Ok(_) => return Ok(()),
-            Err(e) => return Err(e)
+            Err(e) => return Err(e),
         }
     }
 }
@@ -94,17 +107,9 @@ pub trait ImageDatabase {
 
 #[cfg(test)]
 mod image_tests {
-    use std::env;
-    use std::sync::{Arc, Mutex};
-
     use super::*;
     use crate::schema::ref_image::dsl::*;
-    use dotenvy::dotenv;
-    use once_cell::sync::Lazy;
-
     use crate::testhelpers::{obtain_lock, setup_test_database};
-
-
 
     #[test]
     fn image_creation() {
@@ -332,4 +337,3 @@ mod image_tests {
         assert_eq!(db_result.len(), 3);
     }
 }
-

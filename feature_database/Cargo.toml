@@ -9,3 +9,4 @@ edition = "2021"
 diesel = { version = "2.1.5", features = ["postgres"] }
 dotenvy = "0.15.7"
 once_cell = "1.19.0"
+rand = "0.8.5"
