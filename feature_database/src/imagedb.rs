@@ -52,7 +52,11 @@ impl ImageDatabase for Image<'_> {
     }
 
     fn delete_image(conn: &mut PgConnection, id: i32) -> Result<(), DieselError> {
-        todo!()
+        match diesel::delete(dsl::image.find(id)).execute(conn) {
+            Ok(_) => return Ok(()),
+            Err(e) => return Err(e)
+        }
+
     }
 }
 
