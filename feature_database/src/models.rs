@@ -50,6 +50,6 @@ pub struct InsertKeypoint<'a> {
     pub response: &'a f64,
     pub octave: &'a i32,
     pub class_id: &'a i32,
-    pub descriptor: &'a[u8],
+    pub descriptor: &'a [u8],
     pub image_id: &'a i32,
 }

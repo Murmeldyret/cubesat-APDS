@@ -205,60 +205,83 @@ mod tests {
 
         generate_images_in_database(connection, 3);
 
-        let keypoint_vec = vec![models::InsertKeypoint {
-            x_coord: &1.0,
-            y_coord: &1.5,
-            size: &2.0,
-            angle: &2.5,
-            response: &3.0,
-            octave: &4,
-            class_id: &5,
-            descriptor: &[6_u8],
-            image_id: &1,
-        },
-        models::InsertKeypoint {
-            x_coord: &2.0,
-            y_coord:&3.5,
-            size: &2.0,
-            angle: &2.5,
-            response: &3.0,
-            octave: &4,
-            class_id: &5,
-            descriptor: &[6_u8],
-            image_id: &2,
-        },
-        models::InsertKeypoint {
-            x_coord: &5.3,
-            y_coord:&3.5,
-            size: &2.0,
-            angle: &2.5,
-            response: &3.0,
-            octave: &4,
-            class_id: &5,
-            descriptor: &[6_u8],
-            image_id: &3,
-        },
-        models::InsertKeypoint {
-            x_coord: &2.0,
-            y_coord:&9.0,
-            size: &2.0,
-            angle: &2.5,
-            response: &3.0,
-            octave: &4,
-            class_id: &5,
-            descriptor: &[6_u8],
-            image_id: &3,
-        }
+        let keypoint_vec = vec![
+            models::InsertKeypoint {
+                x_coord: &1.0,
+                y_coord: &1.5,
+                size: &2.0,
+                angle: &2.5,
+                response: &3.0,
+                octave: &4,
+                class_id: &5,
+                descriptor: &[6_u8],
+                image_id: &1,
+            },
+            models::InsertKeypoint {
+                x_coord: &2.0,
+                y_coord: &3.5,
+                size: &2.0,
+                angle: &2.5,
+                response: &3.0,
+                octave: &4,
+                class_id: &5,
+                descriptor: &[6_u8],
+                image_id: &2,
+            },
+            models::InsertKeypoint {
+                x_coord: &5.3,
+                y_coord: &3.5,
+                size: &2.0,
+                angle: &2.5,
+                response: &3.0,
+                octave: &4,
+                class_id: &5,
+                descriptor: &[6_u8],
+                image_id: &3,
+            },
+            models::InsertKeypoint {
+                x_coord: &2.0,
+                y_coord: &9.0,
+                size: &2.0,
+                angle: &2.5,
+                response: &3.0,
+                octave: &4,
+                class_id: &5,
+                descriptor: &[6_u8],
+                image_id: &3,
+            },
         ];
 
-        keypoint_vec.clone().into_iter().for_each(|single_keypoint| {diesel::insert_into(crate::schema::keypoint::table).values(&single_keypoint).returning(models::Keypoint::as_returning()).get_result(connection).expect("Error saving new keypoint");});
+        keypoint_vec
+            .clone()
+            .into_iter()
+            .for_each(|single_keypoint| {
+                diesel::insert_into(crate::schema::keypoint::table)
+                    .values(&single_keypoint)
+                    .returning(models::Keypoint::as_returning())
+                    .get_result(connection)
+                    .expect("Error saving new keypoint");
+            });
 
-        let fetched_keypoints = Keypoint::read_keypoints_from_image_id(connection, 3).expect("Could not find keypoints");
+        let fetched_keypoints = Keypoint::read_keypoints_from_image_id(connection, 3)
+            .expect("Could not find keypoints");
 
-        assert_eq!(fetched_keypoints[0].x_coord, *keypoint_vec.clone()[2].x_coord);
-        assert_eq!(fetched_keypoints[0].y_coord, *keypoint_vec.clone()[2].y_coord);
-        assert_eq!(fetched_keypoints[1].x_coord, *keypoint_vec.clone()[3].x_coord);
-        assert_eq!(fetched_keypoints[1].y_coord, *keypoint_vec.clone()[3].y_coord);
+        assert_eq!(
+            fetched_keypoints[0].x_coord,
+            *keypoint_vec.clone()[2].x_coord
+        );
+        assert_eq!(
+            fetched_keypoints[0].y_coord,
+            *keypoint_vec.clone()[2].y_coord
+        );
+        assert_eq!(
+            fetched_keypoints[1].x_coord,
+            *keypoint_vec.clone()[3].x_coord
+        );
+        assert_eq!(
+            fetched_keypoints[1].y_coord,
+            *keypoint_vec.clone()[3].y_coord
+        );
     }
 
     #[test]
@@ -267,62 +290,76 @@ mod tests {
         let connection = &mut setup_test_database();
 
         let insert_image = InsertImage {
-                x_start: &0,
-                y_start: &0,
-                x_end: &10,
-                y_end: &10,
-                level_of_detail: &1,
+            x_start: &0,
+            y_start: &0,
+            x_end: &10,
+            y_end: &10,
+            level_of_detail: &1,
         };
 
-        diesel::insert_into(crate::schema::ref_image::table).values(&insert_image).returning(models::Image::as_returning()).get_result(connection).expect("Could not insert image into database");
+        diesel::insert_into(crate::schema::ref_image::table)
+            .values(&insert_image)
+            .returning(models::Image::as_returning())
+            .get_result(connection)
+            .expect("Could not insert image into database");
 
-        let keypoint_vec = vec![models::InsertKeypoint {
-            x_coord: &1.0,
-            y_coord: &1.5,
-            size: &2.0,
-            angle: &2.5,
-            response: &3.0,
-            octave: &4,
-            class_id: &5,
-            descriptor: &[6_u8],
-            image_id: &1,
-        },
-        models::InsertKeypoint {
-            x_coord: &2.0,
-            y_coord:&3.5,
-            size: &2.0,
-            angle: &2.5,
-            response: &3.0,
-            octave: &4,
-            class_id: &5,
-            descriptor: &[6_u8],
-            image_id: &1,
-        },
-        models::InsertKeypoint {
-            x_coord: &5.3,
-            y_coord:&3.5,
-            size: &2.0,
-            angle: &2.5,
-            response: &3.0,
-            octave: &4,
-            class_id: &5,
-            descriptor: &[6_u8],
-            image_id: &1,
-        },
-        models::InsertKeypoint {
-            x_coord: &2.0,
-            y_coord:&9.0,
-            size: &2.0,
-            angle: &2.5,
-            response: &3.0,
-            octave: &4,
-            class_id: &5,
-            descriptor: &[6_u8],
-            image_id: &1,
-        }
+        let keypoint_vec = vec![
+            models::InsertKeypoint {
+                x_coord: &1.0,
+                y_coord: &1.5,
+                size: &2.0,
+                angle: &2.5,
+                response: &3.0,
+                octave: &4,
+                class_id: &5,
+                descriptor: &[6_u8],
+                image_id: &1,
+            },
+            models::InsertKeypoint {
+                x_coord: &2.0,
+                y_coord: &3.5,
+                size: &2.0,
+                angle: &2.5,
+                response: &3.0,
+                octave: &4,
+                class_id: &5,
+                descriptor: &[6_u8],
+                image_id: &1,
+            },
+            models::InsertKeypoint {
+                x_coord: &5.3,
+                y_coord: &3.5,
+                size: &2.0,
+                angle: &2.5,
+                response: &3.0,
+                octave: &4,
+                class_id: &5,
+                descriptor: &[6_u8],
+                image_id: &1,
+            },
+            models::InsertKeypoint {
+                x_coord: &2.0,
+                y_coord: &9.0,
+                size: &2.0,
+                angle: &2.5,
+                response: &3.0,
+                octave: &4,
+                class_id: &5,
+                descriptor: &[6_u8],
+                image_id: &1,
+            },
         ];
 
-        keypoint_vec.clone().into_iter().for_each(|single_keypoint| {diesel::insert_into(crate::schema::keypoint::table).values(&single_keypoint).returning(models::Keypoint::as_returning()).get_result(connection).expect("Error saving new keypoint");});
+        keypoint_vec
+            .clone()
+            .into_iter()
+            .for_each(|single_keypoint| {
+                diesel::insert_into(crate::schema::keypoint::table)
+                    .values(&single_keypoint)
+                    .returning(models::Keypoint::as_returning())
+                    .get_result(connection)
+                    .expect("Error saving new keypoint");
+            });
 
         let fetched_keypoints = Keypoint::read_keypoints_from_lod(connection, 1);
 
