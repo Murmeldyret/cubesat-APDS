@@ -1,5 +1,5 @@
 -- Your SQL goes here
-CREATE TABLE "image" (
+CREATE TABLE "ref_image" (
   "id" SERIAL PRIMARY KEY,
   "x_start" integer NOT NULL,
   "y_start" integer NOT NULL,

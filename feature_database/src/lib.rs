@@ -34,23 +34,3 @@ pub trait KeypointDatabase {
     fn delete_keypoint(conn: &mut PgConnection, id: i32) -> Result<(), DieselError>;
 }
 
-pub enum Descriptor<'a> {
-    One(models::InsertDescriptor<'a>),
-    Multiple(Vec<models::InsertDescriptor<'a>>),
-}
-
-pub trait DescriptorDatabase {
-    fn create_descriptor(
-        conn: &mut PgConnection,
-        descriptor: Descriptor,
-    ) -> Result<(), DieselError>;
-    fn read_discriptor_from_id(
-        conn: &mut PgConnection,
-        id: i32,
-    ) -> Result<models::Descriptor, DieselError>;
-    fn read_discriptor_from_ids(
-        conn: &mut PgConnection,
-        ids: &[i32],
-    ) -> Result<Vec<models::Descriptor>, DieselError>;
-    fn delete_descriptor(conn: &mut PgConnection, id: i32) -> Result<(), DieselError>;
-}

@@ -3,7 +3,7 @@ use diesel::prelude::*;
 use crate::schema::*;
 
 #[derive(Queryable, Selectable, Clone, Copy)]
-#[diesel(table_name = image)]
+#[diesel(table_name = ref_image)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Image {
     pub id: i32,
@@ -15,7 +15,7 @@ pub struct Image {
 }
 
 #[derive(Insertable, Clone, Copy)]
-#[diesel(table_name = image)]
+#[diesel(table_name = ref_image)]
 pub struct InsertImage<'a> {
     pub x_start: &'a i32,
     pub y_start: &'a i32,
@@ -50,20 +50,5 @@ pub struct InsertKeypoint<'a> {
     octave: &'a i32,
     class_id: &'a i32,
     image_id: &'a i32,
-}
-
-#[derive(Queryable, Selectable, Clone)]
-#[diesel(table_name = descriptor)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct Descriptor {
-    id: i32,
-    value: Vec<u8>,
-}
-
-#[derive(Queryable, Selectable, Clone, Copy)]
-#[diesel(table_name = descriptor)]
-pub struct InsertDescriptor<'a> {
-    id: &'a i32,
-    value: &'a Vec<u8>,
 }
 

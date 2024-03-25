@@ -1,4 +1,4 @@
-use crate::schema::image::dsl;
+use crate::schema::ref_image::dsl;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::result::Error as DieselError;
@@ -30,7 +30,7 @@ impl ImageDatabase for Image<'_> {
     }
 
     fn read_image_from_id(conn: &mut PgConnection, id: i32) -> Result<models::Image, DieselError> {
-        dsl::image.find(id).select(models::Image::as_select()).first(conn)
+        dsl::ref_image.find(id).select(models::Image::as_select()).first(conn)
     }
 
     fn find_images_from_dimensions(
@@ -41,22 +41,21 @@ impl ImageDatabase for Image<'_> {
         y_end: i32,
         level_of_detail: i32,
     ) -> Result<Vec<i32>, DieselError> {
-        dsl::image.filter(dsl::x_end.ge(x_start)).filter(dsl::x_start.le(x_end)).filter(dsl::y_end.ge(y_start)).filter(dsl::y_start.le(y_end)).filter(dsl::level_of_detail.eq(level_of_detail)).select(dsl::id).load(conn)
+        dsl::ref_image.filter(dsl::x_end.ge(x_start)).filter(dsl::x_start.le(x_end)).filter(dsl::y_end.ge(y_start)).filter(dsl::y_start.le(y_end)).filter(dsl::level_of_detail.eq(level_of_detail)).select(dsl::id).load(conn)
     }
 
     fn find_images_from_lod(
         conn: &mut PgConnection,
         level_of_detail: i32,
     ) -> Result<Vec<i32>, DieselError> {
-        dsl::image.filter(dsl::level_of_detail.eq(level_of_detail)).select(dsl::id).load(conn)
+        dsl::ref_image.filter(dsl::level_of_detail.eq(level_of_detail)).select(dsl::id).load(conn)
     }
 
     fn delete_image(conn: &mut PgConnection, id: i32) -> Result<(), DieselError> {
-        match diesel::delete(dsl::image.find(id)).execute(conn) {
+        match diesel::delete(dsl::ref_image.find(id)).execute(conn) {
             Ok(_) => return Ok(()),
             Err(e) => return Err(e)
         }
-
     }
 }
 
@@ -64,7 +63,7 @@ fn create_image_in_database(
     connection: &mut PgConnection,
     insert_image: &models::InsertImage,
 ) -> Result<(), DieselError> {
-    let result = diesel::insert_into(crate::schema::image::table)
+    let result = diesel::insert_into(crate::schema::ref_image::table)
         .values(insert_image)
         .returning(models::Image::as_returning())
         .get_result(connection);
@@ -99,7 +98,7 @@ mod image_tests {
     use std::sync::{Arc, Mutex};
 
     use super::*;
-    use crate::schema::image::dsl::*;
+    use crate::schema::ref_image::dsl::*;
     use dotenvy::dotenv;
     use once_cell::sync::Lazy;
 
@@ -128,22 +127,16 @@ mod image_tests {
             .unwrap_or_else(|_| panic!("Error connecting to {}", database_url));
 
         // TODO: This can be done smarter :)
-        diesel::sql_query("DELETE FROM descriptor")
-            .execute(&mut connection)
-            .unwrap();
-        diesel::sql_query("ALTER SEQUENCE descriptor_id_seq RESTART WITH 1")
-            .execute(&mut connection)
-            .unwrap();
         diesel::sql_query("DELETE FROM keypoint")
             .execute(&mut connection)
             .unwrap();
         diesel::sql_query("ALTER SEQUENCE keypoint_id_seq RESTART WITH 1")
             .execute(&mut connection)
             .unwrap();
-        diesel::sql_query("DELETE FROM image")
+        diesel::sql_query("DELETE FROM ref_image")
             .execute(&mut connection)
             .unwrap();
-        diesel::sql_query("ALTER SEQUENCE image_id_seq RESTART WITH 1")
+        diesel::sql_query("ALTER SEQUENCE ref_image_id_seq RESTART WITH 1")
             .execute(&mut connection)
             .unwrap();
 
@@ -167,7 +160,7 @@ mod image_tests {
 
         Image::create_image(connection, inserted_image).expect("Could not add image to database");
 
-        let fetched_image: models::Image = image
+        let fetched_image: models::Image = ref_image
             .find(1)
             .select(models::Image::as_select())
             .first(connection)
@@ -193,7 +186,7 @@ mod image_tests {
             level_of_detail: &1,
         };
 
-        diesel::insert_into(crate::schema::image::table)
+        diesel::insert_into(crate::schema::ref_image::table)
             .values(&insert_image)
             .returning(models::Image::as_returning())
             .get_result(connection)
@@ -257,7 +250,7 @@ mod image_tests {
         ];
 
         insert_images.into_iter().for_each(|single_image| {
-            diesel::insert_into(crate::schema::image::table)
+            diesel::insert_into(crate::schema::ref_image::table)
                 .values(&single_image)
                 .returning(models::Image::as_returning())
                 .get_result(connection)
@@ -307,7 +300,7 @@ mod image_tests {
         ];
 
         insert_images.into_iter().for_each(|single_image| {
-            diesel::insert_into(crate::schema::image::table)
+            diesel::insert_into(crate::schema::ref_image::table)
                 .values(&single_image)
                 .returning(models::Image::as_returning())
                 .get_result(connection)
@@ -358,7 +351,7 @@ mod image_tests {
         ];
 
         insert_images.into_iter().for_each(|single_image| {
-            diesel::insert_into(crate::schema::image::table)
+            diesel::insert_into(crate::schema::ref_image::table)
                 .values(&single_image)
                 .returning(models::Image::as_returning())
                 .get_result(connection)
@@ -367,7 +360,7 @@ mod image_tests {
 
         let result = Image::delete_image(connection, 1);
 
-        let db_result = image
+        let db_result = ref_image
             .select(models::Image::as_select())
             .load(connection)
             .expect("Error loading images");
