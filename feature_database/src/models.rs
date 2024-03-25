@@ -24,7 +24,7 @@ pub struct InsertImage<'a> {
     pub level_of_detail: &'a i32,
 }
 
-#[derive(Queryable, Selectable, Clone, Copy)]
+#[derive(Queryable, Selectable, Clone)]
 #[diesel(table_name = keypoint)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Keypoint {
@@ -36,10 +36,11 @@ pub struct Keypoint {
     response: f64,
     octave: i32,
     class_id: i32,
+    descriptor: Vec<u8>,
     image_id: i32,
 }
 
-#[derive(Insertable, Clone, Copy)]
+#[derive(Insertable, Clone)]
 #[diesel(table_name = keypoint)]
 pub struct InsertKeypoint<'a> {
     x_coord: &'a f64,
@@ -49,6 +50,7 @@ pub struct InsertKeypoint<'a> {
     response: &'a f64,
     octave: &'a i32,
     class_id: &'a i32,
+    descriptor: &'a Vec<u8>,
     image_id: &'a i32,
 }
 

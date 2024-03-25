@@ -9,8 +9,8 @@ CREATE TABLE "keypoint" (
   "response" float NOT NULL,
   "octave" integer NOT NULL,
   "class_id" integer NOT NULL,
-  "image_id" integer NOT NULL,
-  "discriptor" bytea NOT NULL
+  "descriptor" bytea NOT NULL,
+  "image_id" integer NOT NULL
 );
 
 ALTER TABLE "keypoint" ADD FOREIGN KEY ("image_id") REFERENCES "ref_image" ("id");

@@ -10,8 +10,8 @@ diesel::table! {
         response -> Float8,
         octave -> Int4,
         class_id -> Int4,
+        descriptor -> Bytea,
         image_id -> Int4,
-        discriptor -> Bytea,
     }
 }
 
