@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use opencv::{
     calib3d::{find_homography, RANSAC},
-    core::{ToInputArray, ToOutputArray, Vec4b, CV_8UC4},
+    core::{Point2f, ToInputArray, ToOutputArray, Vec4b, CV_8UC4},
     prelude::*,
     Error,
 };
@@ -16,6 +16,13 @@ impl PixelElemType for BGRA {
     fn to_cv_const(&self) -> i32 {
         CV_8UC4
     }
+}
+
+pub enum HomographyMethod {
+    Default = 0,
+    LMEDS = 4,
+    RANSAC = 8,
+    RHO = 16,
 }
 
 #[non_exhaustive]
@@ -159,21 +166,26 @@ fn rbga8_to_vec4b(pixel: RGBA8) -> Vec4b {
 }
 
 pub fn find_homography_mat(
-    input: &impl ToInputArray,
-    reference: &impl ToInputArray,
+    input: &[Point2f],
+    reference: &[Point2f],
+    method: Option<HomographyMethod>,
     reproj_threshold: Option<f64>,
-) -> Result<Mat, opencv::Error> {
+) -> Result<(Cmat<Point2f>,Cmat<Point2f>), MatError> {
+    let input = opencv::core::Vector::from_slice(input);
+    let reference = opencv::core::Vector::from_slice(reference);
     let mut mask = Mat::default();
-    let _homography = find_homography(
-        input,
-        reference,
-        &mut mask,
-        RANSAC,
-        reproj_threshold.unwrap_or(10.0),
-    ); // RANSAC is used since some feature matching may be erroneous.
+    let method = method.unwrap_or(HomographyMethod::Default) as i32;
 
-    // homography
-    todo!()
+    let homography = find_homography(
+        &input,
+        &reference,
+        &mut mask,
+        method,
+        reproj_threshold.unwrap_or(10.0),
+    ).map_err(MatError::Opencv)?; // RANSAC is used since some feature matching may be erroneous.
+
+    let mask = Cmat::<Point2f>::new(mask)?; // 
+    Ok((Cmat::<Point2f>::new(homography)?,mask))
 }
 
 // clippy er dum, så vi sætter den lige på plads
@@ -216,37 +228,37 @@ mod test {
         image.unwrap()
     }
 
-    #[ignore = "Skal bruge Akaze keypoints"]
-    #[test]
-    fn homography_success() {
-        let mut img_dir = path_to_test_images().expect("epic fail");
-        img_dir.pop();
-        img_dir.push("images");
-        // dbg!(current_dir);
+    // #[ignore = "Skal bruge Akaze keypoints"]
+    // #[test]
+    // fn homography_success() {
+    //     let mut img_dir = path_to_test_images().expect("epic fail");
+    //     img_dir.pop();
+    //     img_dir.push("images");
+    //     // dbg!(current_dir);
 
-        let mut input_path = img_dir.clone();
-        input_path.push("3.png");
-        let mut reference_path = img_dir.clone();
-        reference_path.push("1.png");
+    //     let mut input_path = img_dir.clone();
+    //     input_path.push("3.png");
+    //     let mut reference_path = img_dir.clone();
+    //     reference_path.push("1.png");
 
-        let input = opencv::imgcodecs::imread(
-            input_path.to_str().unwrap(),
-            ImreadModes::IMREAD_UNCHANGED.into(),
-        )
-        .unwrap();
-        let reference = opencv::imgcodecs::imread(
-            reference_path.to_str().unwrap(),
-            ImreadModes::IMREAD_UNCHANGED.into(),
-        )
-        .unwrap();
-        // dbg!(&input);
-        // dbg!(&reference);
-        let res = find_homography_mat(&input, &reference, None);
-        let res = res.inspect_err(|e| {
-            // dbg!(e);
-        });
-        assert!(res.is_ok())
-    }
+    //     let input = opencv::imgcodecs::imread(
+    //         input_path.to_str().unwrap(),
+    //         ImreadModes::IMREAD_UNCHANGED.into(),
+    //     )
+    //     .unwrap();
+    //     let reference = opencv::imgcodecs::imread(
+    //         reference_path.to_str().unwrap(),
+    //         ImreadModes::IMREAD_UNCHANGED.into(),
+    //     )
+    //     .unwrap();
+    //     // dbg!(&input);
+    //     // dbg!(&reference);
+    //     let res = find_homography_mat(&input, &reference, None);
+    //     let res = res.inspect_err(|e| {
+    //         // dbg!(e);
+    //     });
+    //     assert!(res.is_ok())
+    // }
 
     #[test]
     fn cmat_init() {
