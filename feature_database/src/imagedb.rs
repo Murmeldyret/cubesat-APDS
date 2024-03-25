@@ -41,14 +41,14 @@ impl ImageDatabase for Image<'_> {
         y_end: i32,
         level_of_detail: i32,
     ) -> Result<Vec<i32>, DieselError> {
-        dsl::image.filter(dsl::x_end.ge(x_start)).filter(dsl::x_start.le(x_end)).filter(dsl::y_end.ge(y_start)).filter(dsl::y_start.le(y_end)).select(dsl::id).load(conn)
+        dsl::image.filter(dsl::x_end.ge(x_start)).filter(dsl::x_start.le(x_end)).filter(dsl::y_end.ge(y_start)).filter(dsl::y_start.le(y_end)).filter(dsl::level_of_detail.eq(level_of_detail)).select(dsl::id).load(conn)
     }
 
     fn find_images_from_lod(
         conn: &mut PgConnection,
         level_of_detail: i32,
     ) -> Result<Vec<i32>, DieselError> {
-        todo!()
+        dsl::image.filter(dsl::level_of_detail.eq(level_of_detail)).select(dsl::id).load(conn)
     }
 
     fn delete_image(conn: &mut PgConnection, id: i32) -> Result<(), DieselError> {
