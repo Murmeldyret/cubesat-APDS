@@ -248,7 +248,7 @@ mod test {
             &points.clone(),
             &points.clone(),
             Some(HomographyMethod::RANSAC),
-            None,
+            Some(1f64),
         );
         let res = res.inspect_err(|e| {
             dbg!(e);
@@ -260,6 +260,25 @@ mod test {
         let mask = res.1;
         assert_eq!(homography.at_2d(2, 2).unwrap(), &1f64); // h__3,3 should always be 1 https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
         
+        //alt herefter giver ikke mening
+        let mut sum: f64 = 0f64;
+        for col in 0..3 {
+            for row in 0..3 {
+                let elem = homography.at_2d(row, col).unwrap();
+                dbg!(elem);
+                sum += elem
+            }
+        }
+        // assert_eq!(sum, 1f64);
+        for col in 0..3 {
+            for row in 0..3 {
+                if col == 2 && row == 2 {
+                    assert_eq!(homography.at_2d(row, col).unwrap(), &1f64);
+                } else {
+                    assert_eq!(homography.at_2d(row, col).unwrap(), &0f64);
+                }
+            }
+        }
     }
 
     #[test]
