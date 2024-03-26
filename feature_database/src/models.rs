@@ -2,7 +2,7 @@ use diesel::prelude::*;
 
 use crate::schema::*;
 
-#[derive(Queryable, Selectable, Clone, Copy)]
+#[derive(Queryable, Selectable, Clone, Copy, Debug)]
 #[diesel(table_name = ref_image)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Image {
@@ -14,7 +14,7 @@ pub struct Image {
     pub level_of_detail: i32,
 }
 
-#[derive(Insertable, Clone, Copy)]
+#[derive(Insertable, Clone, Copy, Debug)]
 #[diesel(table_name = ref_image)]
 pub struct InsertImage<'a> {
     pub x_start: &'a i32,
@@ -24,7 +24,7 @@ pub struct InsertImage<'a> {
     pub level_of_detail: &'a i32,
 }
 
-#[derive(Queryable, Selectable, Clone)]
+#[derive(Queryable, Selectable, Clone, Debug)]
 #[diesel(table_name = keypoint)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Keypoint {
@@ -40,7 +40,7 @@ pub struct Keypoint {
     pub image_id: i32,
 }
 
-#[derive(Insertable, Clone)]
+#[derive(Insertable, Clone, Debug)]
 #[diesel(table_name = keypoint)]
 pub struct InsertKeypoint<'a> {
     pub x_coord: &'a f64,

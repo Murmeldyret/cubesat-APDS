@@ -1,4 +1,5 @@
 use crate::models;
+use crate::schema::keypoint::dsl;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::result::Error as DieselError;
@@ -9,49 +10,136 @@ pub enum Keypoint<'a> {
 }
 
 impl<'a> KeypointDatabase for Keypoint<'a> {
-    fn create_keypoint(conn: &mut PgConnection, keypoint: Keypoint) -> Result<(), DieselError> {
-        todo!()
+    fn create_keypoint(
+        conn: &mut PgConnection,
+        input_keypoint: Keypoint,
+    ) -> Result<(), DieselError> {
+        match input_keypoint {
+            Keypoint::One(single_image) => create_keypoint_in_database(conn, &single_image)?,
+            Keypoint::Multiple(multiple_images) => {
+                let result: Result<Vec<()>, DieselError> = multiple_images
+                    .into_iter()
+                    .map(|key| create_keypoint_in_database(conn, &key))
+                    .collect();
+                match result {
+                    Ok(_) => return Ok(()),
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+        Ok(())
     }
 
     fn read_keypoint_from_id(
         conn: &mut PgConnection,
         id: i32,
     ) -> Result<models::Keypoint, DieselError> {
-        todo!()
+        dsl::keypoint
+            .find(id)
+            .select(models::Keypoint::as_select())
+            .first(conn)
     }
 
     fn read_keypoints_from_image_id(
         conn: &mut PgConnection,
         image_id: i32,
     ) -> Result<Vec<models::Keypoint>, DieselError> {
-        todo!()
+        dsl::keypoint
+            .filter(dsl::image_id.eq(image_id))
+            .select(models::Keypoint::as_select())
+            .load(conn)
     }
 
     fn read_keypoints_from_lod(
         conn: &mut PgConnection,
-        level: u32,
+        level_of_detail: i32,
     ) -> Result<Vec<models::Keypoint>, DieselError> {
-        todo!()
+        use crate::schema::ref_image;
+        let image_ids: Vec<i32> = ref_image::dsl::ref_image
+            .filter(ref_image::dsl::level_of_detail.eq(level_of_detail))
+            .select(ref_image::dsl::id)
+            .load(conn)?;
+
+        let keypoints_vec: Vec<Vec<models::Keypoint>> = image_ids
+            .into_iter()
+            .flat_map(|id| {
+                dsl::keypoint
+                    .filter(dsl::image_id.eq(id))
+                    .select(models::Keypoint::as_select())
+                    .load(conn)
+            })
+            .collect();
+
+        let keypoints_vec = keypoints_vec.into_iter().flatten().collect();
+
+        Ok(keypoints_vec)
     }
 
     fn read_keypoints_from_coordinates(
         conn: &mut PgConnection,
-        x_start: f32,
-        y_start: f32,
-        x_end: f32,
-        y_end: f32,
+        x_start: f64,
+        y_start: f64,
+        x_end: f64,
+        y_end: f64,
         level_of_detail: i32,
     ) -> Result<Vec<models::Keypoint>, DieselError> {
-        todo!()
+        use crate::imagedb::ImageDatabase;
+        let image_ids = crate::imagedb::Image::find_images_from_dimensions(
+            conn,
+            x_start.floor() as i32,
+            y_start.floor() as i32,
+            x_end.ceil() as i32,
+            y_end.ceil() as i32,
+            level_of_detail,
+        )?;
+
+        let keypoints_vec: Result<Vec<Vec<models::Keypoint>>, DieselError> = image_ids
+            .into_iter()
+            .map(|id| {
+                dsl::keypoint
+                    .filter(dsl::image_id.eq(id))
+                    .filter(dsl::x_coord.ge(x_start.floor()))
+                    .filter(dsl::x_coord.le(x_end.ceil()))
+                    .filter(dsl::y_coord.ge(y_start.floor()))
+                    .filter(dsl::y_coord.le(y_end.ceil()))
+                    .select(models::Keypoint::as_select())
+                    .load(conn)
+            })
+            .collect();
+
+        let keypoints_vec: Vec<models::Keypoint> = keypoints_vec?.into_iter().flatten().collect();
+
+        Ok(keypoints_vec)
     }
 
     fn delete_keypoint(conn: &mut PgConnection, id: i32) -> Result<(), DieselError> {
-        todo!()
+        match diesel::delete(dsl::keypoint.find(id)).execute(conn) {
+            Ok(_) => return Ok(()),
+            Err(e) => return Err(e),
+        }
+    }
+}
+
+fn create_keypoint_in_database(
+    connection: &mut PgConnection,
+    input_keypoint: &models::InsertKeypoint,
+) -> Result<(), DieselError> {
+    let result = diesel::insert_into(crate::schema::keypoint::table)
+        .values(input_keypoint)
+        .returning(models::Keypoint::as_returning())
+        .get_result(connection);
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
     }
 }
 
 pub trait KeypointDatabase {
-    fn create_keypoint(conn: &mut PgConnection, keypoint: Keypoint) -> Result<(), DieselError>;
+    fn create_keypoint(
+        conn: &mut PgConnection,
+        input_keypoint: Keypoint,
+    ) -> Result<(), DieselError>;
     fn read_keypoint_from_id(
         conn: &mut PgConnection,
         id: i32,
@@ -62,14 +150,14 @@ pub trait KeypointDatabase {
     ) -> Result<Vec<models::Keypoint>, DieselError>;
     fn read_keypoints_from_lod(
         conn: &mut PgConnection,
-        level: u32,
+        level_of_detail: i32,
     ) -> Result<Vec<models::Keypoint>, DieselError>;
     fn read_keypoints_from_coordinates(
         conn: &mut PgConnection,
-        x_start: f32,
-        y_start: f32,
-        x_end: f32,
-        y_end: f32,
+        x_start: f64,
+        y_start: f64,
+        x_end: f64,
+        y_end: f64,
         level_of_detail: i32,
     ) -> Result<Vec<models::Keypoint>, DieselError>;
     fn delete_keypoint(conn: &mut PgConnection, id: i32) -> Result<(), DieselError>;
@@ -373,12 +461,10 @@ mod tests {
         let _lock = obtain_lock();
         let connection = &mut setup_test_database();
 
-        generate_images_in_database(connection, 1);
-
         let image_vec = vec![
             InsertImage {
                 x_start: &1,
-                y_start: &2,
+                y_start: &1,
                 x_end: &3,
                 y_end: &4,
                 level_of_detail: &1,
@@ -493,7 +579,8 @@ mod tests {
                 class_id: &5,
                 descriptor: &[6_u8],
                 image_id: &1,
-            }];
+            },
+        ];
 
         keypoint_vec.into_iter().for_each(|single_keypoint| {
             diesel::insert_into(crate::schema::keypoint::table)
