@@ -114,8 +114,8 @@ impl<'a> KeypointDatabase for Keypoint<'a> {
 
     fn delete_keypoint(conn: &mut PgConnection, id: i32) -> Result<(), DieselError> {
         match diesel::delete(dsl::keypoint.find(id)).execute(conn) {
-            Ok(_) => return Ok(()),
-            Err(e) => return Err(e),
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 }
