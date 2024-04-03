@@ -19,11 +19,11 @@ Cargo.lock
 
 ### VisualStudioCode ###
 .vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/*.code-snippets
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
+.vscode/*.code-snippets
 
 # Local History for Visual Studio Code
 .history/
@@ -41,7 +41,6 @@ Cargo.lock
 resources/
 DUNK.code-workspace
 images/*
-.DS_Store
 
-# de andre vscode ignores virker ikke, oh well
-.vscode/launch.json
+.env
+.DS_Store
