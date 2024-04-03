@@ -174,7 +174,7 @@ fn rbga8_to_vec4b(pixel: RGBA8) -> Vec4b {
 }
 
 /// Estimates the homography between 2 planes
-/// ## Parameters 
+/// ## Parameters
 /// * input: Points taken from the source plane (length should be atleast 4, and points cannot be colinear)
 /// * reference: Points taken from the destination plane (length should be atleast 4, and points cannot be colinear)
 /// * method: the method used to compute, default is Least median squares (Lmeds)
@@ -202,9 +202,9 @@ pub fn find_homography_mat(
 
     // let mask = Cmat::<Point2f>::new(mask)?; //
     let out_mask = match method {
-        Some(HomographyMethod::RANSAC) => {Some(Cmat::new(mask)?)},
-        Some(HomographyMethod::LMEDS) => {Some(Cmat::new(mask)?)}
-        _ => {None},
+        Some(HomographyMethod::RANSAC) => Some(Cmat::new(mask)?),
+        Some(HomographyMethod::LMEDS) => Some(Cmat::new(mask)?),
+        _ => None,
     };
     Ok((Cmat::<f64>::new(homography)?, out_mask))
 }
@@ -224,12 +224,13 @@ pub fn warp_image_perspective<T: DataType>(
     size: Option<Size2i>,
 ) -> Result<Cmat<T>, MatError> {
     let size = size.unwrap_or(src.mat.size().map_err(MatError::Opencv)?);
-    let src_size = src.mat.size().unwrap();
+    let src_size = src.mat.size().map_err(|_err| MatError::Unknown)?;
     let mut mat = Mat::new_rows_cols_with_default(
         src_size.height,
         src_size.width,
         src.mat.typ(),
-        Scalar::new(1f64, 1f64, 1f64, 1f64),)
+        Scalar::new(1f64, 1f64, 1f64, 1f64),
+    )
     .map_err(MatError::Opencv)?;
 
     warp_perspective(
@@ -289,7 +290,7 @@ mod test {
     }
 
     fn empty_homography() -> Cmat<f64> {
-        let slice: [[f64; 3]; 3] = [[1f64,0f64,0f64],[0f64,1f64,0f64],[0f64,0f64,1f64]];
+        let slice: [[f64; 3]; 3] = [[1f64, 0f64, 0f64], [0f64, 1f64, 0f64], [0f64, 0f64, 1f64]];
         Cmat::from_2d_slice(&slice).unwrap()
     }
 
@@ -322,7 +323,7 @@ mod test {
         // Assert for identity matrix
         for col in 0..3 {
             for row in 0..3 {
-                if col == row  {
+                if col == row {
                     assert_eq!(&homography.at_2d(row, col).unwrap().round(), &1f64);
                 } else {
                     assert_eq!(&homography.at_2d(row, col).unwrap().round(), &0f64);
