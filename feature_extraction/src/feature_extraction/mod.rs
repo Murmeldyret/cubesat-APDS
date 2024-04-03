@@ -1,8 +1,6 @@
-use anyhow::anyhow;
-use anyhow::Result;
 use cv::{
-    core::{DMatch, InputArray, Vector, KeyPoint},
-    features2d::{DescriptorMatcher, AKAZE},
+    core::{DMatch, Vector, KeyPoint},
+    features2d::AKAZE,
 };
 use opencv::core::Ptr;
 
@@ -51,17 +49,15 @@ pub fn akaze_keypoint_descriptor_extraction_def(img: &Mat) -> (Vector<KeyPoint>,
 
 pub fn get_bruteforce_matches(origin_desc: cv::core::Mat, target_desc: cv::core::Mat) -> Vector<DMatch> {
     let mut matches= opencv::types::VectorOfVectorOfDMatch::new();
-    let mut bf_matcher = cv::features2d::BFMatcher::new(cv::core::NORM_HAMMING, false).unwrap();
+    let bf_matcher = cv::features2d::BFMatcher::new(cv::core::NORM_HAMMING, false).unwrap();
 
     bf_matcher.knn_train_match_def(&origin_desc, &target_desc, &mut matches, 2).unwrap();
 
     let mut good_matches = opencv::types::VectorOfDMatch::new();
-    let mut tracker = 0i32;
 
     for i in &matches {
         for m in &i {
             for n in &i {
-                tracker += 1;
                 if m.distance < 0.3 * n.distance {
                     good_matches.push(m);
                     break
