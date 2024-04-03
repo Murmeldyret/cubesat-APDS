@@ -1,4 +1,4 @@
-name: Rust
+name: Build
 
 on:
   push:
@@ -9,19 +9,65 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
-jobs:
-  db:
-    name: Setup PostgreSQL for Linux/macOS/Windows
-    uses: ikalnytskyi/action-setup-postgres@v5
-            
+jobs:            
   build:
 
     runs-on: ubuntu-latest
 
     steps:
+    - name: Setup PostgreSQL for Linux/macOS/Windows
+      uses: ikalnytskyi/action-setup-postgres@v5
+
+    - name: Install dependencies
+      # You may pin to the exact commit or the version.
+      # uses: rayandrew/with-opencv-action@6e5ae5d68caa714afee7baceb5c2c052c3c43adb
+      uses: rayandrew/with-opencv-action@v1
+      with:
+        # Directory to clone OpenCV, required to cache path
+        #dir: # optional, default is opencv-install
+        # Whether to build OpenCV completely again or just run make install from previously built binaries.
+        cached: true # optional
+        # OpenCV version to be installed.
+        opencv-version: 4.8.1 # default is 4.0.0
+        # If opencv-contrib (extra modules) should be included in the instalation.
+        # opencv-extra-modules: # optional, default is true
+        # If dependencies should be installed as well.
+        # install-deps: # optional, default is true
+        # 
+        # CMAKE_BUILD_TYPE: # optional, default is RELEASE
+        # 
+        # CMAKE_CXX_COMPILER: # optional, default is g++
+        # 
+        # CMAKE_INSTALL_PREFIX: # optional, default is /usr/local
+        # 
+        # WITH_TBB: # optional, default is true
+        # 
+        # WITH_IPP: # optional, default is true
+        # 
+        # BUILD_NEW_PYTHON_SUPPORT: # optional
+        # 
+        # WITH_V4L: # optional
+        # 
+        # ENABLE_PRECOMPILED_HEADERS: # optional, default is true
+        # 
+        # INSTALL_C_EXAMPLES: # optional
+        # 
+        # INSTALL_PYTHON_EXAMPLES: # optional
+        # 
+        # BUILD_EXAMPLES: # optional
+        # 
+        # WITH_QT: # optional
+        # 
+        # WITH_OPENGL: # optional
+        # 
+        # GENERATE_PKGCONFIG: # optional
+          
+      
     - uses: actions/checkout@v3
     - name: Build
       run: cargo build --verbose
     - name: Run tests
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost/postgres
       run: cargo test --verbose
 
