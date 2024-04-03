@@ -1,12 +1,12 @@
 use std::marker::PhantomData;
 
 use opencv::{
-    calib3d::{find_homography, RANSAC},
+    calib3d::{find_homography},
     core::{
-        Point2f, Scalar, Size, Size2d, Size2i, ToInputArray, ToOutputArray, Vec2f, Vec4b, VecN,
-        BORDER_CONSTANT, CV_8U, CV_8UC4,
+        Point2f, Scalar, Size2i, ToInputArray, ToOutputArray, Vec4b,
+        BORDER_CONSTANT, CV_8UC4,
     },
-    imgproc::{warp_perspective, INTER_LINEAR, INTER_NEAREST},
+    imgproc::{warp_perspective, INTER_LINEAR},
     prelude::*,
     Error,
 };
