@@ -65,7 +65,7 @@ jobs:
         # 
         # GENERATE_PKGCONFIG: # optional
           
-    - name: Run tests
+    - name: Run build
       run: cargo build --verbose
     - name: Run tests
       env:
