@@ -18,6 +18,9 @@ jobs:
     - name: Setup PostgreSQL for Linux/macOS/Windows
       uses: ikalnytskyi/action-setup-postgres@v5
 
+    - name: Build
+    - uses: actions/checkout@v3
+    
     - name: Install dependencies
       # You may pin to the exact commit or the version.
       # uses: rayandrew/with-opencv-action@6e5ae5d68caa714afee7baceb5c2c052c3c43adb
@@ -62,9 +65,7 @@ jobs:
         # 
         # GENERATE_PKGCONFIG: # optional
           
-      
-    - uses: actions/checkout@v3
-    - name: Build
+    - name: Run tests
       run: cargo build --verbose
     - name: Run tests
       env:
