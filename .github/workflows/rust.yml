@@ -19,7 +19,7 @@ jobs:
       uses: ikalnytskyi/action-setup-postgres@v5
 
     - name: Build
-      uses: actions/checkout@v3
+      uses: actions/checkout@v2
 
     - name: Setup OpenCV
       # You may pin to the exact commit or the version.
