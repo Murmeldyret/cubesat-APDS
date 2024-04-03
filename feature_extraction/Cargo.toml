@@ -1,18 +1,13 @@
 [package]
-name = "computer_vision"
+name = "feature_extraction"
 version = "0.1.0"
 edition = "2021"
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [dependencies]
-image = "0.24.8"
-imageproc = "0.23.0"
-itertools = "0.12.1"
-open = "5.0.1"
-palette = "0.7.4"
-rand = "0.8.5"
-rayon = "1.8.1"
-tempfile = "3.10.0"
-anyhow = "1.0.81"
-ndarray = "0.15.6"
-#opencv = "0.88.8"
 opencv = {version = "0.88.8", features = ["clang-runtime","calib3d"]}
+anyhow = "1.0.81"
+
+[lints]
+workspace = true

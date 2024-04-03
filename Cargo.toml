@@ -1,6 +1,6 @@
 [workspace]
 
-members = ["geotiff_extractor","homographier"]
+members = [ "feature_extraction","geotiff_extractor","homographier"]
 resolver = "2"
 
 [workspace.lints.clippy]
