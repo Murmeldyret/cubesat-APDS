@@ -216,7 +216,7 @@ pub fn warp_image_perspective<T: DataType>(
         src_size.height,
         src_size.width,
         src.mat.typ(),
-        Scalar::new(2f64, 2f64, 5f64, 124f64),
+        Scalar::new(1f64, 1f64, 1f64, 1f64),
     ).map_err(MatError::Opencv)?;
 
     warp_perspective(
@@ -224,7 +224,7 @@ pub fn warp_image_perspective<T: DataType>(
         &mut mat,
         m,
         size,
-        INTER_NEAREST,
+        INTER_LINEAR,
         BORDER_CONSTANT,
         Scalar::new(1f64, 1f64, 1f64, 1f64),
     )
@@ -500,7 +500,7 @@ mod test {
         // applying an "empty" transformation should be idempotent
         for row in 0..SIZE {
             for col in 0..SIZE {
-                print!("src: {:?}", image.at_2d(row, col).unwrap());
+                print!("src: {:?} ", image.at_2d(row, col).unwrap());
                 print!("dst: {:?}\n", warped.at_2d(row, col).unwrap());
                 // assert_eq!(
                 //     image.at_2d(row, col).unwrap(),
