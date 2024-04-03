@@ -186,7 +186,7 @@ impl MosaicDataset for MosaicedDataset {
         todo!()
     }
 
-    fn set_scaling(&self, dimensions: (usize, usize)) {
+    fn set_scaling(&self, _dimensions: (usize, usize)) {
         todo!()
     }
 
@@ -220,11 +220,11 @@ impl MosaicDataset for MosaicedDataset {
         todo!()
     }
 
-    fn import_mosaic_dataset(path: &str) -> Result<MosaicedDataset, errors::GdalError> {
+    fn import_mosaic_dataset(_path: &str) -> Result<MosaicedDataset, errors::GdalError> {
         todo!()
     }
 
-    fn set_bands(&self, red_band: isize, green_band: isize, blue_band: isize) {
+    fn set_bands(&self, _red_band: isize, _green_band: isize, _blue_band: isize) {
         todo!()
     }
 }
