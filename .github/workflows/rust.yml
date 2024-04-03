@@ -21,6 +21,10 @@ jobs:
     - name: Build
       uses: actions/checkout@v3
 
+    - uses: Swatinem/rust-cache@v2
+      with:
+        cache-on-failure: true
+
     - name: Install apt https
       run: sudo apt-get update && sudo apt-get install -y apt-transport-https
       
@@ -29,6 +33,9 @@ jobs:
 
     - name: Setup GDAL
       run: sudo apt-get install libgdal-dev
+
+    - name: Setup Diesel
+      run: cargo install diesel-cli
           
       
     - name: Run tests
