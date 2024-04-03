@@ -9,7 +9,7 @@ use gdal::raster::ResampleAlg;
 use gdal::programs::raster::build_vrt;
 
 #[cfg(test)]
-use mockall::{automock, mock, predicate::*};
+use mockall::{automock, predicate::*};
 
 // A struct for handling raw datasets from disk in Geotiff format
 pub struct RawDataset {
