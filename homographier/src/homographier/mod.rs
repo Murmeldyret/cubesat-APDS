@@ -22,6 +22,7 @@ impl PixelElemType for BGRA {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum HomographyMethod {
     Default = 0,
     LMEDS = 4,
@@ -172,29 +173,40 @@ fn rbga8_to_vec4b(pixel: RGBA8) -> Vec4b {
     Vec4b::new(pixel.b, pixel.g, pixel.r, pixel.a)
 }
 
+/// Estimates the homography between 2 planes
+/// ## Parameters 
+/// * input: Points taken from the source plane (length should be atleast 4, and points cannot be colinear)
+/// * reference: Points taken from the destination plane (length should be atleast 4, and points cannot be colinear)
+/// * method: the method used to compute, default is Least median squares (Lmeds)
+/// * repreproj_threshold: Maximum allowed error, if the error is greater, a point is considered an outlier (used in RANSAC and RHO)
 pub fn find_homography_mat(
     input: &[Point2f],
     reference: &[Point2f],
     method: Option<HomographyMethod>,
     reproj_threshold: Option<f64>,
-) -> Result<(Cmat<f64>, Cmat<u8>), MatError> {
+) -> Result<(Cmat<f64>, Option<Cmat<u8>>), MatError> {
     let input = opencv::core::Vector::from_slice(input);
     let reference = opencv::core::Vector::from_slice(reference);
 
     let mut mask = Mat::default();
-    let method = method.unwrap_or(HomographyMethod::Default) as i32;
+    let method_i = method.unwrap_or(HomographyMethod::Default) as i32;
 
     let homography = find_homography(
         &input,
         &reference,
         &mut mask,
-        method,
+        method_i,
         reproj_threshold.unwrap_or(10.0),
     )
     .map_err(MatError::Opencv)?; // RANSAC is used since some feature matching may be erroneous.
 
     // let mask = Cmat::<Point2f>::new(mask)?; //
-    Ok((Cmat::<f64>::new(homography)?, Cmat::<u8>::new(mask)?))
+    let out_mask = match method {
+        Some(HomographyMethod::RANSAC) => {Some(Cmat::new(mask)?)},
+        Some(HomographyMethod::LMEDS) => {Some(Cmat::new(mask)?)}
+        _ => {None},
+    };
+    Ok((Cmat::<f64>::new(homography)?, out_mask))
 }
 
 /// Warps the perspective of `src` image using `m`
