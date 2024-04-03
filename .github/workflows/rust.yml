@@ -25,7 +25,7 @@ jobs:
       run: sudo apt-get update && sudo apt-get install -y apt-transport-https
       
     - name: Setup OpenCV
-      run: sudo apt-get install -y opencv-data
+      run: sudo apt-get install -y libopencv-dev
 
     - name: Setup GDAL
       run: sudo apt-get install libgdal-dev
