@@ -173,12 +173,15 @@ fn rbga8_to_vec4b(pixel: RGBA8) -> Vec4b {
     Vec4b::new(pixel.b, pixel.g, pixel.r, pixel.a)
 }
 
-/// Estimates the homography between 2 planes
+/// Estimates the homography between 2 planes, this matrix is always 3x3 CV_64FC1
 /// ## Parameters
 /// * input: Points taken from the source plane (length should be atleast 4, and points cannot be colinear)
 /// * reference: Points taken from the destination plane (length should be atleast 4, and points cannot be colinear)
 /// * method: the method used to compute, default is Least median squares (Lmeds)
-/// * repreproj_threshold: Maximum allowed error, if the error is greater, a point is considered an outlier (used in RANSAC and RHO)
+/// * repreproj_threshold: Maximum allowed error, if the error is greater, a point is considered an outlier (used in RANSAC and RHO), defaults to 3.0
+/// 
+/// ## Errors
+/// TODO
 pub fn find_homography_mat(
     input: &[Point2f],
     reference: &[Point2f],
@@ -196,7 +199,7 @@ pub fn find_homography_mat(
         &reference,
         &mut mask,
         method_i,
-        reproj_threshold.unwrap_or(10.0),
+        reproj_threshold.unwrap_or(3f64),
     )
     .map_err(MatError::Opencv)?; // RANSAC is used since some feature matching may be erroneous.
 
