@@ -36,7 +36,11 @@ jobs:
 
     - name: Setup Diesel
       run: cargo install diesel_cli
-          
+
+    - name: Run Migrations
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost/postgres
+      run: diesel migration run --migration-dir feature_database/
       
     - name: Run tests
       env:
