@@ -94,7 +94,11 @@ pub fn export_matches(
         cv::features2d::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS
      ).unwrap();
 
-     cv::imgcodecs::imwrite(export_location, &out_img, &cv::core::Vector::default()).unwrap();
+    cv::imgcodecs::imwrite(export_location, &out_img, &cv::core::Vector::default()).unwrap();
+}
+
+pub fn get_mat_from_dir(img_dir: &str) -> Mat {
+    return cv::imgcodecs::imread(img_dir, cv::imgcodecs::IMREAD_COLOR).unwrap();
 }
 
 #[allow(clippy::unwrap_used)]
@@ -105,28 +109,23 @@ mod test {
 
     use opencv::{self as cv, prelude::*};
 
-    use std::env;
-
-    use crate::feature_extraction::{export_matches, get_bruteforce_matches};
+    use crate::feature_extraction::{export_matches, get_bruteforce_matches, get_mat_from_dir};
 
     use super::akaze_keypoint_descriptor_extraction_def;
 
     #[test]
     fn fake_test() {
-        let path = env::current_dir().unwrap();
-        println!("The current directory is {}", path.display());
+        let img1_dir = "./30.tif";
+        let img2_dir = "./31.tif";
 
-        let img1_location = "./30.tif";
-        let img2_location = "./31.tif";
-
-        let img1: Mat = cv::imgcodecs::imread(img1_location, cv::imgcodecs::IMREAD_COLOR).unwrap();
-        let img2: Mat = cv::imgcodecs::imread(img2_location, cv::imgcodecs::IMREAD_COLOR).unwrap();
+        let img1: Mat = get_mat_from_dir(img1_dir);
+        let img2: Mat = get_mat_from_dir(img2_dir);
 
         let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1);
         let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2);
         
-        println!("{} - Keypoints: {}", img1_location, img1_keypoints.len());
-        println!("{} - Keypoints: {}", img2_location, img2_keypoints.len());
+        println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
+        println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
 
         let matches = get_bruteforce_matches(img1_desc, img2_desc);
 
