@@ -42,8 +42,6 @@ pub fn akaze_keypoint_descriptor_extraction_def(img: &Mat) -> (Vector<KeyPoint>,
         cv::features2d::DrawMatchesFlags::DEFAULT,
     ).unwrap();
 
-    cv::imgcodecs::imwrite("./tmp.png", &dst_img, &cv::core::Vector::default()).unwrap();
-
     return (akaze_keypoints, akaze_desc);  
 }
 
