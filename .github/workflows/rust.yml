@@ -26,6 +26,9 @@ jobs:
       
     - name: Setup OpenCV
       run: sudo apt-get install -y opencv-data
+
+    - name: Setup GDAL
+      run: sudo apt-get install libgdal-dev
           
       
     - name: Run tests
