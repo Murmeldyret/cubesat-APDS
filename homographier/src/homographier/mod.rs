@@ -180,6 +180,7 @@ pub fn find_homography_mat(
 ) -> Result<(Cmat<f64>, Cmat<u8>), MatError> {
     let input = opencv::core::Vector::from_slice(input);
     let reference = opencv::core::Vector::from_slice(reference);
+
     let mut mask = Mat::default();
     let method = method.unwrap_or(HomographyMethod::Default) as i32;
 
@@ -280,19 +281,16 @@ mod test {
         Cmat::from_2d_slice(&slice).unwrap()
     }
 
-    #[ignore = "virker stadigvæk ikke"]
     #[test]
     fn homography_success() {
-        let mut points: Vec<Point2f> = Vec::with_capacity(4);
+        let mut points: Vec<Point2f> = Vec::with_capacity(100);
 
-        // points.push(Point2f::new(1f32, 1f32));
-        // points.push(Point2f::new(2f32, 2f32));
-        // points.push(Point2f::new(3f32, 4f32));
-        // points.push(Point2f::new(4f32, 4f32));
-        points.push(Point2f::new(2f32, 2f32));
-        points.push(Point2f::new(4f32, 4f32));
-        points.push(Point2f::new(8f32, 8f32));
-        points.push(Point2f::new(8f32, 8f32));
+        // Create many sample keypoints should be high, else it will distort the image too much.
+        for i in 1..=10 {
+            for j in 1..=10 {
+                points.push(Point2f::new(i as f32, j as f32));
+            }
+        }
 
         let res = find_homography_mat(
             &points.clone(),
@@ -308,25 +306,14 @@ mod test {
         let res = res.unwrap();
         let homography = res.0;
         let mask = res.1;
-        assert_eq!(homography.at_2d(2, 2).unwrap(), &1f64); // h__3,3 should always be 1 https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
 
-        //alt herefter giver ikke mening
-        let mut sum: f64 = 0f64;
+        // Assert for identity matrix
         for col in 0..3 {
             for row in 0..3 {
-                let elem = homography.at_2d(row, col).unwrap();
-                dbg!(elem);
-                sum += elem
-            }
-        }
-        dbg!(sum);
-        // assert_eq!(sum, 1f64);
-        for col in 0..3 {
-            for row in 0..3 {
-                if col == 2 && row == 2 {
-                    assert_eq!(homography.at_2d(row, col).unwrap(), &1f64);
+                if col == row  {
+                    assert_eq!(&homography.at_2d(row, col).unwrap().round(), &1f64);
                 } else {
-                    assert_eq!(homography.at_2d(row, col).unwrap(), &0f64);
+                    assert_eq!(&homography.at_2d(row, col).unwrap().round(), &0f64);
                 }
             }
         }
