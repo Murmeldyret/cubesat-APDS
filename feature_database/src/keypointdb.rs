@@ -175,7 +175,7 @@ mod tests {
         use rand::prelude::*;
         let mut rng = rand::thread_rng();
 
-        for i in 0..amount {
+        for _i in 0..amount {
             let insert_image = InsertImage {
                 x_start: &rng.gen(),
                 y_start: &rng.gen(),
