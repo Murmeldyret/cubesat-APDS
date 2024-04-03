@@ -216,8 +216,8 @@ pub fn warp_image_perspective<T: DataType>(
         src_size.height,
         src_size.width,
         src.mat.typ(),
-        Scalar::new(1f64, 1f64, 1f64, 1f64),
-    ).map_err(MatError::Opencv)?;
+        Scalar::new(1f64, 1f64, 1f64, 1f64),)
+    .map_err(MatError::Opencv)?;
 
     warp_perspective(
         src,
@@ -276,8 +276,7 @@ mod test {
     }
 
     fn empty_homography() -> Cmat<f64> {
-        let mut slice: [[f64; 3]; 3] = [[0f64; 3]; 3];
-        slice[2][2] = 1f64;
+        let slice: [[f64; 3]; 3] = [[1f64,0f64,0f64],[0f64,1f64,0f64],[0f64,0f64,1f64]];
         Cmat::from_2d_slice(&slice).unwrap()
     }
 
@@ -502,13 +501,13 @@ mod test {
             for col in 0..SIZE {
                 print!("src: {:?} ", image.at_2d(row, col).unwrap());
                 print!("dst: {:?}\n", warped.at_2d(row, col).unwrap());
-                // assert_eq!(
-                //     image.at_2d(row, col).unwrap(),
-                //     warped.at_2d(row, col).unwrap(),
-                //     "row: {} col: {}",
-                //     row,
-                //     col
-                // );
+                assert_eq!(
+                    image.at_2d(row, col).unwrap(),
+                    warped.at_2d(row, col).unwrap(),
+                    "row: {} col: {}",
+                    row,
+                    col
+                );
             }
         }
     }
