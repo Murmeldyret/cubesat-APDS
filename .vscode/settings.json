@@ -1,0 +1,5 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./feature_extraction/Cargo.toml"
+    ]
+}

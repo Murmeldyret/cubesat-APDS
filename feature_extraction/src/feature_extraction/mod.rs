@@ -45,7 +45,7 @@ pub fn akaze_keypoint_descriptor_extraction_def(img: &Mat) -> (Vector<KeyPoint>,
     return (akaze_keypoints, akaze_desc);  
 }
 
-pub fn get_bruteforce_matches(origin_desc: cv::core::Mat, target_desc: cv::core::Mat) -> Vector<DMatch> {
+pub fn get_bruteforce_matches(origin_desc: cv::core::Mat, target_desc: cv::core::Mat, filter_strength: f32) -> Vector<DMatch> {
     let mut matches= opencv::types::VectorOfVectorOfDMatch::new();
     let bf_matcher = cv::features2d::BFMatcher::new(cv::core::NORM_HAMMING, false).unwrap();
 
@@ -56,7 +56,7 @@ pub fn get_bruteforce_matches(origin_desc: cv::core::Mat, target_desc: cv::core:
     for i in &matches {
         for m in &i {
             for n in &i {
-                if m.distance < 0.3 * n.distance {
+                if m.distance < filter_strength * n.distance {
                     good_matches.push(m);
                     break
                 }
@@ -125,12 +125,45 @@ mod test {
         println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
         println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
 
-        let matches = get_bruteforce_matches(img1_desc, img2_desc);
+        let matches = get_bruteforce_matches(img1_desc, img2_desc, 0.3);
 
         println!("Matches: {}", matches.len());
 
         export_matches(&img1, &img1_keypoints, &img2, &img2_keypoints, &matches, "./out.tif", );
 
         assert!(true);
+    }
+
+    #[test]
+    fn keypoints_count() {
+        let img1_dir = "./30.tif";
+        let img2_dir = "./31.tif";
+
+        let img1: Mat = get_mat_from_dir(img1_dir);
+        let img2: Mat = get_mat_from_dir(img2_dir);
+
+        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1);
+        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2);
+        
+        println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
+        println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
+
+        assert!(img1_keypoints.len() == 9079 && img2_keypoints.len() == 9357);
+    }
+
+    #[test]
+    fn matches_count() {
+        let img1_dir = "./30.tif";
+        let img2_dir = "./31.tif";
+
+        let img1: Mat = get_mat_from_dir(img1_dir);
+        let img2: Mat = get_mat_from_dir(img2_dir);
+
+        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1);
+        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2);
+
+        let matches = get_bruteforce_matches(img1_desc, img2_desc, 0.3);
+
+        assert!(matches.len() == 27);
     }
 }
