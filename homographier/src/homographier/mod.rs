@@ -312,8 +312,8 @@ mod test {
     }
 
     fn empty_homography() -> Cmat<f64> {
-        let slice: [[f64; 3]; 3] = [[1f64, 0f64, 0f64], [0f64, 1f64, 0f64], [0f64, 0f64, 1f64]];
-        Cmat::from_2d_slice(&slice).unwrap()
+        const SLICE: [[f64; 3]; 3] = [[1f64, 0f64, 0f64], [0f64, 1f64, 0f64], [0f64, 0f64, 1f64]];
+        Cmat::from_2d_slice(&SLICE).unwrap()
     }
 
     #[test]
