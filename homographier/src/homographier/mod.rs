@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use opencv::{
-    calib3d::{find_homography},
+    calib3d::find_homography,
     core::{
         Point2f, Scalar, Size2i, ToInputArray, ToOutputArray, Vec4b,
         BORDER_CONSTANT, CV_8UC4,
@@ -46,6 +46,7 @@ pub enum MatError {
 }
 
 /// Checked Mat type
+/// T is the matrix element type, usually T should implement [`opencv::core::DataType`]
 /// # Notes
 /// Guarantees that a contained mat contains data, but makes no assumptions about validity
 #[derive(Debug)]
@@ -55,6 +56,8 @@ pub struct Cmat<T> {
 }
 
 impl<T> Cmat<T> {
+
+    
     pub fn new(mat: Mat) -> Result<Self, MatError> {
         Cmat {
             mat,
@@ -216,11 +219,12 @@ pub fn find_homography_mat(
 ///
 /// ## Parameters
 /// * src: The image that will be transformed
-/// * m: a 3x3 transformation matrix
+/// * m: a 3x3 transformation matrix, usually the one returned by [`find_homography_mat`]
 /// size: the size of the output image, by default the size is equal to that of `src`
 ///
 /// ## Errors
 /// TODO
+/// If the matrix m is not 3x3, an error is returned
 pub fn warp_image_perspective<T: DataType>(
     src: &Cmat<T>,
     m: &Cmat<f64>, // could be replaced with Matx33d as a potential optimization
