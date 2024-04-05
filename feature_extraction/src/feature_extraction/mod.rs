@@ -1,68 +1,59 @@
 use cv::{
-    core::{DMatch, KeyPoint, Point2f, Vector},
-    features2d::AKAZE,
+    core::{DMatch, KeyPoint, Mat, Point2f, Vector, NORM_HAMMING},
+    features2d::{AKAZE_DescriptorType, BFMatcher, DrawMatchesFlags, KAZE_DiffusivityType, AKAZE},
+    imgcodecs,
+    types::{VectorOfDMatch, VectorOfPoint2f, VectorOfVectorOfDMatch},
+    Error,
 };
 use opencv::core::Ptr;
 
 use opencv::{self as cv, prelude::*};
 
-#[derive(Default)]
-pub struct AkazeStruct {
-    pub scaling: Option<(usize, usize)>,
-    pub red_band_index: Option<isize>,
-    pub green_band_index: Option<isize>,
-    pub blue_band_index: Option<isize>,
-}
-
-pub fn akaze_keypoint_descriptor_extraction_def(img: &Mat) -> (Vector<KeyPoint>, cv::core::Mat) {
+pub fn akaze_keypoint_descriptor_extraction_def(
+    img: &Mat,
+) -> Result<(Vector<KeyPoint>, Mat), Error> {
     //let img: Mat = cv::imgcodecs::imread(file_location, cv::imgcodecs::IMREAD_COLOR).unwrap();
 
-    let mut akaze: Ptr<AKAZE> = <cv::features2d::AKAZE>::create(
-        cv::features2d::AKAZE_DescriptorType::DESCRIPTOR_MLDB,
+    let mut akaze: Ptr<AKAZE> = <AKAZE>::create(
+        AKAZE_DescriptorType::DESCRIPTOR_MLDB,
         0,
         3,
         0.001f32,
         4,
         4,
-        opencv::features2d::KAZE_DiffusivityType::DIFF_PM_G2,
+        KAZE_DiffusivityType::DIFF_PM_G2,
         -1,
-    )
-    .unwrap();
+    )?;
 
-    let mut akaze_keypoints = cv::core::Vector::default();
-    let mut akaze_desc = cv::core::Mat::default();
-    let mut dst_img = cv::core::Mat::default();
-    let mask = cv::core::Mat::default();
+    let mut akaze_keypoints = Vector::default();
+    let mut akaze_desc = Mat::default();
+    let mut dst_img = Mat::default();
+    let mask = Mat::default();
 
-    akaze
-        .detect_and_compute(&img, &mask, &mut akaze_keypoints, &mut akaze_desc, false)
-        .unwrap();
+    akaze.detect_and_compute(&img, &mask, &mut akaze_keypoints, &mut akaze_desc, false)?;
     cv::features2d::draw_keypoints(
         &img,
         &akaze_keypoints,
         &mut dst_img,
         cv::core::VecN([0., 255., 0., 255.]),
-        cv::features2d::DrawMatchesFlags::DEFAULT,
-    )
-    .unwrap();
+        DrawMatchesFlags::DEFAULT,
+    )?;
 
-    return (akaze_keypoints, akaze_desc);
+    Ok((akaze_keypoints, akaze_desc))
 }
 
 pub fn get_knn_matches(
-    origin_desc: cv::core::Mat,
-    target_desc: cv::core::Mat,
+    origin_desc: Mat,
+    target_desc: Mat,
     k: i32,
     filter_strength: f32,
-) -> Vector<DMatch> {
-    let mut matches = opencv::types::VectorOfVectorOfDMatch::new();
-    let bf_matcher = cv::features2d::BFMatcher::new(cv::core::NORM_HAMMING, false).unwrap();
+) -> Result<Vector<DMatch>, Error> {
+    let mut matches = VectorOfVectorOfDMatch::new();
+    let bf_matcher = BFMatcher::new(NORM_HAMMING, false)?;
 
-    bf_matcher
-        .knn_train_match_def(&origin_desc, &target_desc, &mut matches, k)
-        .unwrap();
+    bf_matcher.knn_train_match_def(&origin_desc, &target_desc, &mut matches, k)?;
 
-    let mut good_matches = opencv::types::VectorOfDMatch::new();
+    let mut good_matches = VectorOfDMatch::new();
 
     for i in &matches {
         for m in &i {
@@ -75,21 +66,16 @@ pub fn get_knn_matches(
         }
     }
 
-    return good_matches;
+    Ok(good_matches)
 }
 
-pub fn get_bruteforce_matches(
-    origin_desc: cv::core::Mat,
-    target_desc: cv::core::Mat,
-) -> Vector<DMatch> {
-    let mut matches = opencv::types::VectorOfDMatch::new();
-    let bf_matcher = cv::features2d::BFMatcher::new(cv::core::NORM_HAMMING, true).unwrap();
+pub fn get_bruteforce_matches(origin_desc: Mat, target_desc: Mat) -> Result<Vector<DMatch>, Error> {
+    let mut matches = VectorOfDMatch::new();
+    let bf_matcher = BFMatcher::new(NORM_HAMMING, true)?;
 
-    bf_matcher
-        .train_match_def(&origin_desc, &target_desc, &mut matches)
-        .unwrap();
+    bf_matcher.train_match_def(&origin_desc, &target_desc, &mut matches)?;
 
-    return matches;
+    Ok(matches)
 }
 
 pub fn export_matches(
@@ -99,9 +85,9 @@ pub fn export_matches(
     img2_keypoints: &Vector<KeyPoint>,
     matches: &Vector<DMatch>,
     export_location: &str,
-) {
-    let mut out_img = cv::core::Mat::default();
-    let matches_mask = cv::core::Vector::new();
+) -> Result<(), Error> {
+    let mut out_img = Mat::default();
+    let matches_mask = Vector::new();
 
     cv::features2d::draw_matches(
         &img1,
@@ -113,38 +99,37 @@ pub fn export_matches(
         opencv::core::VecN::all(-1.0),
         opencv::core::VecN::all(-1.0),
         &matches_mask,
-        cv::features2d::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS,
-    )
-    .unwrap();
+        DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS,
+    )?;
 
-    cv::imgcodecs::imwrite(export_location, &out_img, &cv::core::Vector::default()).unwrap();
+    imgcodecs::imwrite(export_location, &out_img, &Vector::default())?;
+
+    Ok(())
 }
 
-pub fn get_mat_from_dir(img_dir: &str) -> Mat {
-    return cv::imgcodecs::imread(img_dir, cv::imgcodecs::IMREAD_COLOR).unwrap();
+pub fn get_mat_from_dir(img_dir: &str) -> Result<Mat, Error> {
+    Ok(imgcodecs::imread(img_dir, imgcodecs::IMREAD_COLOR)?)
 }
 
 pub fn get_points_from_matches(
     img1_keypoints: &Vector<KeyPoint>,
     img2_keypoints: &Vector<KeyPoint>,
     matches: &Vector<DMatch>,
-) -> (Vector<Point2f>, Vector<Point2f>) {
-    let mut img1_matched_keypoints: cv::core::Vector<cv::core::KeyPoint> =
-        cv::core::Vector::default();
-    let mut img2_matched_keypoints: cv::core::Vector<cv::core::KeyPoint> =
-        cv::core::Vector::default();
+) -> Result<(Vector<Point2f>, Vector<Point2f>), Error> {
+    let mut img1_matched_keypoints: Vector<KeyPoint> = Vector::default();
+    let mut img2_matched_keypoints: Vector<KeyPoint> = Vector::default();
     for m in matches {
-        img1_matched_keypoints.push(img1_keypoints.get(m.img_idx.try_into().unwrap()).unwrap());
-        img2_matched_keypoints.push(img2_keypoints.get(m.train_idx.try_into().unwrap()).unwrap());
+        img1_matched_keypoints.push(img1_keypoints.get(m.img_idx.try_into()?)?);
+        img2_matched_keypoints.push(img2_keypoints.get(m.train_idx.try_into()?)?);
     }
 
-    let mut img1_matched_points: Vector<Point2f> = cv::types::VectorOfPoint2f::new();
-    let mut img2_matched_points: Vector<Point2f> = cv::types::VectorOfPoint2f::new();
+    let mut img1_matched_points: Vector<Point2f> = VectorOfPoint2f::new();
+    let mut img2_matched_points: Vector<Point2f> = VectorOfPoint2f::new();
 
-    opencv::core::KeyPoint::convert_def(&img1_matched_keypoints, &mut img1_matched_points).unwrap();
-    opencv::core::KeyPoint::convert_def(&img1_matched_keypoints, &mut img2_matched_points).unwrap();
+    opencv::core::KeyPoint::convert_def(&img1_matched_keypoints, &mut img1_matched_points)?;
+    opencv::core::KeyPoint::convert_def(&img1_matched_keypoints, &mut img2_matched_points)?;
 
-    return (img1_matched_points, img2_matched_points);
+    Ok((img1_matched_points, img2_matched_points))
 }
 
 #[allow(clippy::unwrap_used)]
