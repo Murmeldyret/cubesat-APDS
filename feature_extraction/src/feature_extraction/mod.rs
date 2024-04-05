@@ -45,11 +45,11 @@ pub fn akaze_keypoint_descriptor_extraction_def(img: &Mat) -> (Vector<KeyPoint>,
     return (akaze_keypoints, akaze_desc);  
 }
 
-pub fn get_bruteforce_matches(origin_desc: cv::core::Mat, target_desc: cv::core::Mat, filter_strength: f32) -> Vector<DMatch> {
+pub fn get_knn_matches(origin_desc: cv::core::Mat, target_desc: cv::core::Mat, k: i32, filter_strength: f32) -> Vector<DMatch> {
     let mut matches= opencv::types::VectorOfVectorOfDMatch::new();
     let bf_matcher = cv::features2d::BFMatcher::new(cv::core::NORM_HAMMING, false).unwrap();
 
-    bf_matcher.knn_train_match_def(&origin_desc, &target_desc, &mut matches, 2).unwrap();
+    bf_matcher.knn_train_match_def(&origin_desc, &target_desc, &mut matches, k).unwrap();
 
     let mut good_matches = opencv::types::VectorOfDMatch::new();
 
@@ -65,6 +65,15 @@ pub fn get_bruteforce_matches(origin_desc: cv::core::Mat, target_desc: cv::core:
     }
 
     return good_matches;
+}
+
+pub fn get_bruteforce_matches(origin_desc: cv::core::Mat, target_desc: cv::core::Mat) -> Vector<DMatch> {
+    let mut matches = opencv::types::VectorOfDMatch::new();
+    let bf_matcher = cv::features2d::BFMatcher::new(cv::core::NORM_HAMMING, true).unwrap();
+
+    bf_matcher.train_match_def(&origin_desc, &target_desc, &mut matches).unwrap();
+
+    return matches;
 }
 
 pub fn export_matches(
@@ -107,7 +116,7 @@ mod test {
 
     use opencv::{self as cv, prelude::*};
 
-    use crate::feature_extraction::{export_matches, get_bruteforce_matches, get_mat_from_dir};
+    use crate::feature_extraction::{export_matches, get_knn_matches, get_mat_from_dir, get_bruteforce_matches};
 
     use super::akaze_keypoint_descriptor_extraction_def;
 
@@ -125,7 +134,7 @@ mod test {
         println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
         println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
 
-        let matches = get_bruteforce_matches(img1_desc, img2_desc, 0.3);
+        let matches = get_knn_matches(img1_desc, img2_desc, 2, 0.3);
 
         println!("Matches: {}", matches.len());
 
@@ -152,7 +161,7 @@ mod test {
     }
 
     #[test]
-    fn matches_count() {
+    fn knn_matches_count() {
         let img1_dir = "./30.tif";
         let img2_dir = "./31.tif";
 
@@ -162,8 +171,25 @@ mod test {
         let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1);
         let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2);
 
-        let matches = get_bruteforce_matches(img1_desc, img2_desc, 0.3);
+        let matches = get_knn_matches(img1_desc, img2_desc, 2, 0.3);
 
         assert!(matches.len() == 27);
+    }
+
+    #[test]
+    fn bf_matches_count() {
+        let img1_dir = "./30.tif";
+        let img2_dir = "./31.tif";
+
+        let img1: Mat = get_mat_from_dir(img1_dir);
+        let img2: Mat = get_mat_from_dir(img2_dir);
+
+        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1);
+        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2);
+
+        let matches = get_bruteforce_matches(img1_desc, img2_desc);
+        println!("{}", matches.len());
+
+        assert!(matches.len() == 3228);
     }
 }
