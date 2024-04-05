@@ -191,7 +191,7 @@ fn rbga8_to_vec4b(pixel: RGBA8) -> Vec4b {
     Vec4b::new(pixel.b, pixel.g, pixel.r, pixel.a)
 }
 
-/// Estimates the homography between 2 planes, this matrix is always 3x3 CV_64FC1
+/// Estimates the homography between 2 planes, this matrix is always 3x3 `CV_F64C1`
 /// ## Parameters
 /// * input: Points taken from the source plane (length should be atleast 4, and points cannot be colinear)
 /// * reference: Points taken from the destination plane (length should be atleast 4, and points cannot be colinear)
