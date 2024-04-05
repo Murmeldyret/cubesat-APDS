@@ -312,6 +312,7 @@ mod test {
     }
 
     fn empty_homography() -> Cmat<f64> {
+        // an idempotent homography is also the identity matrix
         const SLICE: [[f64; 3]; 3] = [[1f64, 0f64, 0f64], [0f64, 1f64, 0f64], [0f64, 0f64, 1f64]];
         Cmat::from_2d_slice(&SLICE).unwrap()
     }
