@@ -91,10 +91,10 @@ pub fn export_matches(
 
     cv::features2d::draw_matches(
         &img1,
-        &img1_keypoints,
+        img1_keypoints,
         &img2,
-        &img2_keypoints,
-        &matches,
+        img2_keypoints,
+        matches,
         &mut out_img,
         opencv::core::VecN::all(-1.0),
         opencv::core::VecN::all(-1.0),
@@ -108,7 +108,7 @@ pub fn export_matches(
 }
 
 pub fn get_mat_from_dir(img_dir: &str) -> Result<Mat, Error> {
-    Ok(imgcodecs::imread(img_dir, imgcodecs::IMREAD_COLOR)?)
+    imgcodecs::imread(img_dir, imgcodecs::IMREAD_COLOR)
 }
 
 pub fn get_points_from_matches(
@@ -153,20 +153,20 @@ mod test {
         let img1_dir = "../resources/test/Geotiff/30.tif";
         let img2_dir = "../resources/test/Geotiff/31.tif";
 
-        let img1: Mat = get_mat_from_dir(img1_dir);
-        let img2: Mat = get_mat_from_dir(img2_dir);
+        let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
+        let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
-        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1);
-        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2);
+        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
+        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
 
         println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
         println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
 
-        let matches = get_knn_matches(img1_desc, img2_desc, 2, 0.3);
+        let matches = get_knn_matches(img1_desc, img2_desc, 2, 0.3).unwrap();
 
         println!("Matches: {}", matches.len());
 
-        export_matches(
+        let _ = export_matches(
             &img1,
             &img1_keypoints,
             &img2,
@@ -176,7 +176,7 @@ mod test {
         );
 
         let (img1_matched_points, img2_matched_points) =
-            get_points_from_matches(&img1_keypoints, &img2_keypoints, &matches);
+            get_points_from_matches(&img1_keypoints, &img2_keypoints, &matches).unwrap();
 
         println!(
             "Points2f: {} - {}",
@@ -192,11 +192,11 @@ mod test {
         let img1_dir = "../resources/test/Geotiff/30.tif";
         let img2_dir = "../resources/test/Geotiff/31.tif";
 
-        let img1: Mat = get_mat_from_dir(img1_dir);
-        let img2: Mat = get_mat_from_dir(img2_dir);
+        let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
+        let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
-        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1);
-        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2);
+        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
+        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
 
         println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
         println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
@@ -209,13 +209,13 @@ mod test {
         let img1_dir = "../resources/test/Geotiff/30.tif";
         let img2_dir = "../resources/test/Geotiff/31.tif";
 
-        let img1: Mat = get_mat_from_dir(img1_dir);
-        let img2: Mat = get_mat_from_dir(img2_dir);
+        let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
+        let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
-        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1);
-        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2);
+        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
+        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
 
-        let matches = get_knn_matches(img1_desc, img2_desc, 2, 0.3);
+        let matches = get_knn_matches(img1_desc, img2_desc, 2, 0.3).unwrap();
 
         assert!(matches.len() == 27);
     }
@@ -225,13 +225,13 @@ mod test {
         let img1_dir = "../resources/test/Geotiff/30.tif";
         let img2_dir = "../resources/test/Geotiff/31.tif";
 
-        let img1: Mat = get_mat_from_dir(img1_dir);
-        let img2: Mat = get_mat_from_dir(img2_dir);
+        let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
+        let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
-        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1);
-        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2);
+        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
+        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
 
-        let matches = get_bruteforce_matches(img1_desc, img2_desc);
+        let matches = get_bruteforce_matches(img1_desc, img2_desc).unwrap();
         println!("{}", matches.len());
 
         assert!(matches.len() == 3228);
