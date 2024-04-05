@@ -43,8 +43,8 @@ pub fn akaze_keypoint_descriptor_extraction_def(
 }
 
 pub fn get_knn_matches(
-    origin_desc: Mat,
-    target_desc: Mat,
+    origin_desc: &Mat,
+    target_desc: &Mat,
     k: i32,
     filter_strength: f32,
 ) -> Result<Vector<DMatch>, Error> {
@@ -69,7 +69,7 @@ pub fn get_knn_matches(
     Ok(good_matches)
 }
 
-pub fn get_bruteforce_matches(origin_desc: Mat, target_desc: Mat) -> Result<Vector<DMatch>, Error> {
+pub fn get_bruteforce_matches(origin_desc: &Mat, target_desc: &Mat) -> Result<Vector<DMatch>, Error> {
     let mut matches = VectorOfDMatch::new();
     let bf_matcher = BFMatcher::new(NORM_HAMMING, true)?;
 
@@ -160,7 +160,7 @@ mod test {
         println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
         println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
 
-        let matches = get_knn_matches(img1_desc, img2_desc, 2, 0.3).unwrap();
+        let matches = get_knn_matches(&img1_desc, &img2_desc, 2, 0.3).unwrap();
 
         println!("Matches: {}", matches.len());
 
@@ -213,7 +213,7 @@ mod test {
         let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
         let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
 
-        let matches = get_knn_matches(img1_desc, img2_desc, 2, 0.3).unwrap();
+        let matches = get_knn_matches(&img1_desc, &img2_desc, 2, 0.3).unwrap();
 
         assert!(matches.len() == 27);
     }
@@ -229,7 +229,7 @@ mod test {
         let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
         let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
 
-        let matches = get_bruteforce_matches(img1_desc, img2_desc).unwrap();
+        let matches = get_bruteforce_matches(&img1_desc, &img2_desc).unwrap();
         println!("{}", matches.len());
 
         assert!(matches.len() == 3228);
