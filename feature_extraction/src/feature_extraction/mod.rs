@@ -122,8 +122,8 @@ mod test {
 
     #[test]
     fn fake_test() {
-        let img1_dir = "./30.tif";
-        let img2_dir = "./31.tif";
+        let img1_dir = "../resources/test/Geotiff/30.tif";
+        let img2_dir = "../resources/test/Geotiff/31.tif";
 
         let img1: Mat = get_mat_from_dir(img1_dir);
         let img2: Mat = get_mat_from_dir(img2_dir);
@@ -138,15 +138,15 @@ mod test {
 
         println!("Matches: {}", matches.len());
 
-        export_matches(&img1, &img1_keypoints, &img2, &img2_keypoints, &matches, "./out.tif", );
+        export_matches(&img1, &img1_keypoints, &img2, &img2_keypoints, &matches, "../resources/test/Geotiff/out.tif", );
 
         assert!(true);
     }
 
     #[test]
     fn keypoints_count() {
-        let img1_dir = "./30.tif";
-        let img2_dir = "./31.tif";
+        let img1_dir = "../resources/test/Geotiff/30.tif";
+        let img2_dir = "../resources/test/Geotiff/31.tif";
 
         let img1: Mat = get_mat_from_dir(img1_dir);
         let img2: Mat = get_mat_from_dir(img2_dir);
@@ -162,8 +162,8 @@ mod test {
 
     #[test]
     fn knn_matches_count() {
-        let img1_dir = "./30.tif";
-        let img2_dir = "./31.tif";
+        let img1_dir = "../resources/test/Geotiff/30.tif";
+        let img2_dir = "../resources/test/Geotiff/31.tif";
 
         let img1: Mat = get_mat_from_dir(img1_dir);
         let img2: Mat = get_mat_from_dir(img2_dir);
@@ -178,8 +178,8 @@ mod test {
 
     #[test]
     fn bf_matches_count() {
-        let img1_dir = "./30.tif";
-        let img2_dir = "./31.tif";
+        let img1_dir = "../resources/test/Geotiff/30.tif";
+        let img2_dir = "../resources/test/Geotiff/31.tif";
 
         let img1: Mat = get_mat_from_dir(img1_dir);
         let img2: Mat = get_mat_from_dir(img2_dir);
