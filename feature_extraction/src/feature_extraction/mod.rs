@@ -1,5 +1,5 @@
 use cv::{
-    core::{DMatch, Vector, KeyPoint},
+    core::{DMatch, KeyPoint, Point2f, Vector},
     features2d::AKAZE,
 };
 use opencv::core::Ptr;
@@ -108,15 +108,34 @@ pub fn get_mat_from_dir(img_dir: &str) -> Mat {
     return cv::imgcodecs::imread(img_dir, cv::imgcodecs::IMREAD_COLOR).unwrap();
 }
 
+pub fn get_points_from_matches(img1_keypoints: &Vector<KeyPoint>, img2_keypoints: &Vector<KeyPoint>, matches: &Vector<DMatch>) -> (Vector<Point2f>, Vector<Point2f>) {
+    let mut img1_matched_keypoints: cv::core::Vector<cv::core::KeyPoint> = cv::core::Vector::default();
+    let mut img2_matched_keypoints: cv::core::Vector<cv::core::KeyPoint> = cv::core::Vector::default();
+    for m in matches {
+        img1_matched_keypoints.push(img1_keypoints.get(m.img_idx.try_into().unwrap()).unwrap());
+        img2_matched_keypoints.push(img2_keypoints.get(m.train_idx.try_into().unwrap()).unwrap());
+    }
+
+    let mut img1_matched_points: Vector<Point2f> = cv::types::VectorOfPoint2f::new();
+    let mut img2_matched_points: Vector<Point2f> = cv::types::VectorOfPoint2f::new();
+    
+    opencv::core::KeyPoint::convert_def(&img1_matched_keypoints, &mut img1_matched_points).unwrap();
+    opencv::core::KeyPoint::convert_def(&img1_matched_keypoints, &mut img2_matched_points).unwrap();
+
+    return (img1_matched_points, img2_matched_points);
+}
+
+
 #[allow(clippy::unwrap_used)]
 #[allow(unused_variables)]
 #[allow(unused_imports)]
 #[allow(dead_code)]
 mod test {
 
+    use cv::core::Point2f;
     use opencv::{self as cv, prelude::*};
 
-    use crate::feature_extraction::{export_matches, get_knn_matches, get_mat_from_dir, get_bruteforce_matches};
+    use crate::feature_extraction::{export_matches, get_bruteforce_matches, get_knn_matches, get_mat_from_dir, get_points_from_matches};
 
     use super::akaze_keypoint_descriptor_extraction_def;
 
@@ -139,6 +158,13 @@ mod test {
         println!("Matches: {}", matches.len());
 
         export_matches(&img1, &img1_keypoints, &img2, &img2_keypoints, &matches, "../resources/test/Geotiff/out.tif", );
+
+        
+
+        let (img1_matched_points, img2_matched_points) = get_points_from_matches(&img1_keypoints, &img2_keypoints, &matches);
+
+        println!("Points2f: {} - {}", img1_matched_points.len(), img2_matched_points.len());
+        
 
         assert!(true);
     }
@@ -192,4 +218,6 @@ mod test {
 
         assert!(matches.len() == 3228);
     }
+
+    // TODO: get_points_from_matches test
 }
