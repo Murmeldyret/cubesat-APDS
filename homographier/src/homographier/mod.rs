@@ -57,7 +57,10 @@ pub struct Cmat<T> {
 
 impl<T> Cmat<T> {
 
-    
+    /// Creates a checked matrix from a [`opencv::core::Mat`]
+    /// 
+    /// ## Errors
+    /// If `mat` is empty, an error is returned
     pub fn new(mat: Mat) -> Result<Self, MatError> {
         Cmat {
             mat,
@@ -67,7 +70,6 @@ impl<T> Cmat<T> {
     }
 
     pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
-        // let res =
         Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
     }
 
@@ -101,7 +103,10 @@ impl<T> Cmat<T> {
 
 impl<T: DataType> Cmat<T> {
     /// Checked element access
-    /// Will return [`MatError::OutOfBounds`] if either row or column exceeds matrix width and size respectively
+    /// 
+    /// ## Errors
+    /// Will return [`MatError::OutOfBounds`] if either row or column exceeds matrix width and size respectively.
+    /// If the type T does not match the inner Mat's type, an error is returned
     pub fn at_2d(&self, row: i32, col: i32) -> Result<&T, MatError> {
         let size = self.mat.size().map_err(|_err| MatError::Unknown)?;
         if (row > size.width) || (col > size.height) {
@@ -137,6 +142,16 @@ impl<T> ToOutputArray for Cmat<T> {
     }
 }
 
+/// Converts a slice of [`RGBA8`] to a [`Cmat<Vec4b>`]
+/// 
+/// ## Parameters
+/// pixels: the slice of pixels that should be converted to a matrix, the slice length should be equal to `w*h`
+/// w: the width of the image, or the number of columns
+/// h: the height of the image, or the number of rows
+/// ## Notes
+/// Since OpenCV uses BGRA pixel ordering, the resulting matrix will be converted from RGBA to BGRA
+/// ## Errors
+/// Errors if pixel length != `w*h`
 pub fn raster_to_mat(pixels: &[RGBA8], w: i32, h: i32) -> Result<Cmat<Vec4b>, MatError> {
     //RGBA<u8> is equivalent to opencv's Vec4b, which implements DataType
     if pixels.len() != (w * h) as usize {
