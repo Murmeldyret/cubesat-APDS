@@ -2,7 +2,7 @@ use divan::{black_box, Bencher};
 use feature_extraction::akaze_keypoint_descriptor_extraction_def;
 use image::imageops::FilterType;
 use image::io::Reader as ImageReader;
-use opencv::core::{Vec3b, VecN, KeyPoint, Vector};
+use opencv::core::{KeyPoint, Vec3b, VecN, Vector};
 use opencv::prelude::*;
 use opencv::Error;
 use std::env;
@@ -11,7 +11,6 @@ use std::{io::Cursor, path::Path};
 fn main() {
     divan::main();
 }
-
 
 #[divan::bench(args = (1..13).map(|step| 2_u32.pow(step)), sample_size = 1, sample_count = 1)]
 fn extract_features_from_image(bencher: Bencher, sample_size: u32) {
@@ -34,12 +33,28 @@ fn extract_features_from_image(bencher: Bencher, sample_size: u32) {
         .map(|pixel| VecN::from_array(pixel.0))
         .collect();
 
-
     bencher.bench(|| {
         akaze_keypoint_descriptor_extraction_def(
-            &Mat::from_slice_rows_cols::<Vec3b>(&image_vec, sample_size as usize, sample_size as usize)
-                .unwrap(),
+            &Mat::from_slice_rows_cols::<Vec3b>(
+                &image_vec,
+                sample_size as usize,
+                sample_size as usize,
+            )
+            .unwrap(),
         )
     });
-    print!("\nKeypoints detected: {}", akaze_keypoint_descriptor_extraction_def(&Mat::from_slice_rows_cols::<Vec3b>(&image_vec, sample_size as usize, sample_size as usize).unwrap()).unwrap().0.len() );
+    println!(
+        "\nKeypoints detected: {}",
+        akaze_keypoint_descriptor_extraction_def(
+            &Mat::from_slice_rows_cols::<Vec3b>(
+                &image_vec,
+                sample_size as usize,
+                sample_size as usize
+            )
+            .unwrap()
+        )
+        .unwrap()
+        .0
+        .len()
+    );
 }
