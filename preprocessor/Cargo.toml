@@ -6,4 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-geotiff_extractor = {version ="0.1.0", path = "../geotiff_extractor"}
+geotiff_extractor = { version = "0.1.0", path = "../geotiff_extractor" }
+feature_extraction = { version = "0.1.0", path = "../feature_extraction" }
+feature_database = { version = "0.1.0", path = "../feature_database" }
