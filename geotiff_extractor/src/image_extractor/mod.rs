@@ -11,6 +11,9 @@ use gdal::programs::raster::build_vrt;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 
+const GAMMA_VALUE: f32 = 1.0/2.2;
+const U8_MAX: f32 = u8::MAX as f32;
+
 // A struct for handling raw datasets from disk in Geotiff format
 pub struct RawDataset {
     pub datasets: Vec<Dataset>,
@@ -315,7 +318,7 @@ fn gamma_correction(input_value: f32) -> Result<f32, PixelConversion> {
         return Err(PixelConversion::GammaOutOfRange);
     }
 
-    Ok(input_value.powf(1.0 / 2.2))
+    Ok(input_value.powf(GAMMA_VALUE))
 }
 
 fn f32_to_u8(input_value: f32, min: f32, max: f32) -> Result<u8, PixelConversion> {
@@ -327,7 +330,7 @@ fn f32_to_u8(input_value: f32, min: f32, max: f32) -> Result<u8, PixelConversion
 
     let normal_float = gamma_correction(float)?;
 
-    let converted_integer = (normal_float * 255.0).round() as u8;
+    let converted_integer = (normal_float * U8_MAX).round() as u8;
 
     Ok(converted_integer)
 }
