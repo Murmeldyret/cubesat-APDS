@@ -1,8 +1,11 @@
 use std::marker::PhantomData;
 
 use opencv::{
-    calib3d::{find_homography, RANSAC},
-    core::{ToInputArray, ToOutputArray, Vec4b, CV_8UC4},
+    calib3d::{find_homography, solve_pnp_ransac, SolvePnPMethod, RANSAC},
+    core::{
+        Point2d, Point3d, ToInputArray, ToOutputArray, Vec3d, Vec4b, Vector, CV_32SC1, CV_64FC1,
+        CV_8UC4,
+    },
     prelude::*,
     Error,
 };
@@ -33,6 +36,26 @@ pub enum MatError {
     Unknown,
 }
 
+//TODO typer skal ikke være mat
+pub struct PNPRANSACSolution {
+    rvec: Mat,
+    tvec: Mat,
+    inliers: Mat,
+}
+/// 3D object point and its corresponding 2d image point
+pub struct ImgObjCorrespondence {
+    obj_point: Point3d,
+    img_point: Point2d,
+}
+
+impl ImgObjCorrespondence {
+    pub fn new(obj_point: Point3d, img_point: Point2d) -> Self {
+        ImgObjCorrespondence {
+            obj_point,
+            img_point,
+        }
+    }
+}
 /// Checked Mat type
 /// # Notes
 /// Guarantees that a contained mat contains data, but makes no assumptions about validity
@@ -173,6 +196,53 @@ pub fn find_homography_mat(
     ); // RANSAC is used since some feature matching may be erroneous.
 
     // homography
+    todo!()
+}
+
+pub fn pnp_solver_ransac(
+    point_correspondences: &[ImgObjCorrespondence],
+    camera_intrinsic: Cmat<f64>,
+    iter_count: i32,
+    reproj_thres: f32,
+    method: Option<SolvePnPMethod>,
+) -> Result<PNPRANSACSolution, MatError> {
+    let (obj_points, img_points): (Vec<_>, Vec<_>) = point_correspondences
+        .iter()
+        .map(|p| (p.obj_point, p.img_point))
+        .unzip();
+
+    let obj_points = Vector::from_slice(&obj_points);
+    let img_points = Vector::from_slice(&img_points);
+
+    // output parameters
+    // TODO: skal heller ikke være mat
+    let mut rvec = Mat::zeros(1, 1, CV_64FC1)
+        .map_err(MatError::Opencv)?
+        .to_mat()
+        .map_err(MatError::Opencv)?;
+    let mut tvec = Mat::zeros(1, 1, CV_64FC1)
+        .map_err(MatError::Opencv)?
+        .to_mat()
+        .map_err(MatError::Opencv)?;
+    let mut inliers = Mat::zeros(1, 1, CV_32SC1)
+        .map_err(MatError::Opencv)?
+        .to_mat()
+        .map_err(MatError::Opencv)?;
+
+    let res = solve_pnp_ransac(
+        &obj_points,
+        &img_points,
+        &camera_intrinsic,
+        dist_coeffs,
+        &mut rvec,
+        &mut tvec,
+        false,
+        iter_count,
+        reproj_thres,
+        confidence,
+        &mut inliers,
+        method.unwrap_or(SolvePnPMethod::SOLVEPNP_EPNP) as i32,
+    );
     todo!()
 }
 
