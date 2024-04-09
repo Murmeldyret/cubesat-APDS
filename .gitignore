@@ -37,7 +37,11 @@ Cargo.lock
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/rust,visualstudiocode
-
 # Ignore test images. They are too large for github
-resources/test/Geotiff/*
-resources/dataset/*
+resources/
+DUNK.code-workspace
+images/*
+.DS_Store
+
+# de andre vscode ignores virker ikke, oh well
+.vscode/launch.json
