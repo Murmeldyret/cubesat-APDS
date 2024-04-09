@@ -1,18 +1,13 @@
 [package]
-name = "geotiff_extractor"
+name = "homographier"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[lib]
-name = "geotiff_lib"
-path = "src/lib.rs"
-
 [dependencies]
-gdal = {version ="0.16.0", features = ["bindgen"]}
+opencv = {version = "0.88.8",features = ["clang-runtime","calib3d"]}
 rgb = "0.8.37"
 
-
-[dev-dependencies]
-mockall = "0.12.1"
+[lints]
+workspace = true

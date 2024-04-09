@@ -1,0 +1,21 @@
+[package]
+name = "benchmarks"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+feature_extraction = {path = "../feature_extraction", version = "0.1.0"}
+image = "0.25.1"
+opencv = {version = "0.88.8", features = ["clang-runtime","calib3d"]}
+
+[dev-dependencies]
+divan = "0.1.14"
+
+[[bench]]
+name = "feature_extraction"
+harness = false
+
+[lints]
+workspace = true
