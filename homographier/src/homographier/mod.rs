@@ -2,10 +2,7 @@ use std::marker::PhantomData;
 
 use opencv::{
     calib3d::{find_homography, solve_pnp_ransac, SolvePnPMethod, RANSAC},
-    core::{
-        Point2d, Point3d, ToInputArray, ToOutputArray, Vec3d, Vec4b, Vector, CV_32SC1, CV_64FC1,
-        CV_8UC4,
-    },
+    core::{Point2d, Point3d, ToInputArray, ToOutputArray, Vec4b, Vector, CV_8UC4},
     prelude::*,
     Error,
 };
@@ -30,13 +27,11 @@ pub enum MatError {
     Empty,
     /// Matrix is not rectangular (columns or rows with differing lengths)
     Jagged,
-    // /// Tried to access matrix element outside bounds
-    // OutOfBounds,
     /// An unknown error
     Unknown,
 }
 
-//TODO typer skal ikke være mat
+#[derive(Debug)]
 pub struct PNPRANSACSolution {
     pub rvec: Cmat<f64>,
     pub tvec: Cmat<f64>,
@@ -61,7 +56,7 @@ impl ImgObjCorrespondence {
 /// Guarantees that a contained mat contains data, but makes no assumptions about validity
 #[derive(Debug)]
 pub struct Cmat<T> {
-    mat: Mat,
+    pub mat: Mat,
     _marker: PhantomData<T>,
 }
 
@@ -124,13 +119,13 @@ impl<T: DataType> Cmat<T> {
             .map_err(MatError::Opencv)?
             .to_mat()
             .map_err(MatError::Opencv)?;
-        Ok(Cmat::new(mat)?)
+        Cmat::new(mat)
     }
 }
 
 impl<T> ToInputArray for Cmat<T> {
     fn input_array(&self) -> opencv::Result<opencv::core::_InputArray> {
-        let res = self.check().map_err(|err| match err {
+        self.check().map_err(|err| match err {
             MatError::Opencv(inner) => inner,
             _ => opencv::Error {
                 code: -2,
@@ -217,7 +212,7 @@ pub fn pnp_solver_ransac(
     reproj_thres: f32,
     confidence: f64,
     method: Option<SolvePnPMethod>,
-) -> Result<PNPRANSACSolution, MatError> {
+) -> Result<Option<PNPRANSACSolution>, MatError> {
     let (obj_points, img_points): (Vec<_>, Vec<_>) = point_correspondences
         .iter()
         .map(|p| (p.obj_point, p.img_point))
@@ -227,17 +222,15 @@ pub fn pnp_solver_ransac(
     let img_points = Vector::from_slice(&img_points);
 
     // output parameters
-    let rvec = Cmat::<f64>::zeros(3, 1)?;
+    let mut rvec = Cmat::<f64>::zeros(3, 1)?;
 
-    let tvec = Cmat::<f64>::zeros(3, 1)?;
+    let mut tvec = Cmat::<f64>::zeros(3, 1)?;
 
-    let inliers = Cmat::<i32>::zeros(1, 1)?;
-    // let dist_coeffs = Mat::zeros(4, 1, CV_64FC1)
-    //     .map_err(MatError::Opencv)?
-    //     .to_mat()
-    //     .map_err(MatError::Opencv)?;
+    let mut inliers = Cmat::<i32>::zeros(1, 1)?;
+
     let dist_coeffs = Cmat::<f64>::zeros(4, 1)?;
 
+    // i think that Ok(false) means that there is no solution, but no errors happened
     let res = solve_pnp_ransac(
         &obj_points,
         &img_points,
@@ -266,11 +259,8 @@ pub fn pnp_solver_ransac(
     // dbg!(inliers.typ());
 
     // dbg!(res);
-    Ok(PNPRANSACSolution {
-        rvec,
-        tvec,
-        inliers,
-    })
+    let solution = res.then_some(PNPRANSACSolution{rvec,tvec,inliers});
+    Ok(solution)
 }
 
 // clippy er dum, så vi sætter den lige på plads
@@ -500,15 +490,45 @@ mod test {
 
     #[test]
     fn pnp_solver_ransac_no_work_lthan_3_points() {
-        let cores_1 =
+        let corres_1 =
             ImgObjCorrespondence::new(Point3d::new(1f64, 2f64, 3f64), Point2d::new(1f64, 2f64));
-        let cores_2 =
+        let corres_2 =
             ImgObjCorrespondence::new(Point3d::new(4f64, 5f64, 6f64), Point2d::new(4f64, 5f64));
-        let cores_s = vec![cores_1, cores_2];
-        let camera_intrinsic =
-            Cmat::<f64>::new(Mat::zeros(3, 3, CV_64FC1).unwrap().to_mat().unwrap()).unwrap();
-        let res = pnp_solver_ransac(&cores_s, &camera_intrinsic, 50, 2.0, 0.99, None);
+        let corres_v = vec![corres_1, corres_2];
+        let camera_intrinsic = Cmat::<f64>::zeros(3, 3).unwrap();
+        let res = pnp_solver_ransac(&corres_v, &camera_intrinsic, 50, 2.0, 0.99, None);
 
-        assert!(res.is_err());
+        assert!(res.is_err(), "{:?}", res);
+    }
+
+    #[test]
+    fn pnp_solver_works() {
+        let corres_1 =
+            ImgObjCorrespondence::new(Point3d::new(1f64, 2f64, 3f64), Point2d::new(1f64, 2f64));
+        let corres_2 =
+            ImgObjCorrespondence::new(Point3d::new(4f64, 5f64, 6f64), Point2d::new(4f64, 5f64));
+        let corres_3 =
+            ImgObjCorrespondence::new(Point3d::new(7f64, 8f64, 9f64), Point2d::new(7f64, 8f64));
+        let corres_4 = ImgObjCorrespondence::new(
+            Point3d::new(10f64, 11f64, 12f64),
+            Point2d::new(10f64, 11f64),
+        );
+        let corres_v = vec![corres_1, corres_2, corres_3, corres_4];
+        let camera_intrinsic = Cmat::<f64>::zeros(3, 3).unwrap();
+
+        let res = pnp_solver_ransac(
+            &corres_v,
+            &camera_intrinsic,
+            50,
+            10.0,
+            0.5,
+            Some(SolvePnPMethod::SOLVEPNP_P3P),
+        );
+        // no errors during solving
+        assert!(res.is_ok(), "{:?}", res);
+        let res = res.unwrap();
+        assert!(res.is_some(),"No solution was found to the PNP problem");
+        let res = res.unwrap();
+
     }
 }
