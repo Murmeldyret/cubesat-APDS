@@ -56,14 +56,9 @@ pub fn get_knn_matches(
     let mut good_matches = VectorOfDMatch::new();
 
     for i in &matches {
-        for m in &i {
-            for n in &i {
-                if m.distance < filter_strength * n.distance {
-                    good_matches.push(m);
-                    break;
-                }
-            }
-        }
+        if i.get(0)?.distance < i.get(1)?.distance * filter_strength {
+            good_matches.push(i.get(0)?);
+        } 
     }
 
     Ok(good_matches)
