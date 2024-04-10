@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 geotiff_extractor = { version = "0.1.0", path = "../geotiff_extractor" }
 feature_extraction = { version = "0.1.0", path = "../feature_extraction" }
-feature_database = { version = "0.1.0", path = "../feature_database" }
+feature_database = { version = "0.1.0", path = "../feature_database" }
+dotenvy = "0.15.7"

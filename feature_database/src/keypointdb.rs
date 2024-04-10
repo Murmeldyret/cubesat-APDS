@@ -169,7 +169,7 @@ mod tests {
 
     use super::*;
     use crate::schema::keypoint::dsl::*;
-    use crate::testhelpers::{obtain_lock, setup_test_database};
+    use crate::db_helpers::{obtain_lock, setup_database};
 
     fn generate_images_in_database(connection: &mut PgConnection, amount: i32) {
         use rand::prelude::*;
@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn keypoint_creation() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         generate_images_in_database(connection, 1);
 
@@ -239,7 +239,7 @@ mod tests {
     #[test]
     fn keypoint_fetching_id() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         generate_images_in_database(connection, 1);
 
@@ -281,7 +281,7 @@ mod tests {
     #[test]
     fn keypoint_fetching_id_not_available() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         let fetched_keypoint = Keypoint::read_keypoint_from_id(connection, 1);
 
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn keypoint_fetching_image_id() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         generate_images_in_database(connection, 3);
 
@@ -377,7 +377,7 @@ mod tests {
     #[test]
     fn keypoints_fetched_from_lod() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         let insert_image = InsertImage {
             x_start: &0,
@@ -459,7 +459,7 @@ mod tests {
     #[test]
     fn keypoint_fetching_coordinates() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         let image_vec = vec![
             InsertImage {
@@ -553,7 +553,7 @@ mod tests {
     #[test]
     fn deleting_keypoint() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         generate_images_in_database(connection, 1);
 

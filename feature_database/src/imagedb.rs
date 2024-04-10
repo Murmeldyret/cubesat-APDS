@@ -109,12 +109,12 @@ pub trait ImageDatabase {
 mod image_tests {
     use super::*;
     use crate::schema::ref_image::dsl::*;
-    use crate::testhelpers::{obtain_lock, setup_test_database};
+    use crate::db_helpers::{obtain_lock, setup_database};
 
     #[test]
     fn image_creation() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         let insert_image = models::InsertImage {
             x_start: &0,
@@ -144,7 +144,7 @@ mod image_tests {
     #[test]
     fn image_fetching_id() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         let insert_image = models::InsertImage {
             x_start: &0,
@@ -173,7 +173,7 @@ mod image_tests {
     #[test]
     fn image_fetching_id_not_available() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         let fetched_image = Image::read_image_from_id(connection, 1);
 
@@ -183,7 +183,7 @@ mod image_tests {
     #[test]
     fn image_fetching_dimensions() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         // TODO: Make a generator of images
         let insert_images = vec![
@@ -233,7 +233,7 @@ mod image_tests {
     #[test]
     fn images_fetched_from_lod() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         // TODO: Make a generator of images
         let insert_images = vec![
@@ -285,7 +285,7 @@ mod image_tests {
     #[test]
     fn image_deletion() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         let insert_images = vec![
             models::InsertImage {

@@ -3,8 +3,8 @@ pub mod keypointdb;
 pub mod models;
 pub mod schema;
 
-#[cfg(test)]
-pub mod testhelpers {
+
+pub mod db_helpers {
     use std::env;
     use std::sync::{Arc, Mutex};
 
@@ -27,7 +27,7 @@ pub mod testhelpers {
         lock.unwrap()
     }
 
-    pub fn setup_test_database() -> PgConnection {
+    pub fn setup_database() -> PgConnection {
         dotenv().ok();
 
         let database_url =
