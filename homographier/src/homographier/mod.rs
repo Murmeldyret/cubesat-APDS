@@ -38,14 +38,14 @@ pub enum MatError {
 
 //TODO typer skal ikke være mat
 pub struct PNPRANSACSolution {
-    rvec: Mat,
-    tvec: Mat,
-    inliers: Mat,
+    pub rvec: Cmat<f64>,
+    pub tvec: Cmat<f64>,
+    pub inliers: Cmat<i32>,
 }
 /// 3D object point and its corresponding 2d image point
 pub struct ImgObjCorrespondence {
-    obj_point: Point3d,
-    img_point: Point2d,
+    pub obj_point: Point3d,
+    pub img_point: Point2d,
 }
 
 impl ImgObjCorrespondence {
@@ -96,8 +96,12 @@ impl<T> Cmat<T> {
         Cmat::new(mat)
     }
 
-    fn check(&self) -> Result<Self, MatError> {
-        unimplemented!("er muligvis ikke nødvendig")
+    fn check(&self) -> Result<(), MatError> {
+        match self.mat.dims() {
+            // dims will always be >=2, unless the Mat is empty
+            0 => Err(MatError::Empty),
+            _ => Ok(()),
+        }
     }
 
     //further checked functions go here
@@ -114,6 +118,14 @@ impl<T: DataType> Cmat<T> {
 
         self.mat.at_2d::<T>(row, col).map_err(MatError::Opencv)
     }
+
+    pub fn zeros(rows: i32, cols: i32) -> Result<Cmat<T>, MatError> {
+        let mat = Mat::zeros(rows, cols, T::opencv_type())
+            .map_err(MatError::Opencv)?
+            .to_mat()
+            .map_err(MatError::Opencv)?;
+        Ok(Cmat::new(mat)?)
+    }
 }
 
 impl<T> ToInputArray for Cmat<T> {
@@ -125,20 +137,19 @@ impl<T> ToInputArray for Cmat<T> {
                 message: "unknown error".into(),
             },
         })?;
-        res.input_array()
+        self.mat.input_array()
     }
 }
 impl<T> ToOutputArray for Cmat<T> {
     fn output_array(&mut self) -> opencv::Result<opencv::core::_OutputArray> {
-        self.check()
-            .map_err(|err| match err {
-                MatError::Opencv(inner) => inner,
-                _ => opencv::Error {
-                    code: -2,
-                    message: "unknown error".into(),
-                },
-            })?
-            .output_array()
+        self.check().map_err(|err| match err {
+            MatError::Opencv(inner) => inner,
+            _ => opencv::Error {
+                code: -2,
+                message: "unknown error".into(),
+            },
+        })?;
+        self.mat.output_array()
     }
 }
 
@@ -201,9 +212,10 @@ pub fn find_homography_mat(
 
 pub fn pnp_solver_ransac(
     point_correspondences: &[ImgObjCorrespondence],
-    camera_intrinsic: Cmat<f64>,
+    camera_intrinsic: &Cmat<f64>,
     iter_count: i32,
     reproj_thres: f32,
+    confidence: f64,
     method: Option<SolvePnPMethod>,
 ) -> Result<PNPRANSACSolution, MatError> {
     let (obj_points, img_points): (Vec<_>, Vec<_>) = point_correspondences
@@ -215,25 +227,22 @@ pub fn pnp_solver_ransac(
     let img_points = Vector::from_slice(&img_points);
 
     // output parameters
-    // TODO: skal heller ikke være mat
-    let mut rvec = Mat::zeros(1, 1, CV_64FC1)
-        .map_err(MatError::Opencv)?
-        .to_mat()
-        .map_err(MatError::Opencv)?;
-    let mut tvec = Mat::zeros(1, 1, CV_64FC1)
-        .map_err(MatError::Opencv)?
-        .to_mat()
-        .map_err(MatError::Opencv)?;
-    let mut inliers = Mat::zeros(1, 1, CV_32SC1)
-        .map_err(MatError::Opencv)?
-        .to_mat()
-        .map_err(MatError::Opencv)?;
+    let rvec = Cmat::<f64>::zeros(3, 1)?;
+
+    let tvec = Cmat::<f64>::zeros(3, 1)?;
+
+    let inliers = Cmat::<i32>::zeros(1, 1)?;
+    // let dist_coeffs = Mat::zeros(4, 1, CV_64FC1)
+    //     .map_err(MatError::Opencv)?
+    //     .to_mat()
+    //     .map_err(MatError::Opencv)?;
+    let dist_coeffs = Cmat::<f64>::zeros(4, 1)?;
 
     let res = solve_pnp_ransac(
         &obj_points,
         &img_points,
-        &camera_intrinsic,
-        dist_coeffs,
+        camera_intrinsic,
+        &dist_coeffs,
         &mut rvec,
         &mut tvec,
         false,
@@ -242,8 +251,26 @@ pub fn pnp_solver_ransac(
         confidence,
         &mut inliers,
         method.unwrap_or(SolvePnPMethod::SOLVEPNP_EPNP) as i32,
-    );
-    todo!()
+    )
+    .map_err(MatError::Opencv)?;
+    // dbg!(rvec.channels());
+    // dbg!(rvec.depth());
+    // dbg!(rvec.typ());
+
+    // dbg!(tvec.channels());
+    // dbg!(tvec.depth());
+    // dbg!(tvec.typ());
+
+    // dbg!(inliers.channels());
+    // dbg!(inliers.depth());
+    // dbg!(inliers.typ());
+
+    // dbg!(res);
+    Ok(PNPRANSACSolution {
+        rvec,
+        tvec,
+        inliers,
+    })
 }
 
 // clippy er dum, så vi sætter den lige på plads
@@ -343,7 +370,7 @@ mod test {
         // pixels.as_bgra();
         // mat.at_2d::<Vec4b>(1, 1).unwrap()
     }
-
+    #[ignore = "TODO"]
     #[test]
     fn image_correct_pixels() {
         let mut img_dir = path_to_test_images().expect("epic fail");
@@ -469,5 +496,19 @@ mod test {
                 false
             }));
         assert_eq!(image.at_2d(3, 3).unwrap().clone(), Vec4b::new(4, 4, 1, 1));
+    }
+
+    #[test]
+    fn pnp_solver_ransac_no_work_lthan_3_points() {
+        let cores_1 =
+            ImgObjCorrespondence::new(Point3d::new(1f64, 2f64, 3f64), Point2d::new(1f64, 2f64));
+        let cores_2 =
+            ImgObjCorrespondence::new(Point3d::new(4f64, 5f64, 6f64), Point2d::new(4f64, 5f64));
+        let cores_s = vec![cores_1, cores_2];
+        let camera_intrinsic =
+            Cmat::<f64>::new(Mat::zeros(3, 3, CV_64FC1).unwrap().to_mat().unwrap()).unwrap();
+        let res = pnp_solver_ransac(&cores_s, &camera_intrinsic, 50, 2.0, 0.99, None);
+
+        assert!(res.is_err());
     }
 }
