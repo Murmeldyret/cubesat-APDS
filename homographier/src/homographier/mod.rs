@@ -205,6 +205,18 @@ pub fn find_homography_mat(
     todo!()
 }
 
+/// Estimates the pose of the camera using a subset of provided image-object point correspondences
+/// 
+/// ## Parameters
+/// * point_correspondences: a slice of 3d-to-2d point correspondences, minimum length is 4
+/// * camera_intrinsic: the camera calibration matrix 3X3
+/// * iter_count: How many iteration the ransac algorithm should perform
+/// * reproj_thres: 
+/// * confidence: //TODO
+/// ## Returns
+/// A solution, consisting of a rotation and translation matrix, and the indices of inliers used for the solution, returns `Ok(None)` if no solution was found
+/// ## Errors
+/// If the `point_correspondences` has less than 4 elements
 pub fn pnp_solver_ransac(
     point_correspondences: &[ImgObjCorrespondence],
     camera_intrinsic: &Cmat<f64>,
