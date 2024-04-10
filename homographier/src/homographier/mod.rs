@@ -208,7 +208,7 @@ pub fn find_homography_mat(
 /// Estimates the pose of the camera using a subset of provided image-object point correspondences
 /// 
 /// ## Parameters
-/// * point_correspondences: a slice of 3d-to-2d point correspondences, minimum length is 4
+/// * point_correspondences: a slice of 3d-to-2d point correspondences, minimum length is 4 (even in the P3P case, where the 4th point is used to find the solution with least reprojection error)
 /// * camera_intrinsic: the camera calibration matrix 3X3
 /// * iter_count: How many iteration the ransac algorithm should perform
 /// * reproj_thres: 
@@ -217,6 +217,9 @@ pub fn find_homography_mat(
 /// A solution, consisting of a rotation and translation matrix, and the indices of inliers used for the solution, returns `Ok(None)` if no solution was found
 /// ## Errors
 /// If the `point_correspondences` has less than 4 elements
+/// # Notes
+/// Since ransac randomly chooses a subset of points as the basis for a solution, the function behaves nondeterministiaclly.
+/// As such there is no gurantee that produces the same solution with the same parameters
 pub fn pnp_solver_ransac(
     point_correspondences: &[ImgObjCorrespondence],
     camera_intrinsic: &Cmat<f64>,
@@ -516,14 +519,14 @@ mod test {
     #[test]
     fn pnp_solver_works() {
         let corres_1 =
-            ImgObjCorrespondence::new(Point3d::new(1f64, 2f64, 3f64), Point2d::new(1f64, 2f64));
+            ImgObjCorrespondence::new(Point3d::new(0f64, 0f64, 0f64), Point2d::new(0f64, 0f64));
         let corres_2 =
-            ImgObjCorrespondence::new(Point3d::new(4f64, 5f64, 6f64), Point2d::new(4f64, 5f64));
+            ImgObjCorrespondence::new(Point3d::new(10f64, 10f64, 0f64), Point2d::new(9f64, 9f64));
         let corres_3 =
-            ImgObjCorrespondence::new(Point3d::new(7f64, 8f64, 9f64), Point2d::new(7f64, 8f64));
+            ImgObjCorrespondence::new(Point3d::new(0f64, 10f64, 0.1f64), Point2d::new(0f64, 9f64));
         let corres_4 = ImgObjCorrespondence::new(
-            Point3d::new(10f64, 11f64, 12f64),
-            Point2d::new(10f64, 11f64),
+            Point3d::new(10f64, 0.2f64, 1f64),
+            Point2d::new(9f64, 0.3f64),
         );
         let corres_v = vec![corres_1, corres_2, corres_3, corres_4];
         let camera_intrinsic = Cmat::<f64>::zeros(3, 3).unwrap();
@@ -531,10 +534,10 @@ mod test {
         let res = pnp_solver_ransac(
             &corres_v,
             &camera_intrinsic,
-            50,
+            100,
             10.0,
-            0.5,
-            Some(SolvePnPMethod::SOLVEPNP_P3P),
+            0.0,
+            Some(SolvePnPMethod::SOLVEPNP_EPNP),
         );
         // no errors during solving
         assert!(res.is_ok(), "{:?}", res);
