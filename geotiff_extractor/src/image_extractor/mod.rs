@@ -81,7 +81,7 @@ pub struct MosaicedDataset {
 
 #[cfg_attr(test, automock)]
 pub trait Datasets {
-    fn import_datasets(paths: &[String]) -> Result<RawDataset, errors::GdalError>;
+    fn import_datasets(paths: &str) -> Result<RawDataset, errors::GdalError>;
     fn to_mosaic_dataset(&self, output_path: &Path) -> Result<MosaicedDataset, errors::GdalError>;
 }
 
@@ -122,8 +122,11 @@ pub enum PixelConversion {
 impl Datasets for RawDataset {
     /// The function will import multiple datasets from a vector of paths.
     /// Providing the function of a slice of [Path]s then it will return a [Result<RawDataset>]
-    fn import_datasets(paths: &[String]) -> Result<RawDataset, errors::GdalError> {
-        let ds = paths.into_iter().map(|p| Dataset::open(p)).collect(); // Opens every dataset that a path points to.
+    fn import_datasets(path: &str) -> Result<RawDataset, errors::GdalError> {
+        let directory = std::fs::read_dir(path).expect("Could not read directory");
+
+
+        let ds = directory.into_iter().map(|p| Dataset::open(p.unwrap().path())).collect(); // Opens every dataset that a path points to.
         let unwrapped_data = match ds {
             Ok(data) => data,
             Err(e) => return Err(e),
