@@ -3,6 +3,8 @@ use feature_extraction;
 use geotiff_lib;
 use dotenvy::dotenv;
 
+pub mod level_of_detail;
+
 fn main() {
     dotenv().expect("Could not read .env file");
 
