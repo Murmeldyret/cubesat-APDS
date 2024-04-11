@@ -168,8 +168,8 @@ mod tests {
     use self::models::InsertImage;
 
     use super::*;
-    use crate::schema::keypoint::dsl::*;
     use crate::db_helpers::{obtain_lock, setup_database};
+    use crate::schema::keypoint::dsl::*;
 
     fn generate_images_in_database(connection: &mut PgConnection, amount: i32) {
         use rand::prelude::*;

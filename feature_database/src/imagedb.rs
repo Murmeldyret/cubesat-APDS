@@ -108,8 +108,8 @@ pub trait ImageDatabase {
 #[cfg(test)]
 mod image_tests {
     use super::*;
-    use crate::schema::ref_image::dsl::*;
     use crate::db_helpers::{obtain_lock, setup_database};
+    use crate::schema::ref_image::dsl::*;
 
     #[test]
     fn image_creation() {

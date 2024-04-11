@@ -3,7 +3,6 @@ pub mod keypointdb;
 pub mod models;
 pub mod schema;
 
-
 pub mod db_helpers {
     use std::env;
     use std::sync::{Arc, Mutex};

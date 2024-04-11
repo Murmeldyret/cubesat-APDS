@@ -2,7 +2,7 @@ use gdal::errors;
 use gdal::raster::{ColorInterpretation, RasterCreationOption, StatisticsMinMax};
 use gdal::Dataset;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use gdal::raster::ResampleAlg;
 
@@ -11,7 +11,7 @@ use gdal::programs::raster::build_vrt;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 
-const GAMMA_VALUE: f32 = 1.0/2.2;
+const GAMMA_VALUE: f32 = 1.0 / 2.2;
 const U8_MAX: f32 = u8::MAX as f32;
 
 // A struct for handling raw datasets from disk in Geotiff format
@@ -82,7 +82,7 @@ pub struct MosaicedDataset {
 #[cfg_attr(test, automock)]
 pub trait Datasets {
     fn import_datasets(paths: &str) -> Result<RawDataset, errors::GdalError>;
-    fn to_mosaic_dataset(&self, output_path: &Path) -> Result<MosaicedDataset, errors::GdalError>;
+    fn to_mosaic_dataset(&self, output_path: &str) -> Result<MosaicedDataset, errors::GdalError>;
 }
 
 #[cfg_attr(test, automock)]
@@ -125,8 +125,10 @@ impl Datasets for RawDataset {
     fn import_datasets(path: &str) -> Result<RawDataset, errors::GdalError> {
         let directory = std::fs::read_dir(path).expect("Could not read directory");
 
-
-        let ds = directory.into_iter().map(|p| Dataset::open(p.unwrap().path())).collect(); // Opens every dataset that a path points to.
+        let ds = directory
+            .into_iter()
+            .map(|p| Dataset::open(p.unwrap().path()))
+            .collect(); // Opens every dataset that a path points to.
         let unwrapped_data = match ds {
             Ok(data) => data,
             Err(e) => return Err(e),
@@ -137,9 +139,9 @@ impl Datasets for RawDataset {
     }
 
     /// Returns a mosaic dataset that is a combined version of the [RawDataset] dataset provided.
-    fn to_mosaic_dataset(&self, output_path: &Path) -> Result<MosaicedDataset, errors::GdalError> {
-        let mut vrt_path = output_path.to_path_buf();
-        let mut cog_path = output_path.to_path_buf();
+    fn to_mosaic_dataset(&self, output_path: &str) -> Result<MosaicedDataset, errors::GdalError> {
+        let mut vrt_path = PathBuf::from(&output_path);
+        let mut cog_path = PathBuf::from(output_path);
 
         vrt_path.push("dataset.vrt");
         cog_path.push("dataset.tif");
@@ -500,8 +502,7 @@ mod tests {
 
         let window_size = dataset.dataset.raster_size();
 
-        let image_rgba: Result<Vec<rgb::RGBA8>, _> =
-            dataset.to_rgb((0, 0), window_size, (20, 20));
+        let image_rgba: Result<Vec<rgb::RGBA8>, _> = dataset.to_rgb((0, 0), window_size, (20, 20));
 
         assert!(image_rgba.is_ok_and(|image_vec| image_vec.len() == 20 * 20));
     }

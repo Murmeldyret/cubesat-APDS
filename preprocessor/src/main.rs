@@ -2,10 +2,10 @@ use dotenvy::dotenv;
 use feature_database;
 use feature_extraction;
 use geotiff_lib::image_extractor;
-use geotiff_lib::image_extractor::Datasets;
+use geotiff_lib::image_extractor::{Datasets, MosaicDataset, MosaicedDataset};
 
-use std::env;
 use clap::Parser;
+use std::env;
 
 pub mod level_of_detail;
 
@@ -36,9 +36,29 @@ fn main() {
 
     let db_connection = &mut feature_database::db_helpers::setup_database();
 
-    let dataset = image_extractor::RawDataset::import_datasets(&args.dataset_path).expect("Could not open datasets");
+    let dataset = image_extractor::RawDataset::import_datasets(&args.dataset_path)
+        .expect("Could not open datasets");
 
-    let mosaic = dataset.to_mosaic_dataset(args.output_path);
+    let mosaic = dataset
+        .to_mosaic_dataset(&args.output_path)
+        .expect("Could not convert dataset.");
 
     // let levels_of_detail = level_of_detail::calculate_amount_of_levels(, TILE_RESOLUTION)
+}
+
+fn downscale_from_lod(image: MosaicedDataset, tile_size: u64, lod: u64) {
+    let image_resolution = image.dataset.raster_size();
+
+    let columns: u64 = image_resolution.0 as u64 / tile_size;
+    let rows: u64 = image_resolution.1 as u64 / tile_size;
+
+    for i in 0..rows {
+        for j in 0..columns {
+            let tile = image.to_rgb(
+                ((i * tile_size) as isize, (j * tile_size) as isize),
+                ((tile_size * lod) as usize, (tile_size * lod) as usize),
+                (tile_size as usize, tile_size as usize),
+            );
+        }
+    }
 }
