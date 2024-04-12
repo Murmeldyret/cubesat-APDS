@@ -11,22 +11,21 @@ pub enum Image<'a> {
 }
 
 impl ImageDatabase for Image<'_> {
-    fn create_image(conn: &mut PgConnection, input_image: Image) -> Result<(), DieselError> {
+    fn create_image(conn: &mut PgConnection, input_image: Image) -> Result<i32, DieselError> {
         match input_image {
-            Image::One(single_image) => create_image_in_database(conn, &single_image)?,
+            Image::One(single_image) => return Ok(create_image_in_database(conn, &single_image)?),
             Image::Multiple(multiple_images) => {
-                let result: Result<Vec<()>, DieselError> = multiple_images
+                let result: Result<Vec<i32>, DieselError> = multiple_images
                     .into_iter()
                     .map(|img| create_image_in_database(conn, &img))
                     .collect();
 
                 match result {
-                    Ok(_) => return Ok(()),
+                    Ok(image_vec) => return Ok(image_vec[0]),
                     Err(e) => return Err(e),
                 }
             }
         }
-        Ok(())
     }
 
     fn read_image_from_id(conn: &mut PgConnection, id: i32) -> Result<models::Image, DieselError> {
@@ -75,20 +74,20 @@ impl ImageDatabase for Image<'_> {
 fn create_image_in_database(
     connection: &mut PgConnection,
     insert_image: &models::InsertImage,
-) -> Result<(), DieselError> {
-    let result = diesel::insert_into(crate::schema::ref_image::table)
+) -> Result<i32, DieselError> {
+    let result: Result<models::Image, DieselError> = diesel::insert_into(crate::schema::ref_image::table)
         .values(insert_image)
         .returning(models::Image::as_returning())
         .get_result(connection);
 
     match result {
-        Ok(_) => Ok(()),
+        Ok(image_db) => Ok(image_db.id),
         Err(e) => Err(e),
     }
 }
 
 pub trait ImageDatabase {
-    fn create_image(conn: &mut PgConnection, image: Image) -> Result<(), DieselError>;
+    fn create_image(conn: &mut PgConnection, image: Image) -> Result<i32, DieselError>;
     fn read_image_from_id(conn: &mut PgConnection, id: i32) -> Result<models::Image, DieselError>;
     fn find_images_from_dimensions(
         conn: &mut PgConnection,
