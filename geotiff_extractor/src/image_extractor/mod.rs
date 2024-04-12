@@ -191,7 +191,9 @@ impl MosaicDataset for MosaicedDataset {
     }
 
     fn get_dimensions(&self) -> Result<(i64, i64), errors::GdalError> {
-        todo!()
+        let dimensions = self.dataset.raster_size();
+
+        Ok((dimensions.0 as i64, dimensions.1 as i64))
     }
 
     fn set_scaling(&self, _dimensions: (usize, usize)) {
@@ -252,7 +254,7 @@ fn extract_band(
     size: (usize, usize),
 ) -> Result<Vec<f32>, errors::GdalError> {
     let band_vec = band
-        .read_as::<f32>(window, window_size, size, Some(ResampleAlg::Lanczos))?
+        .read_as::<f32>(window, window_size, size, Some(ResampleAlg::Bilinear))?
         .data;
 
     Ok(band_vec)
@@ -300,7 +302,7 @@ fn creation_options() -> Vec<RasterCreationOption<'static>> {
     let create_options = vec![
         RasterCreationOption {
             key: "COMPRESS",
-            value: "LZW", // Should be changed to ZSTD when it is time to use the system.
+            value: "ZSTD", // Should be changed to ZSTD when it is time to use the system.
         },
         RasterCreationOption {
             key: "PREDICTOR",
