@@ -205,13 +205,13 @@ pub fn find_homography_mat(
     todo!()
 }
 
-/// Estimates the pose of the camera using a subset of provided image-object point correspondences
-/// 
+/// Estimates the pose of the camera using a subset of provided image-object point correspondences.
+///
 /// ## Parameters
 /// * point_correspondences: a slice of 3d-to-2d point correspondences, minimum length is 4 (even in the P3P case, where the 4th point is used to find the solution with least reprojection error)
 /// * camera_intrinsic: the camera calibration matrix 3X3
 /// * iter_count: How many iteration the ransac algorithm should perform
-/// * reproj_thres: 
+/// * reproj_thres:
 /// * confidence: //TODO
 /// ## Returns
 /// A solution, consisting of a rotation and translation matrix, and the indices of inliers used for the solution, returns `Ok(None)` if no solution was found
@@ -274,7 +274,14 @@ pub fn pnp_solver_ransac(
     // dbg!(inliers.typ());
 
     // dbg!(res);
-    let solution = res.then_some(PNPRANSACSolution{rvec,tvec,inliers});
+    // let solution = res.then_some(PNPRANSACSolution{rvec,tvec,inliers});
+    let solution = PNPRANSACSolution {
+        rvec,
+        tvec,
+        inliers,
+    };
+    dbg!(&solution);
+    let solution = res.then_some(solution);
     Ok(solution)
 }
 
@@ -317,6 +324,27 @@ mod test {
         let image = raster_to_mat(&image, size as i32, size as i32);
         image.unwrap()
     }
+
+    fn camera_matrix() -> Cmat<f64> {
+        let focal = (8.64f64, 8.64f64);
+        let skew = 0f64;
+        let principal_point = (0f64, 0f64);
+        let s = vec![
+            focal.0,
+            skew,
+            principal_point.0,
+            focal.1,
+            0f64,
+            principal_point.1,
+            0f64,
+            0f64,
+            1f64,
+        ];
+        let calib = Mat::from_slice_rows_cols(&s, 3, 3).unwrap();
+        Cmat::<f64>::new(calib).unwrap()
+    }
+
+    const CAMERA_FOCAL_LENGTH_IN_MM: f64 = 16f64;
 
     #[ignore = "Skal bruge Akaze keypoints"]
     #[test]
@@ -518,32 +546,42 @@ mod test {
 
     #[test]
     fn pnp_solver_works() {
-        let corres_1 =
-            ImgObjCorrespondence::new(Point3d::new(0f64, 0f64, 0f64), Point2d::new(0f64, 0f64));
-        let corres_2 =
-            ImgObjCorrespondence::new(Point3d::new(10f64, 10f64, 0f64), Point2d::new(9f64, 9f64));
-        let corres_3 =
-            ImgObjCorrespondence::new(Point3d::new(0f64, 10f64, 0.1f64), Point2d::new(0f64, 9f64));
-        let corres_4 = ImgObjCorrespondence::new(
-            Point3d::new(10f64, 0.2f64, 1f64),
-            Point2d::new(9f64, 0.3f64),
+        let corres_1 = ImgObjCorrespondence::new(
+            Point3d::new(0f64, 5f64, 1f64),
+            Point2d::new(-1.48f64, 0.39f64),
         );
-        let corres_v = vec![corres_1, corres_2, corres_3, corres_4];
-        let camera_intrinsic = Cmat::<f64>::zeros(3, 3).unwrap();
+        let corres_2 = ImgObjCorrespondence::new(
+            Point3d::new(5f64, 0f64, 0f64),
+            Point2d::new(2.14f64, -1.92f64),
+        );
+        let corres_3 = ImgObjCorrespondence::new(
+            Point3d::new(5f64, 5f64, 1.5f64),
+            Point2d::new(1.74f64, 0.56f64),
+        );
+        let corres_4 = ImgObjCorrespondence::new(
+            Point3d::new(0f64, 0f64, 1f64),
+            Point2d::new(-2f64, -1.62f64),
+        );
+        let corres_5 = ImgObjCorrespondence::new(
+            Point3d::new(2f64, 8f64, -2f64),
+            Point2d::new(-0.16f64, 0.3f64),
+        );
+
+        let corres_v = vec![corres_1, corres_2, corres_3, corres_4, corres_5];
+        let camera_intrinsic = camera_matrix();
 
         let res = pnp_solver_ransac(
             &corres_v,
             &camera_intrinsic,
-            100,
-            10.0,
-            0.0,
-            Some(SolvePnPMethod::SOLVEPNP_EPNP),
+            10000,
+            100.0,
+            0.5,
+            Some(SolvePnPMethod::SOLVEPNP_P3P),
         );
         // no errors during solving
         assert!(res.is_ok(), "{:?}", res);
         let res = res.unwrap();
-        assert!(res.is_some(),"No solution was found to the PNP problem");
+        assert!(res.is_some(), "No solution was found to the PNP problem");
         let res = res.unwrap();
-
     }
 }
