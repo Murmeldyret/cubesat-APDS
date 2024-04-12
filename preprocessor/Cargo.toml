@@ -9,7 +9,11 @@ edition = "2021"
 geotiff_extractor = { version = "0.1.0", path = "../geotiff_extractor" }
 feature_extraction = { version = "0.1.0", path = "../feature_extraction" }
 feature_database = { version = "0.1.0", path = "../feature_database" }
+homographier = { version = "0.1.0", path = "../homographier" }
 dotenvy = "0.15.7"
 clap = { version = "4.5.4", features = ["derive"] }
 indicatif = { version = "0.17.8", features = ["rayon"] }
 rayon = "1.10.0"
+rgb = "0.8.37"
+diesel = { version = "2.1.5", features = ["postgres"] }
+once_cell = "1.19.0"
