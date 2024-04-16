@@ -75,10 +75,11 @@ fn create_image_in_database(
     connection: &mut PgConnection,
     insert_image: &models::InsertImage,
 ) -> Result<i32, DieselError> {
-    let result: Result<models::Image, DieselError> = diesel::insert_into(crate::schema::ref_image::table)
-        .values(insert_image)
-        .returning(models::Image::as_returning())
-        .get_result(connection);
+    let result: Result<models::Image, DieselError> =
+        diesel::insert_into(crate::schema::ref_image::table)
+            .values(insert_image)
+            .returning(models::Image::as_returning())
+            .get_result(connection);
 
     match result {
         Ok(image_db) => Ok(image_db.id),

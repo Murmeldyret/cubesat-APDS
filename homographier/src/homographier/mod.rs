@@ -38,7 +38,7 @@ pub enum MatError {
 /// Guarantees that a contained mat contains data, but makes no assumptions about validity
 #[derive(Debug)]
 pub struct Cmat<T> {
-    mat: Mat,
+    pub mat: Mat,
     _marker: PhantomData<T>,
 }
 

@@ -1,5 +1,5 @@
 use cv::{
-    core::{DMatch, KeyPoint, Mat, Point2f, Vector, NORM_HAMMING},
+    core::{DMatch, KeyPoint, Mat, Point2f, ToOutputArray, Vector, NORM_HAMMING},
     features2d::{AKAZE_DescriptorType, BFMatcher, DrawMatchesFlags, KAZE_DiffusivityType, AKAZE},
     imgcodecs,
     types::{VectorOfDMatch, VectorOfPoint2f, VectorOfVectorOfDMatch},
@@ -9,9 +9,53 @@ use opencv::core::Ptr;
 
 use opencv::{self as cv, prelude::*};
 
-pub fn akaze_keypoint_descriptor_extraction_def(
-    img: &Mat,
-) -> Result<(Vector<KeyPoint>, Mat), Error> {
+pub struct ExtractedKeyPoint {
+    keypoints: Vector<KeyPoint>,
+    descriptors: Mat,
+}
+
+#[derive(Debug)]
+pub struct DbKeypoints {
+    pub x_coord: f64,
+    pub y_coord: f64,
+    pub size: f64,
+    pub angle: f64,
+    pub response: f64,
+    pub octave: i32,
+    pub class_id: i32,
+    pub descriptor: Vec<u8>,
+    pub image_id: i32,
+}
+
+impl ExtractedKeyPoint {
+    pub fn to_db_type(&self, image_id: i32) -> Vec<DbKeypoints> {
+        let keypoints = self.keypoints.to_vec();
+
+        let mut db_keypoints: Vec<DbKeypoints> = Vec::with_capacity(self.keypoints.len());
+
+        for i in 0..keypoints.len() {
+            db_keypoints.push(DbKeypoints {
+                x_coord: (keypoints[i].pt().x as f64),
+                y_coord: (keypoints[i].pt().y as f64),
+                size: (keypoints[i].size() as f64),
+                angle: (keypoints[i].angle() as f64),
+                response: (keypoints[i].response() as f64),
+                octave: (keypoints[i].octave()),
+                class_id: (keypoints[i].class_id()),
+                descriptor: self
+                    .descriptors
+                    .at_row(i.try_into().unwrap())
+                    .unwrap()
+                    .to_vec(),
+                image_id,
+            });
+        }
+
+        db_keypoints
+    }
+}
+
+pub fn akaze_keypoint_descriptor_extraction_def(img: &Mat) -> Result<ExtractedKeyPoint, Error> {
     //let img: Mat = cv::imgcodecs::imread(file_location, cv::imgcodecs::IMREAD_COLOR).unwrap();
 
     let mut akaze: Ptr<AKAZE> = <AKAZE>::create(
@@ -26,20 +70,23 @@ pub fn akaze_keypoint_descriptor_extraction_def(
     )?;
 
     let mut akaze_keypoints = Vector::default();
-    let mut akaze_desc = Mat::default();
+    let mut akaze_desc: Mat = Mat::default();
     let mut dst_img = Mat::default();
     let mask = Mat::default();
 
     akaze.detect_and_compute(&img, &mask, &mut akaze_keypoints, &mut akaze_desc, false)?;
-    cv::features2d::draw_keypoints(
-        &img,
-        &akaze_keypoints,
-        &mut dst_img,
-        cv::core::VecN([0., 255., 0., 255.]),
-        DrawMatchesFlags::DEFAULT,
-    )?;
+    // cv::features2d::draw_keypoints(
+    //     &img,
+    //     &akaze_keypoints,
+    //     &mut dst_img,
+    //     cv::core::VecN([0., 255., 0., 255.]),
+    //     DrawMatchesFlags::DEFAULT,
+    // )?;
 
-    Ok((akaze_keypoints, akaze_desc))
+    Ok(ExtractedKeyPoint {
+        keypoints: akaze_keypoints,
+        descriptors: akaze_desc,
+    })
 }
 
 pub fn get_knn_matches(

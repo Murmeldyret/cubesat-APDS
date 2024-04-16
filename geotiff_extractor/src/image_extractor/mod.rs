@@ -238,8 +238,13 @@ impl MosaicDataset for MosaicedDataset {
         todo!()
     }
 
-    fn import_mosaic_dataset(_path: &str) -> Result<MosaicedDataset, errors::GdalError> {
-        todo!()
+    fn import_mosaic_dataset(path: &str) -> Result<MosaicedDataset, errors::GdalError> {
+        let ds = Dataset::open(path)?;
+
+        Ok(MosaicedDataset {
+            dataset: ds,
+            options: DatasetOptionsBuilder::new().build(),
+        })
     }
 
     fn set_bands(&self, _red_band: isize, _green_band: isize, _blue_band: isize) {
@@ -254,7 +259,7 @@ fn extract_band(
     size: (usize, usize),
 ) -> Result<Vec<f32>, errors::GdalError> {
     let band_vec = band
-        .read_as::<f32>(window, window_size, size, Some(ResampleAlg::Bilinear))?
+        .read_as::<f32>(window, window_size, size, Some(ResampleAlg::Lanczos))?
         .data;
 
     Ok(band_vec)
