@@ -64,17 +64,12 @@ fn main() {
         std::process::exit(1);
     }
 
-    raycon::ThreadPoolBuilder::new()
-        .num_threads(args.cpu_num)
-        .build_global()
-        .unwrap();
-
     let db_connection: Arc<Mutex<PgConnection>> =
         Arc::new(Mutex::new(feature_database::db_helpers::setup_database()));
 
     println!("Read dataset");
 
-    let thread_pool = raycon::ThreadPoolBuilder::default().build().unwrap();
+    let thread_pool = raycon::ThreadPoolBuilder::new().num_threads(args.cpu_num).build().unwrap();
 
     thread_pool.scope(move |s| {
         let mosaic: Arc<Mutex<MosaicedDataset>>;

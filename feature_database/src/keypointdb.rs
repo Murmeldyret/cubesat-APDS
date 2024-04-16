@@ -16,9 +16,7 @@ impl<'a> KeypointDatabase for Keypoint<'a> {
     ) -> Result<(), DieselError> {
         match input_keypoint {
             Keypoint::One(single_image) => create_keypoint_in_database(conn, &vec![single_image])?,
-            Keypoint::Multiple(multiple_images) => {
-                create_keypoint_in_database(conn, &multiple_images)?
-            }
+            Keypoint::Multiple(multiple_images) => create_keypoint_in_database(conn, &multiple_images)?
         }
         Ok(())
     }
@@ -117,15 +115,11 @@ fn create_keypoint_in_database(
     connection: &mut PgConnection,
     input_keypoint: &[models::InsertKeypoint],
 ) -> Result<(), DieselError> {
-    let result = diesel::insert_into(crate::schema::keypoint::table)
+    diesel::insert_into(crate::schema::keypoint::table)
         .values(input_keypoint)
-        .returning(models::Keypoint::as_returning())
-        .get_result(connection);
+        .execute(connection)?;
 
-    match result {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e),
-    }
+        Ok(())
 }
 
 pub trait KeypointDatabase {
