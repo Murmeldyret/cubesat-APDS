@@ -1,4 +1,5 @@
 use std::{
+    clone,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -6,7 +7,7 @@ use std::{
 use diesel::PgConnection;
 
 /// where the program should look for reference image(s) and keypoints
-enum ImgKeypointStore {
+pub enum ImgKeypointStore {
     /// Local.0 images and Local.1 keypoints
     Local((PathBuf, PathBuf)),
     Pg(Arc<Mutex<PgConnection>>),
@@ -16,12 +17,14 @@ impl ImgKeypointStore {
     // TODO: methods for selecting images and/or keypoints within a bounding box
 }
 
-enum Coordinates3d {
+#[derive(Debug, Clone)]
+pub enum Coordinates3d {
     Ellipsoidal { lat: f32, lon: f32, height: f32 },
     Cartesian { x: f32, y: f32, z: f32 },
 }
 
-enum Coordinates2d {
+#[derive(Debug, Clone)]
+pub enum Coordinates2d {
     Ellipsoidal { lat: f32, lon: f32 },
     Cartesian { x: f32, y: f32 },
 }
