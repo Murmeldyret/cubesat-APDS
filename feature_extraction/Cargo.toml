@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 opencv = {version = "0.88.8", features = ["clang-runtime","calib3d"]}
+homographier = { version = "0.1.0", path = "../homographier" }
 
 [lints]
 workspace = true

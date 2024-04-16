@@ -343,6 +343,7 @@ mod test {
         let homography = res.0;
         let mask = res.1;
 
+
         // Assert for identity matrix
         for col in 0..3 {
             for row in 0..3 {

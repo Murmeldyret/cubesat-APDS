@@ -21,8 +21,7 @@ pub fn akaze_keypoint_descriptor_extraction_def(
         0.001f32,
         4,
         4,
-        KAZE_DiffusivityType::DIFF_PM_G2,
-        -1,
+        KAZE_DiffusivityType::DIFF_PM_G2
     )?;
 
     let mut akaze_keypoints = Vector::default();
@@ -138,8 +137,10 @@ pub fn get_points_from_matches(
 #[allow(dead_code)]
 mod test {
 
-    use cv::core::Point2f;
+    use cv::{core::Point2f, imgproc::{warp_perspective, warp_perspective_def}, types::VectorOfPoint2f};
     use opencv::{self as cv, prelude::*};
+    use homographier::homographier::*;
+    use opencv::imgcodecs;
 
     use crate::{
         akaze_keypoint_descriptor_extraction_def, export_matches, get_bruteforce_matches,
@@ -148,8 +149,8 @@ mod test {
 
     #[test]
     fn fake_test() {
-        let img1_dir = "../resources/test/Geotiff/30.tif";
-        let img2_dir = "../resources/test/Geotiff/31.tif";
+        let img1_dir = "../resources/test/images/9-2.png";
+        let img2_dir = "../resources/test/images/10.png";
 
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
@@ -160,7 +161,7 @@ mod test {
         println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
         println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
 
-        let matches = get_knn_matches(&img1_desc, &img2_desc, 2, 0.3).unwrap();
+        let matches = get_knn_matches(&img1_desc, &img2_desc, 2, 0.9).unwrap();
 
         println!("Matches: {}", matches.len());
 
@@ -170,7 +171,7 @@ mod test {
             &img2,
             &img2_keypoints,
             &matches,
-            "../resources/test/Geotiff/out.tif",
+            "../resources/test/Geotiff/out.png",
         );
 
         let (img1_matched_points, img2_matched_points) =
@@ -181,6 +182,47 @@ mod test {
             img1_matched_points.len(),
             img2_matched_points.len()
         );
+
+        let mut img1_pts = Vec::new();
+        let mut img2_pts = Vec::new();
+
+        for dmatch in matches {
+            img1_pts.push(img1_keypoints.get(dmatch.query_idx.try_into().unwrap()).unwrap().pt());
+            img2_pts.push(img2_keypoints.get(dmatch.train_idx.try_into().unwrap()).unwrap().pt());
+        }
+
+        let res = find_homography_mat(
+            &img1_pts,
+            &img2_pts,
+            Some(HomographyMethod::RANSAC), 
+            Some(1f64)
+        );
+
+        let res = res.inspect_err(|e| {
+            dbg!(e);
+        });
+        assert!(res.is_ok());
+
+        let res = res.unwrap();
+        let homography = res.0;
+        let mask = res.1;
+        let matches_mask = mask.unwrap();
+        let mut dst_img = Mat::default();
+        let k = &mut Mat::default();
+
+        let dst_img = warp_perspective_def(&img1, k, &homography, img1.size().unwrap());
+
+        imgcodecs::imwrite("../resources/test/Geotiff/out-homo.png", k, &cv::core::Vector::default()).unwrap();
+        // Assert for identity matrix
+        for col in 0..3 {
+            for row in 0..3 {
+                if col == row {
+                    assert_eq!(&homography.at_2d(row, col).unwrap().round(), &1f64);
+                } else {
+                    assert_eq!(&homography.at_2d(row, col).unwrap().round(), &0f64);
+                }
+            }
+        }
 
         assert!(true);
     }
