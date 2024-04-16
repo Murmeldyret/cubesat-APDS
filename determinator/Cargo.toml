@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 homographier = { version = "0.1.0", path = "../homographier" }
 feature_database = { version = "0.1.0", path = "../feature_database" }
-
-clap = { version = "4.5.4" }
+feature_extraction = {version = "0.1.0", path = "../feature_extraction"}
+clap = { version = "4.5.4", features = ["derive"] }
 dotenvy = "0.15.7"
 rgb = "0.8.37"
 diesel = { version = "2.1.5", features = ["postgres"] }
