@@ -1,0 +1,18 @@
+[package]
+name = "determinator"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+homographier = { version = "0.1.0", path = "../homographier" }
+feature_database = { version = "0.1.0", path = "../feature_database" }
+
+clap = { version = "4.5.4" }
+dotenvy = "0.15.7"
+rgb = "0.8.37"
+diesel = { version = "2.1.5", features = ["postgres"] }
+
+[lints]
+workspace = true
