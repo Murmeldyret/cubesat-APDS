@@ -220,6 +220,8 @@ pub fn find_homography_mat(
 /// # Notes
 /// Since ransac randomly chooses a subset of points as the basis for a solution, the function behaves nondeterministiaclly.
 /// As such there is no gurantee that produces the same solution with the same parameters
+/// if the number of correspondence points is <=4, RANSAC will not be used.
+/// The object points should not be colinear, if they are, a solution may not be found
 pub fn pnp_solver_ransac(
     point_correspondences: &[ImgObjCorrespondence],
     camera_intrinsic: &Cmat<f64>,
