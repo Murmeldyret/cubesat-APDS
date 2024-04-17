@@ -84,7 +84,7 @@ pub fn export_matches(
     img2_keypoints: &Vector<KeyPoint>,
     matches: &Vector<DMatch>,
     export_location: &str,
-) -> Result<(), Error> {
+) -> Result<Mat, Error> {
     let mut out_img = Mat::default();
     let matches_mask = Vector::new();
 
@@ -103,7 +103,7 @@ pub fn export_matches(
 
     imgcodecs::imwrite(export_location, &out_img, &Vector::default())?;
 
-    Ok(())
+    Ok(out_img)
 }
 
 pub fn get_mat_from_dir(img_dir: &str) -> Result<Mat, Error> {
@@ -137,7 +137,7 @@ pub fn get_points_from_matches(
 #[allow(dead_code)]
 mod test {
 
-    use cv::{core::Point2f, imgproc::{warp_perspective, warp_perspective_def}, types::VectorOfPoint2f};
+    use cv::{core::{perspective_transform, Point2f, Point2i}, imgproc::{line, line_def, warp_perspective, warp_perspective_def}, types::{VectorOfPoint2f, VectorOfVec2f}};
     use opencv::{self as cv, prelude::*};
     use homographier::homographier::*;
     use opencv::imgcodecs;
@@ -161,18 +161,18 @@ mod test {
         println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
         println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
 
-        let matches = get_knn_matches(&img1_desc, &img2_desc, 2, 0.9).unwrap();
+        let matches = get_knn_matches(&img1_desc, &img2_desc, 2, 0.5).unwrap();
 
         println!("Matches: {}", matches.len());
 
-        let _ = export_matches(
+        let mut out_img = export_matches(
             &img1,
             &img1_keypoints,
             &img2,
             &img2_keypoints,
             &matches,
             "../resources/test/Geotiff/out.png",
-        );
+        ).unwrap();
 
         let (img1_matched_points, img2_matched_points) =
             get_points_from_matches(&img1_keypoints, &img2_keypoints, &matches).unwrap();
@@ -208,11 +208,48 @@ mod test {
         let mask = res.1;
         let matches_mask = mask.unwrap();
         let mut dst_img = Mat::default();
-        let k = &mut Mat::default();
+        //let mut k = &mut Mat::default();
 
-        let dst_img = warp_perspective_def(&img1, k, &homography, img1.size().unwrap());
+        //let dst_img = warp_perspective_def(&img1, &mut out_img, &homography, img2.size().unwrap());
 
-        imgcodecs::imwrite("../resources/test/Geotiff/out-homo.png", k, &cv::core::Vector::default()).unwrap();
+
+        let mut object_corners = VectorOfPoint2f::new();
+        object_corners.push(Point2f::new(0f32,0f32));
+        object_corners.push(Point2f::new(img1.cols() as f32,0f32));
+        object_corners.push(Point2f::new(img1.cols() as f32,img1.rows() as f32));
+        object_corners.push(Point2f::new(0f32,img1.rows() as f32));
+
+        let mut scene_corners = VectorOfPoint2f::new();
+
+        let _ = perspective_transform(&object_corners, &mut scene_corners, &homography);
+
+        let _ = line_def(
+            &mut out_img,
+            Point2i::new(scene_corners.get(0).unwrap().x as i32 + img1.cols(), scene_corners.get(0).unwrap().y as i32 + 0),
+            Point2i::new(scene_corners.get(1).unwrap().x as i32 + img1.cols(), scene_corners.get(1).unwrap().y as i32 + 0),
+            opencv::core::VecN::all(-1.0)
+        );
+        let _ = line_def(
+            &mut out_img,
+            Point2i::new(scene_corners.get(1).unwrap().x as i32 + img1.cols(), scene_corners.get(1).unwrap().y as i32 + 0),
+            Point2i::new(scene_corners.get(2).unwrap().x as i32 + img1.cols(), scene_corners.get(2).unwrap().y as i32 + 0),
+            opencv::core::VecN::all(-1.0)
+        );
+        let _ = line_def(
+            &mut out_img,
+            Point2i::new(scene_corners.get(2).unwrap().x as i32 + img1.cols(), scene_corners.get(2).unwrap().y as i32 + 0),
+            Point2i::new(scene_corners.get(3).unwrap().x as i32 + img1.cols(), scene_corners.get(3).unwrap().y as i32 + 0),
+            opencv::core::VecN::all(-1.0)
+        );
+        let _ = line_def(
+            &mut out_img,
+            Point2i::new(scene_corners.get(3).unwrap().x as i32 + img1.cols(), scene_corners.get(3).unwrap().y as i32 + 0),
+            Point2i::new(scene_corners.get(0).unwrap().x as i32 + img1.cols(), scene_corners.get(0).unwrap().y as i32 + 0),
+            opencv::core::VecN::all(-1.0)
+        );
+
+
+        imgcodecs::imwrite("../resources/test/Geotiff/out-homo.png", &out_img, &cv::core::Vector::default()).unwrap();
         // Assert for identity matrix
         for col in 0..3 {
             for row in 0..3 {
