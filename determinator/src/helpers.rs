@@ -1,10 +1,14 @@
 use std::{
     clone,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
 use diesel::PgConnection;
+use homographier::homographier::Cmat;
+use opencv::core::Mat;
+
+use crate::CameraIntrinsic;
 
 /// where the program should look for reference image(s) and keypoints
 pub enum ImgKeypointStore {
@@ -40,4 +44,35 @@ impl From<Coordinates3d> for Coordinates2d {
             Coordinates3d::Cartesian { x, y, z: _ } => Coordinates2d::Cartesian { x, y },
         }
     }
+}
+
+pub fn get_camera_matrix(cam_intrins: CameraIntrinsic) -> Result<Cmat<f64>, ()> {
+    let mat: Cmat<f64> = match cam_intrins {
+        CameraIntrinsic::File { path } => parse_into_matrix(path)?,
+        CameraIntrinsic::Manual {
+            focal_len_x,
+            focal_len_y,
+            skew,
+            offset_x,
+            offset_y,
+        } => {
+            let arr: [[f64; 3]; 3] = [
+                [focal_len_x, skew, offset_x],
+                [0.0, focal_len_y, offset_y],
+                [0.0, 0.0, 1.0],
+            ];
+            Cmat::from_2d_slice(&arr).map_err(|_err|())?
+        }
+    };
+    Ok(mat)
+}
+
+fn parse_into_matrix(path: String) ->Result<Cmat<f64>,()> {
+    let path = PathBuf::from(path);
+    match path.extension().ok_or(())?.to_str().ok_or(())? {
+        "json" => {todo!("har ikke opsat parser endnu :)")}
+        _ => Err(()),
+        
+    }
+
 }

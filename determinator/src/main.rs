@@ -6,7 +6,7 @@ use feature_database::schema::keypoint::descriptor;
 use feature_extraction::{
     akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
 };
-use helpers::Coordinates3d;
+use helpers::{get_camera_matrix, Coordinates3d};
 use homographier::homographier::{raster_to_mat, Cmat};
 
 use diesel::PgConnection;
@@ -28,10 +28,10 @@ struct Args {
     /// Path to the input image
     ///
     /// Image should be 8bit RGBA
-    #[arg(short,long)]
-    img_path: String,
-    /// Iteration count when performing model estimation 
-    #[arg(short, long,default_value_t=1000)] //TODO: skal 1k være default værdi?
+    #[arg(short, long)]
+    img_path: PathBuf,
+    /// Iteration count when performing model estimation
+    #[arg(short, long, default_value_t = 1000)] //TODO: skal 1k være default værdi?
     pnp_ransac_iter_count: u32,
     #[command(subcommand)]
     cam_matrix: CameraIntrinsic,
@@ -54,25 +54,24 @@ enum CameraIntrinsic {
         /// Usually the same as `focal_len_x`
         focal_len_y: f64,
         /// Axis skew, defaults to 0
-        #[arg(default_value_t=0.0)]
+        #[arg(default_value_t = 0.0)]
         skew: f64,
         /// Principal offset x coordinate, defaults to 0
-        #[arg(default_value_t=0.0)]
+        #[arg(default_value_t = 0.0)]
         offset_x: f64,
         /// Principal offset y coordinate
-        #[arg(default_value_t=0.0)]
+        #[arg(default_value_t = 0.0)]
         offset_y: f64,
     },
 }
 
+#[allow(unreachable_code)]
 #[forbid(clippy::unwrap_used)]
 fn main() {
     // dotenv().expect("failed to read environment variables");
     let args = Args::parse();
-    Option::<()>::None.unwrap();
-    let path = Path::new(&args.img_path)
-        .to_str()
-        .expect("failed to read img_path, it is probably not valid unicode");
+    // 1/0f64.floor() as i32; // :)
+    let path = args.img_path.to_str().expect("img_path is not valid unicode");
 
     let image = Cmat::<BGRA8>::imread_checked(path, -1).expect("Failed to read image ");
 
@@ -100,4 +99,5 @@ fn main() {
         .zip(ref_kp_woorld_coords)
         .map(|f| todo!())
         .collect();
+    let camera_matrix = get_camera_matrix(args.cam_matrix).expect("Failed to get camera matrix");
 }
