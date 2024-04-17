@@ -11,7 +11,7 @@ use gdal::programs::raster::build_vrt;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 
-const GAMMA_VALUE: f32 = 1.0/2.2;
+const GAMMA_VALUE: f32 = 1.0 / 2.2;
 const U8_MAX: f32 = u8::MAX as f32;
 
 // A struct for handling raw datasets from disk in Geotiff format
@@ -497,8 +497,7 @@ mod tests {
 
         let window_size = dataset.dataset.raster_size();
 
-        let image_rgba: Result<Vec<rgb::RGBA8>, _> =
-            dataset.to_rgb((0, 0), window_size, (20, 20));
+        let image_rgba: Result<Vec<rgb::RGBA8>, _> = dataset.to_rgb((0, 0), window_size, (20, 20));
 
         assert!(image_rgba.is_ok_and(|image_vec| image_vec.len() == 20 * 20));
     }

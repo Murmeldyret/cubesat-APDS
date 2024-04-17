@@ -34,8 +34,12 @@ fn extract_features_from_image(bencher: Bencher, sample_size: u32) {
 
     bencher.bench(|| {
         akaze_keypoint_descriptor_extraction_def(
-            &Mat::from_slice_rows_cols::<Vec3b>(&image_vec, sample_size as usize, sample_size as usize)
-                .unwrap(),
+            &Mat::from_slice_rows_cols::<Vec3b>(
+                &image_vec,
+                sample_size as usize,
+                sample_size as usize,
+            )
+            .unwrap(),
         )
     });
 }

@@ -2,10 +2,7 @@ use std::marker::PhantomData;
 
 use opencv::{
     calib3d::find_homography,
-    core::{
-        Point2f, Scalar, Size2i, ToInputArray, ToOutputArray, Vec4b,
-        BORDER_CONSTANT, CV_8UC4,
-    },
+    core::{Point2f, Scalar, Size2i, ToInputArray, ToOutputArray, Vec4b, BORDER_CONSTANT, CV_8UC4},
     imgproc::{warp_perspective, INTER_LINEAR},
     prelude::*,
     Error,
@@ -56,9 +53,8 @@ pub struct Cmat<T> {
 }
 
 impl<T> Cmat<T> {
-
     /// Creates a checked matrix from a [`opencv::core::Mat`]
-    /// 
+    ///
     /// ## Errors
     /// If `mat` is empty, an error is returned
     pub fn new(mat: Mat) -> Result<Self, MatError> {
@@ -103,7 +99,7 @@ impl<T> Cmat<T> {
 
 impl<T: DataType> Cmat<T> {
     /// Checked element access
-    /// 
+    ///
     /// ## Errors
     /// Will return [`MatError::OutOfBounds`] if either row or column exceeds matrix width and size respectively.
     /// If the type T does not match the inner Mat's type, an error is returned
@@ -143,7 +139,7 @@ impl<T> ToOutputArray for Cmat<T> {
 }
 
 /// Converts a slice of [`RGBA8`] to a [`Cmat<Vec4b>`]
-/// 
+///
 /// ## Parameters
 /// pixels: the slice of pixels that should be converted to a matrix, the slice length should be equal to `w*h`
 /// w: the width of the image, or the number of columns
@@ -197,7 +193,7 @@ fn rbga8_to_vec4b(pixel: RGBA8) -> Vec4b {
 /// * reference: Points taken from the destination plane (length should be atleast 4, and points cannot be colinear)
 /// * method: the method used to compute, default is Least median squares (Lmeds)
 /// * repreproj_threshold: Maximum allowed error, if the error is greater, a point is considered an outlier (used in RANSAC and RHO), defaults to 3.0
-/// 
+///
 /// ## Errors
 /// TODO
 pub fn find_homography_mat(
@@ -342,7 +338,6 @@ mod test {
         let res = res.unwrap();
         let homography = res.0;
         let mask = res.1;
-
 
         // Assert for identity matrix
         for col in 0..3 {
