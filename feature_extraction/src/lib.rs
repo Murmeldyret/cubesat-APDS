@@ -1,10 +1,12 @@
 use cv::{
-    core::{DMatch, KeyPoint, Mat, Point2f, Vector, NORM_HAMMING},
+    core::{perspective_transform, DMatch, KeyPoint, Mat, Point2f, Point2i, Vector, NORM_HAMMING},
     features2d::{AKAZE_DescriptorType, BFMatcher, DrawMatchesFlags, KAZE_DiffusivityType, AKAZE},
     imgcodecs,
     types::{VectorOfDMatch, VectorOfPoint2f, VectorOfVectorOfDMatch},
     Error,
+    imgproc::{line, line_def, warp_perspective, warp_perspective_def}
 };
+use homographier::homographier::Cmat;
 use opencv::core::Ptr;
 
 use opencv::{self as cv, prelude::*};
@@ -131,6 +133,37 @@ pub fn get_points_from_matches(
     Ok((img1_matched_points, img2_matched_points))
 }
 
+pub fn draw_homography(
+    out_img: &mut Mat,
+    img1: &Mat,
+    homography: &Cmat<f64>
+) -> Result<(), Error> {
+
+    let mut object_corners = VectorOfPoint2f::new();
+        object_corners.push(Point2f::new(0f32,0f32));
+        object_corners.push(Point2f::new(img1.cols() as f32,0f32));
+        object_corners.push(Point2f::new(img1.cols() as f32,img1.rows() as f32));
+        object_corners.push(Point2f::new(0f32,img1.rows() as f32));
+
+        let mut scene_corners = VectorOfPoint2f::new();
+
+        let _ = perspective_transform(&object_corners, &mut scene_corners, homography);
+
+    for i in 0..4 {
+        let _ = line_def(
+            out_img,
+            Point2i::new(scene_corners.get(i)?.x as i32 + img1.cols(), scene_corners.get(i)?.y as i32 + 0),
+            Point2i::new(scene_corners.get((i+1)%4)?.x as i32 + img1.cols(), scene_corners.get((i+1)%4)?.y as i32 + 0),
+            opencv::core::VecN::all(255.0)
+        );
+    }
+
+
+    Ok(())
+}
+
+
+
 #[allow(clippy::unwrap_used)]
 #[allow(unused_variables)]
 #[allow(unused_imports)]
@@ -143,8 +176,7 @@ mod test {
     use opencv::imgcodecs;
 
     use crate::{
-        akaze_keypoint_descriptor_extraction_def, export_matches, get_bruteforce_matches,
-        get_knn_matches, get_mat_from_dir, get_points_from_matches,
+        akaze_keypoint_descriptor_extraction_def, draw_homography, export_matches, get_bruteforce_matches, get_knn_matches, get_mat_from_dir, get_points_from_matches
     };
 
     #[test]
@@ -223,30 +255,8 @@ mod test {
 
         let _ = perspective_transform(&object_corners, &mut scene_corners, &homography);
 
-        let _ = line_def(
-            &mut out_img,
-            Point2i::new(scene_corners.get(0).unwrap().x as i32 + img1.cols(), scene_corners.get(0).unwrap().y as i32 + 0),
-            Point2i::new(scene_corners.get(1).unwrap().x as i32 + img1.cols(), scene_corners.get(1).unwrap().y as i32 + 0),
-            opencv::core::VecN::all(-1.0)
-        );
-        let _ = line_def(
-            &mut out_img,
-            Point2i::new(scene_corners.get(1).unwrap().x as i32 + img1.cols(), scene_corners.get(1).unwrap().y as i32 + 0),
-            Point2i::new(scene_corners.get(2).unwrap().x as i32 + img1.cols(), scene_corners.get(2).unwrap().y as i32 + 0),
-            opencv::core::VecN::all(-1.0)
-        );
-        let _ = line_def(
-            &mut out_img,
-            Point2i::new(scene_corners.get(2).unwrap().x as i32 + img1.cols(), scene_corners.get(2).unwrap().y as i32 + 0),
-            Point2i::new(scene_corners.get(3).unwrap().x as i32 + img1.cols(), scene_corners.get(3).unwrap().y as i32 + 0),
-            opencv::core::VecN::all(-1.0)
-        );
-        let _ = line_def(
-            &mut out_img,
-            Point2i::new(scene_corners.get(3).unwrap().x as i32 + img1.cols(), scene_corners.get(3).unwrap().y as i32 + 0),
-            Point2i::new(scene_corners.get(0).unwrap().x as i32 + img1.cols(), scene_corners.get(0).unwrap().y as i32 + 0),
-            opencv::core::VecN::all(-1.0)
-        );
+        draw_homography(&mut out_img, &img1, &homography);
+        
 
 
         imgcodecs::imwrite("../resources/test/Geotiff/out-homo.png", &out_img, &cv::core::Vector::default()).unwrap();
