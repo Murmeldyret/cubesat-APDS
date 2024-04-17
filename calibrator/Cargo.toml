@@ -1,0 +1,13 @@
+[package]
+name = "calibrator"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+opencv ={ version = "0.90.0"}
+clap = { version = "4.5.4", features = ["derive"] }
+
+[lints]
+workspace = true
