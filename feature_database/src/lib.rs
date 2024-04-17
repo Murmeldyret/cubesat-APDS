@@ -19,8 +19,8 @@ pub mod db_helpers {
 
         let lock = DATABASE_LOCK.lock();
 
-        if lock.is_err() {
-            return lock.unwrap_err().into_inner();
+        if let Err(poison_lock) = lock {
+            return poison_lock.into_inner();
         }
 
         lock.unwrap()

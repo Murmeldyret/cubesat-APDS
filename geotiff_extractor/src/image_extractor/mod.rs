@@ -2,7 +2,7 @@ use gdal::errors;
 use gdal::raster::{ColorInterpretation, RasterCreationOption, StatisticsMinMax};
 use gdal::Dataset;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use gdal::raster::ResampleAlg;
 
@@ -170,7 +170,6 @@ impl MosaicDataset for MosaicedDataset {
         let dataset = &self.dataset;
 
         let min_max: Vec<StatisticsMinMax> = (1..4)
-            .into_iter()
             .map(|i| {
                 let ds_min_max = dataset.rasterband(i)?.compute_raster_min_max(true)?;
                 Ok::<StatisticsMinMax, errors::GdalError>(StatisticsMinMax {
@@ -276,7 +275,7 @@ fn band_merger(
         let mut alpha = 255;
 
         if bands
-            .into_iter()
+            .iter()
             .fold(true, |acc, band| band[i].is_nan() && acc)
         {
             alpha = 0;
@@ -326,7 +325,7 @@ fn creation_options() -> Vec<RasterCreationOption<'static>> {
 }
 
 fn gamma_correction(input_value: f32) -> Result<f32, PixelConversion> {
-    if input_value < 0.0 || input_value > 1.0 {
+    if !(0.0..=1.0).contains(&input_value) {
         return Err(PixelConversion::GammaOutOfRange);
     }
 

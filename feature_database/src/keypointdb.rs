@@ -15,7 +15,7 @@ impl<'a> KeypointDatabase for Keypoint<'a> {
         input_keypoint: Keypoint,
     ) -> Result<(), DieselError> {
         match input_keypoint {
-            Keypoint::One(single_image) => create_keypoint_in_database(conn, &vec![single_image])?,
+            Keypoint::One(single_image) => create_keypoint_in_database(conn, &[single_image])?,
             Keypoint::Multiple(multiple_images) => create_keypoint_in_database(conn, &multiple_images)?
         }
         Ok(())

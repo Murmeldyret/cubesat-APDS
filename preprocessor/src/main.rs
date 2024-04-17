@@ -9,13 +9,10 @@ use indicatif::{MultiProgress, ProgressBar};
 use tempfile::tempdir;
 
 use level_of_detail::calculate_amount_of_levels;
-use raycon::{Scope, ThreadPool};
 use rayon as raycon;
+use raycon::Scope;
 
 use clap::Parser;
-use rgb::RGBA;
-use std::env;
-use std::os::unix::thread;
 use std::sync::{Arc, Mutex};
 
 pub mod level_of_detail;
@@ -67,15 +64,18 @@ fn main() {
 
     let thread_pool = raycon::ThreadPoolBuilder::new().num_threads(args.cpu_num).build().unwrap();
 
-    thread_pool.scope(move |s| {
         let mosaic: Arc<Mutex<MosaicedDataset>>;
-        if args.dataset_path.is_some() {
-            let temp_dir = tempdir().expect(
+        let temp_dir = tempdir().expect(
                 "Could not create temp directory\nPlease provide directory in the parameters",
             );
+
+        let temp_string = temp_dir.path().to_string_lossy().to_string();
+
+        if args.dataset_path.is_some() {
+
             let temp_path = args
                 .temp_path
-                .unwrap_or(temp_dir.into_path().to_string_lossy().to_string());
+                .unwrap_or(temp_string);
             let dataset = image_extractor::RawDataset::import_datasets(
                 &args.dataset_path.expect("No path provided"),
             )
@@ -97,10 +97,14 @@ fn main() {
             panic!("No dataset path provided");
         }
 
+
+
+    thread_pool.scope(move |s| {
         println!("Processing mosaic");
 
         process_lod_from_mosaic(db_connection, mosaic, args.tile_size, s);
     });
+    temp_dir.close().unwrap()
 }
 
 fn process_lod_from_mosaic(
@@ -244,17 +248,17 @@ fn feature_extraction_to_database(
 
     let mut insert_keypoints: Vec<models::InsertKeypoint> = Vec::with_capacity(db_keypoints.len());
 
-    for i in 0..db_keypoints.len() {
+    for keypoint in &db_keypoints {
         insert_keypoints.push(models::InsertKeypoint {
-            x_coord: &db_keypoints[i].x_coord,
-            y_coord: &db_keypoints[i].y_coord,
-            size: &db_keypoints[i].size,
-            angle: &db_keypoints[i].angle,
-            response: &db_keypoints[i].response,
-            octave: &db_keypoints[i].octave,
-            class_id: &db_keypoints[i].class_id,
-            descriptor: &db_keypoints[i].descriptor,
-            image_id: &db_keypoints[i].image_id,
+            x_coord: &keypoint.x_coord,
+            y_coord: &keypoint.y_coord,
+            size: &keypoint.size,
+            angle: &keypoint.angle,
+            response: &keypoint.response,
+            octave: &keypoint.octave,
+            class_id: &keypoint.class_id,
+            descriptor: &keypoint.descriptor,
+            image_id: &keypoint.image_id,
         });
     }
 
@@ -263,8 +267,4 @@ fn feature_extraction_to_database(
     keypointdb::Keypoint::create_keypoint(&mut conn, db_insert_keypoints).unwrap();
 
     bar.inc(1);
-
-    if bar.length().unwrap() == tile_size {
-        bar.finish();
-    }
 }

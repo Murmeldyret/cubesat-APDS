@@ -1,5 +1,5 @@
 use cv::{
-    core::{DMatch, KeyPoint, Mat, Point2f, ToOutputArray, Vector, NORM_HAMMING},
+    core::{DMatch, KeyPoint, Mat, Point2f, Vector, NORM_HAMMING},
     features2d::{AKAZE_DescriptorType, BFMatcher, DrawMatchesFlags, KAZE_DiffusivityType, AKAZE},
     imgcodecs,
     types::{VectorOfDMatch, VectorOfPoint2f, VectorOfVectorOfDMatch},
@@ -33,19 +33,19 @@ impl ExtractedKeyPoint {
 
         let mut db_keypoints: Vec<DbKeypoints> = Vec::with_capacity(self.keypoints.len());
 
-        for i in 0..keypoints.len() {
+        for (i, keypoint) in keypoints.iter().enumerate() {
             db_keypoints.push(DbKeypoints {
-                x_coord: (keypoints[i].pt().x as f64),
-                y_coord: (keypoints[i].pt().y as f64),
-                size: (keypoints[i].size() as f64),
-                angle: (keypoints[i].angle() as f64),
-                response: (keypoints[i].response() as f64),
-                octave: (keypoints[i].octave()),
-                class_id: (keypoints[i].class_id()),
+                x_coord: (keypoint.pt().x as f64),
+                y_coord: (keypoint.pt().y as f64),
+                size: (keypoint.size() as f64),
+                angle: (keypoint.angle() as f64),
+                response: (keypoint.response() as f64),
+                octave: (keypoint.octave()),
+                class_id: (keypoint.class_id()),
                 descriptor: self
                     .descriptors
-                    .at_row(i.try_into().unwrap())
-                    .unwrap()
+                    .at_row(i.try_into().expect("Could not cast i"))
+                    .expect("Could not find descriptor")
                     .to_vec(),
                 image_id,
             });
@@ -71,7 +71,6 @@ pub fn akaze_keypoint_descriptor_extraction_def(img: &Mat) -> Result<ExtractedKe
 
     let mut akaze_keypoints = Vector::default();
     let mut akaze_desc: Mat = Mat::default();
-    let mut dst_img = Mat::default();
     let mask = Mat::default();
 
     akaze.detect_and_compute(&img, &mask, &mut akaze_keypoints, &mut akaze_desc, false)?;

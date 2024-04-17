@@ -13,7 +13,7 @@ pub enum Image<'a> {
 impl ImageDatabase for Image<'_> {
     fn create_image(conn: &mut PgConnection, input_image: Image) -> Result<i32, DieselError> {
         match input_image {
-            Image::One(single_image) => return Ok(create_image_in_database(conn, &single_image)?),
+            Image::One(single_image) => Ok(create_image_in_database(conn, &single_image)?),
             Image::Multiple(multiple_images) => {
                 let result: Result<Vec<i32>, DieselError> = multiple_images
                     .into_iter()
@@ -21,8 +21,8 @@ impl ImageDatabase for Image<'_> {
                     .collect();
 
                 match result {
-                    Ok(image_vec) => return Ok(image_vec[0]),
-                    Err(e) => return Err(e),
+                    Ok(image_vec) => Ok(image_vec[0]),
+                    Err(e) => Err(e),
                 }
             }
         }
