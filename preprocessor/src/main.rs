@@ -1,18 +1,14 @@
 use diesel::PgConnection;
 use dotenvy::dotenv;
-use feature_database::models;
-use feature_database::{imagedb, keypointdb};
-use feature_database::{imagedb::ImageDatabase, keypointdb::KeypointDatabase};
+use feature_database::{imagedb, keypointdb, imagedb::ImageDatabase, keypointdb::KeypointDatabase, models};
 use feature_extraction::{akaze_keypoint_descriptor_extraction_def, DbKeypoints};
 use geotiff_lib::image_extractor;
 use geotiff_lib::image_extractor::{Datasets, MosaicDataset, MosaicedDataset};
 use homographier::homographier::raster_to_mat;
-use homographier::homographier::Cmat;
 use indicatif::{MultiProgress, ProgressBar};
 use tempfile::tempdir;
 
 use level_of_detail::calculate_amount_of_levels;
-use once_cell::sync::Lazy;
 use raycon::{Scope, ThreadPool};
 use rayon as raycon;
 
