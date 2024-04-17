@@ -77,7 +77,7 @@ impl<T> Cmat<T> {
         }
     }
 
-    /// Creates a Cmat from a copied 1-dimensional slice
+    /// Creates a Cmat from a copied 2-dimensional slice
     pub fn from_2d_slice(slice: &[impl AsRef<[T]>]) -> Result<Self, MatError>
     where
         T: DataType,
