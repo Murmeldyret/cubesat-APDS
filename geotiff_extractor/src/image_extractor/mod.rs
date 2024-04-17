@@ -77,6 +77,7 @@ impl DatasetOptionsBuilder {
 pub struct MosaicedDataset {
     pub dataset: Dataset,
     pub options: DatasetOptions,
+    pub min_max: Option<BandsMinMax>
 }
 
 #[cfg_attr(test, automock)]
@@ -88,11 +89,11 @@ pub trait Datasets {
 #[cfg_attr(test, automock)]
 pub trait MosaicDataset {
     fn import_mosaic_dataset(path: &str) -> Result<MosaicedDataset, errors::GdalError>;
-    fn datasets_min_max(&self) -> Result<BandsMinMax, errors::GdalError>;
+    fn datasets_min_max(&mut self) -> Result<BandsMinMax, errors::GdalError>;
     fn get_dimensions(&self) -> Result<(i64, i64), errors::GdalError>;
     fn set_scaling(&self, dimensions: (usize, usize));
     fn to_rgb(
-        &self,
+        &mut self,
         window: (isize, isize),
         window_size: (usize, usize),
         size: (usize, usize),
@@ -102,7 +103,7 @@ pub trait MosaicDataset {
     fn set_bands(&self, red_band: isize, green_band: isize, blue_band: isize);
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct BandsMinMax {
     pub red_min: f64,
     pub red_max: f64,
@@ -159,6 +160,7 @@ impl Datasets for RawDataset {
         Ok(MosaicedDataset {
             dataset: mosaic,
             options: DatasetOptionsBuilder::new().build(),
+            min_max: None
         })
     }
 
@@ -166,7 +168,11 @@ impl Datasets for RawDataset {
 }
 
 impl MosaicDataset for MosaicedDataset {
-    fn datasets_min_max(&self) -> Result<BandsMinMax, errors::GdalError> {
+    fn datasets_min_max(&mut self) -> Result<BandsMinMax, errors::GdalError> {
+        if self.min_max.is_some() {
+            return Ok(self.min_max.expect("Could not return min_max"));
+        }
+
         let dataset = &self.dataset;
 
         let min_max: Vec<StatisticsMinMax> = (1..4)
@@ -179,14 +185,18 @@ impl MosaicDataset for MosaicedDataset {
             })
             .collect::<Result<Vec<StatisticsMinMax>, errors::GdalError>>()?;
 
-        Ok(BandsMinMax {
+        let min_max = BandsMinMax {
             red_min: min_max[0].min,
             red_max: min_max[0].max,
             green_min: min_max[1].min,
             green_max: min_max[1].max,
             blue_min: min_max[2].min,
             blue_max: min_max[2].max,
-        })
+        };
+
+        self.min_max = Some(min_max.clone());
+
+        Ok(min_max)
     }
 
     fn get_dimensions(&self) -> Result<(i64, i64), errors::GdalError> {
@@ -200,7 +210,7 @@ impl MosaicDataset for MosaicedDataset {
     }
 
     fn to_rgb(
-        &self,
+        &mut self,
         window: (isize, isize),
         window_size: (usize, usize),
         size: (usize, usize),
@@ -243,6 +253,7 @@ impl MosaicDataset for MosaicedDataset {
         Ok(MosaicedDataset {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
+            min_max: None
         })
     }
 

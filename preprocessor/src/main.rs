@@ -52,20 +52,24 @@ fn main() {
 
     let args = Args::parse();
 
+    // Exit early if no path is provided.
     if args.dataset_path.is_none() && args.mosaic_path.is_none() {
         println!("No path provided to a dataset.");
         std::process::exit(1);
     }
 
+    // Must be in mutex since diesel is a sync library.
     let db_connection: Arc<Mutex<PgConnection>> =
         Arc::new(Mutex::new(feature_database::db_helpers::setup_database()));
 
     println!("Read dataset");
 
+    // Create a threadpool for multithreading.
     let thread_pool = raycon::ThreadPoolBuilder::new().num_threads(args.cpu_num).build().unwrap();
 
+        // A GDAL Dataset is not threadsafe. Therefore Arc<Mutex<_>> is necessary.
         let mosaic: Arc<Mutex<MosaicedDataset>>;
-        let temp_dir = tempdir().expect(
+        let temp_dir = tempdir().expect(            // Creates a tmp directory which stores the dataset if no path is provided.
                 "Could not create temp directory\nPlease provide directory in the parameters",
             );
 
@@ -99,7 +103,7 @@ fn main() {
 
 
 
-    thread_pool.scope(move |s| {
+    thread_pool.scope(move |s| {            // Scope prevents the main process from quiting before all threads are done.
         println!("Processing mosaic");
 
         process_lod_from_mosaic(db_connection, mosaic, args.tile_size, s);
@@ -107,14 +111,14 @@ fn main() {
     temp_dir.close().unwrap()
 }
 
+
+/// A function that initialize the downscaling and extraction of each level of detail.
 fn process_lod_from_mosaic(
     conn: DbType,
     image: Arc<Mutex<MosaicedDataset>>,
     tile_size: u64,
     s: &Scope,
 ) {
-    // let thread_pool = raycon::ThreadPoolBuilder::default().build().unwrap();
-
     let image_resolution = image
         .lock()
         .unwrap()
@@ -133,6 +137,7 @@ fn process_lod_from_mosaic(
         .println(format!("Processing {} level of detail", amount_of_lod))
         .unwrap();
 
+    // Loop that initiate the process for all levels of detail.
     for i in 0..amount_of_lod {
         downscale_from_lod(
             conn.clone(),
@@ -145,6 +150,7 @@ fn process_lod_from_mosaic(
     }
 }
 
+/// A function that downscale and process a specific level of detail.
 fn downscale_from_lod(
     conn: DbType,
     image: Arc<Mutex<MosaicedDataset>>,
@@ -157,9 +163,11 @@ fn downscale_from_lod(
 
     let image_resolution = image.lock().unwrap().dataset.raster_size();
 
+    // Calculate how many columns and rows there are in the level.
     let columns: u64 = image_resolution.0 as u64 / (tile_size * 2_u64.pow(lod as u32));
     let rows: u64 = image_resolution.1 as u64 / (tile_size * 2_u64.pow(lod as u32));
 
+    // Computes the amount of tasks that has to be done.
     let task_size = (columns + 1) * (rows + 1);
 
     let bar = ProgressBar::new(task_size);
@@ -167,6 +175,7 @@ fn downscale_from_lod(
 
     multi_bar.add(bar.clone());
 
+    // The loop that spawns a thread to proccess keypoints for every tile. Tiles are queued by the threadpool.
     for i in 0..rows {
         for j in 0..columns {
             let conn = conn.clone();
@@ -182,7 +191,6 @@ fn downscale_from_lod(
                     i,
                     lod,
                     bar,
-                    task_size,
                 )
             });
         }
@@ -197,8 +205,8 @@ fn feature_extraction_to_database(
     row: u64,
     lod: u64,
     bar: ProgressBar,
-    task_size: u64,
 ) {
+    // Read a tile from the dataset.
     let tile = image
         .lock()
         .unwrap()
@@ -214,11 +222,13 @@ fn feature_extraction_to_database(
             (tile_size as usize, tile_size as usize),
         )
         .expect("Could not read tile from reference image");
+    // Convert the tile to an openCV mat
     let tile_mat = raster_to_mat(&tile, tile_size as i32, tile_size as i32)
         .expect("Could not convert tile to mat");
-
+    // Extract keypoints and descriptors
     let keypoints = akaze_keypoint_descriptor_extraction_def(&tile_mat.mat).unwrap();
 
+    // Insert the image into the database.
     let insert_image = models::InsertImage {
         level_of_detail: &(lod as i32),
         x_start: &((column * tile_size) as i32),
@@ -227,15 +237,14 @@ fn feature_extraction_to_database(
         y_end: &((row * tile_size + tile_size - 1) as i32),
     };
 
-    // let insert_keypoints = keypoints.into_iter().map(|keypoint| models::InsertKeypoint{
-    //     x_coord: keypoint.pt
-    // });
-
     let insert_image = imagedb::Image::One(insert_image);
 
-    let mut conn = conn.lock().unwrap();
+    // let mut conn = conn.lock().unwrap();
 
-    let image_id = imagedb::Image::create_image(&mut conn, insert_image).unwrap();
+    // Insert image into database.
+    let image_id = imagedb::Image::create_image(&mut conn.lock().unwrap(), insert_image).unwrap();
+
+    // Convert keypoints to db_keypoints.
     let db_keypoints: Vec<DbKeypoints> = keypoints
         .to_db_type(image_id)
         .into_iter()
@@ -247,7 +256,7 @@ fn feature_extraction_to_database(
         .collect();
 
     let mut insert_keypoints: Vec<models::InsertKeypoint> = Vec::with_capacity(db_keypoints.len());
-
+    // Make keypoints a reference because diesel gets sad when it owns data.
     for keypoint in &db_keypoints {
         insert_keypoints.push(models::InsertKeypoint {
             x_coord: &keypoint.x_coord,
@@ -264,7 +273,7 @@ fn feature_extraction_to_database(
 
     let db_insert_keypoints = keypointdb::Keypoint::Multiple(insert_keypoints);
 
-    keypointdb::Keypoint::create_keypoint(&mut conn, db_insert_keypoints).unwrap();
+    keypointdb::Keypoint::create_keypoint(&mut conn.lock().unwrap(), db_insert_keypoints).unwrap();
 
     bar.inc(1);
 }
