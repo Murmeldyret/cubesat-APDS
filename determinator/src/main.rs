@@ -6,9 +6,11 @@ use feature_database::schema::keypoint::descriptor;
 use feature_extraction::{
     akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
 };
+use helpers::Coordinates3d;
 use homographier::homographier::{raster_to_mat, Cmat};
 
 use diesel::PgConnection;
+use opencv::core::{Point2f, Point3f};
 use rgb::alt::BGRA;
 use rgb::{alt::BGRA8, RGBA};
 use std::{
@@ -30,6 +32,13 @@ struct Args {
     /// Iteration count when performing model estimation
     #[arg(short, long)]
     pnp_ransac_iter_count: Option<u32>,
+    /// Focal length of the camera lens used to capture input images
+    #[arg(short, long)]
+    focal_length: f64,
+    /// Axis skew of the camera lens used to capture input images
+    #[arg(short,long)]
+    axis_skew: Option<f64>,
+
     /// Whether or not to run this program in demo mode, defaults to false
     #[arg(long, default_value_t = false)]
     demo: bool,
@@ -58,4 +67,9 @@ fn main() {
     let point_correspondences = get_points_from_matches(&keypoints, todo!(), &dmatches)
         .expect("failed to obtain point correspondences");
     //TODO: map reference image keypoints to 3d coordinates
+    let ref_kp_woorld_coords: Vec<opencv::core::Point3f> = point_correspondences.1.into_iter().map(|f|todo!()).collect();
+
+    //TODO: use ObjImgPointcorrespondence
+    let point_correspondences: Vec<(Point2f,Point3f)> = point_correspondences.0.into_iter().zip(ref_kp_woorld_coords).map(|f| todo!()).collect();
+
 }
