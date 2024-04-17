@@ -35,6 +35,9 @@ struct Args {
     pnp_ransac_iter_count: u32,
     #[command(subcommand)]
     cam_matrix: CameraIntrinsic,
+    /// List of distortion coefficients, if any is supplied, length should be either 4,5,8,8,12 or 14
+    #[arg(short,long,num_args(4..))]
+    dist_coeff: Option<Vec<f64>>,
     /// Whether or not to run this program in demo mode, defaults to false
     #[arg(long, default_value_t = false)]
     demo: bool,
@@ -65,6 +68,7 @@ enum CameraIntrinsic {
     },
 }
 
+type DbType = Arc<Mutex<PgConnection>>;
 #[allow(unreachable_code)]
 #[forbid(clippy::unwrap_used)]
 fn main() {
@@ -100,4 +104,7 @@ fn main() {
         .map(|f| todo!())
         .collect();
     let camera_matrix = get_camera_matrix(args.cam_matrix).expect("Failed to get camera matrix");
+
+    let conn: DbType = Arc::new(Mutex::new(todo!("acquire db connection")));
+
 }
