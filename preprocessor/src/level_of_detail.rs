@@ -1,6 +1,6 @@
 /// Returns how many layers the lod will consist of.
 pub fn calculate_amount_of_levels(reference_image_resolution: u64, tile_resolution: u64) -> u64 {
-    walk_lod(tile_resolution, reference_image_resolution)
+    walk_lod(tile_resolution, reference_image_resolution) + 1
 }
 
 /// Returns an integer that describe how many levels should be traveled to reach the optimal lod.

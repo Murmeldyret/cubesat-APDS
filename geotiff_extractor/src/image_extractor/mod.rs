@@ -124,7 +124,10 @@ impl Datasets for RawDataset {
     /// The function will import multiple datasets from a vector of paths.
     /// Providing the function of a slice of [Path]s then it will return a [Result<RawDataset>]
     fn import_datasets(path: &str) -> Result<RawDataset, errors::GdalError> {
-        let directory = std::fs::read_dir(path).expect("Could not read directory");
+        let directory = match std::fs::read_dir(path) {
+            Ok(dir) => dir,
+            Err(_) => return Err(errors::GdalError::NullPointer { method_name: "read_dir", msg: String::from("No directory") })
+        };
 
         let ds = directory
             .into_iter()
@@ -380,13 +383,15 @@ mod tests {
         dbg!(&current_dir);
 
         let mut path = current_dir.clone();
-        path.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+        path.push("resources/test/Geotiff/gdal_tests");
 
-        let path_vec = vec![path.to_string_lossy().into()];
+        dbg!(&path.to_string_lossy());
 
-        let result = RawDataset::import_datasets(&path_vec);
+        let result = RawDataset::import_datasets(&path.to_string_lossy());
 
-        assert!(result.is_ok_and(|d| d.datasets[0].raster_size() == (7309, 4322)));
+
+
+        assert!(result.unwrap().datasets[0].raster_size() == (7309, 4322));
     }
 
     #[test]
@@ -397,10 +402,10 @@ mod tests {
         current_dir.pop();
 
         let mut path1 = current_dir.clone();
-        path1.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+        path1.push("resources/test/Geotiff/gdal_tests/MOSAIC-0000018944-0000037888.tif");
 
         let mut path2 = current_dir.clone();
-        path2.push("resources/test/Geotiff/MOSAIC-0000018944-0000018944.tif");
+        path2.push("resources/test/Geotiff/gdal_tests/MOSAIC-0000018944-0000018944.tif");
 
         let mut output_path = current_dir.clone();
 
@@ -416,7 +421,7 @@ mod tests {
 
         let datasets = RawDataset { datasets };
 
-        let result = datasets.to_mosaic_dataset(output_path.as_path());
+        let result = datasets.to_mosaic_dataset(output_path.to_str().unwrap());
 
         assert!(result.is_ok());
     }
@@ -427,18 +432,19 @@ mod tests {
 
         current_dir.pop();
 
-        current_dir.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+        current_dir.push("resources/test/Geotiff/gdal_tests/MOSAIC-0000018944-0000037888.tif");
 
         dbg!(&current_dir);
 
         let ds = Dataset::open(current_dir.as_path()).expect("Could not open dataset");
 
-        let dataset = MosaicedDataset {
+        let mut dataset = MosaicedDataset {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
+            min_max: None
         };
 
-        let result = MosaicDataset::datasets_min_max(&dataset);
+        let result = MosaicDataset::datasets_min_max(&mut dataset);
 
         assert_eq!(
             0.0017,
@@ -508,13 +514,14 @@ mod tests {
         current_dir.pop();
 
         current_dir
-            .push("resources/test/Geotiff/ESA_WorldCover_10m_2021_v200_N54E009_S2RGBNIR.tif");
+            .push("resources/test/Geotiff/ESA/ESA_WorldCover_10m_2021_v200_N54E009_S2RGBNIR.tif");
 
         let ds = Dataset::open(current_dir.as_path()).expect("Could not open dataset");
 
-        let dataset = MosaicedDataset {
+        let mut dataset = MosaicedDataset {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
+            min_max: None
         };
 
         let window_size = dataset.dataset.raster_size();
@@ -530,7 +537,7 @@ mod tests {
 
         current_dir.pop();
 
-        current_dir.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+        current_dir.push("resources/test/Geotiff/gdal_tests/MOSAIC-0000018944-0000037888.tif");
 
         dbg!(&current_dir);
 
@@ -539,6 +546,7 @@ mod tests {
         let dataset = MosaicedDataset {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
+            min_max: None
         };
 
         let red_band = dataset.dataset.rasterband(1).expect("Could not open band");
