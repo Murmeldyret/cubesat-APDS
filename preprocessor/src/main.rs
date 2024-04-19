@@ -14,7 +14,7 @@ use level_of_detail::calculate_amount_of_levels;
 use raycon::Scope;
 use rayon as raycon;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use std::sync::{Arc, Mutex};
 
 pub mod level_of_detail;
@@ -23,12 +23,8 @@ pub mod level_of_detail;
 #[command(version, about, long_about = None)]
 struct Args {
     /// The path to the folder where datasets are stored on disk
-    #[arg(short, long)]
-    dataset_path: Option<String>,
-
-    /// The path to a precomputed mosaic
-    #[arg(short, long)]
-    mosaic_path: Option<String>,
+    #[command(subcommand)]
+    dataset_path: DatasetPath,
 
     /// The path to the temp folder which shall contain processed files (/tmp will be used if not provided)
     #[arg(long)]
@@ -47,18 +43,26 @@ struct Args {
     cpu_num: usize,
 }
 
+#[derive(Subcommand, Debug, Clone)]
+enum DatasetPath {
+    /// Load a raw dataset from disk
+    Dataset {
+        /// The path to the raw dataset
+        path: String,
+    },
+    /// Load a preprocced mosaic from disk
+    Mosaic {
+        /// The path to the mosaiced dataset
+        path: String,
+    },
+}
+
 type DbType = Arc<Mutex<PgConnection>>;
 
 fn main() {
     dotenv().expect("Could not read .env file");
 
     let args = Args::parse();
-
-    // Exit early if no path is provided.
-    if args.dataset_path.is_none() && args.mosaic_path.is_none() {
-        println!("No path provided to a dataset.");
-        std::process::exit(1);
-    }
 
     // Must be in mutex since diesel is a sync library.
     let db_connection: DbType =
@@ -81,10 +85,11 @@ fn main() {
 
     let temp_string = temp_dir.path().to_string_lossy().to_string();
 
-    if args.dataset_path.is_some() {
+    match args.dataset_path {
+    DatasetPath::Dataset { path } => {
         let temp_path = args.temp_path.unwrap_or(temp_string);
         let dataset = image_extractor::RawDataset::import_datasets(
-            &args.dataset_path.expect("No path provided"),
+            &path,
         )
         .expect("Could not open datasets");
         println!("Converting dataset to mosaic");
@@ -93,16 +98,15 @@ fn main() {
                 .to_mosaic_dataset(&temp_path)
                 .expect("Could not convert dataset."),
         ));
-    } else if args.mosaic_path.is_some() {
+    },
+    DatasetPath::Mosaic { path } => {
         mosaic = Arc::new(Mutex::new(
             MosaicedDataset::import_mosaic_dataset(
-                &args.mosaic_path.expect("Expected mosaic path"),
+                &path,
             )
             .expect("Could not read mosaic"),
         ));
-    } else {
-        panic!("No dataset path provided");
-    }
+    },}
 
     thread_pool.scope(move |s| {
         // Scope prevents the main process from quiting before all threads are done.
@@ -169,7 +173,7 @@ fn downscale_from_lod(
     let rows: u64 = image_resolution.1 as u64 / (tile_size * 2_u64.pow(lod as u32));
 
     // Computes the amount of tasks that has to be done.
-    let task_size = (columns + 1) * (rows + 1);
+    let task_size = columns * rows;
 
     let bar = ProgressBar::new(task_size);
     bar.set_message(format!("Processing lod: {}", lod));
