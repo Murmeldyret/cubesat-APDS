@@ -61,7 +61,7 @@ pub struct Cmat<T> {
 }
 
 impl<T> Cmat<T> {
-    pub fn new(mat: Mat) -> Result<Self, MatError> {
+    fn from_mat(mat: Mat) -> Result<Self, MatError> {
         Cmat {
             mat,
             _marker: PhantomData,
@@ -69,10 +69,10 @@ impl<T> Cmat<T> {
         .check_owned()
     }
 
-    pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
-        // let res =
-        Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
-    }
+    // pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
+    //     // let res =
+    //     Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
+    // }
 
     fn check_owned(self) -> Result<Self, MatError> {
         match self.mat.dims() {
@@ -103,6 +103,18 @@ impl<T> Cmat<T> {
 }
 
 impl<T: DataType> Cmat<T> {
+
+    pub fn new(mat: Mat) -> Result<Self,MatError> {
+        match T::opencv_type()==mat.typ() {
+            true => Ok(Cmat::from_mat(mat)?),
+            false => Err(MatError::Empty),
+        }
+    }
+
+    pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
+        // let res =
+        Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
+    }
     /// Checked element access
     /// Will return [`MatError::OutOfBounds`] if either row or column exceeds matrix width and size respectively
     pub fn at_2d(&self, row: i32, col: i32) -> Result<&T, MatError> {
@@ -386,7 +398,7 @@ mod test {
     }
     #[test]
     fn cmat_init_2d() {
-        let cmat = Cmat::<BGRA>::new(
+        let cmat = Cmat::<BGRA8>::new(
             Mat::new_size_with_default(Size::new(10, 10), CV_8UC4, Scalar::default()).unwrap(),
         )
         .unwrap();

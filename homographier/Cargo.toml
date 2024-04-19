@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-opencv = {version = "0.88.8",features = ["clang-runtime","calib3d"]}
+opencv = {version = "0.88.8",features = ["clang-runtime","calib3d","rgb"]}
 rgb = "0.8.37"
 
 [lints]
