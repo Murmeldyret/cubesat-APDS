@@ -75,15 +75,17 @@ type DbType = Arc<Mutex<PgConnection>>;
 fn main() {
     dotenv().expect("failed to read environment variables");
     let args = Args::parse();
+    
+    let (image, keypoints, descriptors) = read_and_extract_kp(args.img_path);
+
+    todo!();
     let conn: DbType = Arc::new(Mutex::new(
         Connection::establish(
             &env::var("DATABASE_URL").expect("Error reading environment variable"),
         )
         .expect("Failed to connect to database"),
     ));
-
-    let (image, keypoints, descriptors) = read_and_extract_kp(args.img_path);
-
+    
     let ref_keypoints = feature_database::keypointdb::Keypoint::read_keypoints_from_lod(
         &mut conn.lock().unwrap(),
         todo!("@Rasmus plz"),

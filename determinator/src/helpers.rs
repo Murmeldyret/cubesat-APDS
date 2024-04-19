@@ -69,6 +69,7 @@ pub fn read_and_extract_kp(im_path: PathBuf) -> (Cmat<BGRA8>, Vector<KeyPoint>, 
 
     let image = Cmat::<BGRA8>::imread_checked(&path, -1).expect("Failed to read image ");
 
+    // dbg!(&image);
     let (keypoints, descriptors) = akaze_keypoint_descriptor_extraction_def(&image.mat)
         .expect("AKAZE keypoint extraction failed");
 
