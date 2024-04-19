@@ -88,7 +88,7 @@ fn main() {
         &mut conn.lock().unwrap(),
         todo!("@Rasmus plz"),
     )
-    .expect("epic db fail");
+    .expect("Failed to query database");
 
     let (ref_keypoints, ref_descriptors): (Vec<_>, Vec<_>) = ref_keypoints
         .into_iter()
@@ -109,11 +109,13 @@ fn main() {
         .unzip();
 
     let ref_keypoints = Vector::from_iter(ref_keypoints.into_iter());
+    let ref_descriptors = Cmat::from_2d_slice(&ref_descriptors)
+        .expect("failed to convert to mosaic descriptors to opencv matrix type"); //? er ikke sikker på at dette er korrekt
 
     let k: i32 = todo!();
     let filter_strength: f32 = todo!();
-    let dmatches =
-        get_knn_matches(&descriptors.mat, todo!(), k, filter_strength).expect("knn matches failed");
+    let dmatches = get_knn_matches(&descriptors.mat, &ref_descriptors.mat, k, filter_strength)
+        .expect("knn matches failed");
     let (img_points, obj_points) = get_points_from_matches(&keypoints, &ref_keypoints, &dmatches)
         .expect("failed to obtain point correspondences");
     assert!(
@@ -126,13 +128,13 @@ fn main() {
     );
     //TODO: map reference image keypoints to 3d coordinates
     let ref_kp_woorld_coords: Vec<opencv::core::Point3f> =
-        obj_points.into_iter().map(|f| todo!()).collect();
+        obj_points.into_iter().map(|f| todo!("mangler elevation dataset for at udfylde den sidste dimension")).collect();
 
     //TODO: use ObjImgPointcorrespondence
     let point_correspondences: Vec<(Point2f, Point3f)> = img_points
         .into_iter()
         .zip(ref_kp_woorld_coords)
-        .map(|f| todo!())
+        .map(|f| todo!("Mangler OjbImgPointCorrespondence fra branch #16"))
         .collect();
     let camera_matrix = get_camera_matrix(args.cam_matrix).expect("Failed to get camera matrix");
 }
