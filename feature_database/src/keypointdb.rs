@@ -16,7 +16,9 @@ impl<'a> KeypointDatabase for Keypoint<'a> {
     ) -> Result<(), DieselError> {
         match input_keypoint {
             Keypoint::One(single_image) => create_keypoint_in_database(conn, &[single_image])?,
-            Keypoint::Multiple(multiple_images) => create_keypoint_in_database(conn, &multiple_images)?
+            Keypoint::Multiple(multiple_images) => {
+                create_keypoint_in_database(conn, &multiple_images)?
+            }
         }
         Ok(())
     }
@@ -119,7 +121,7 @@ fn create_keypoint_in_database(
         .values(input_keypoint)
         .execute(connection)?;
 
-        Ok(())
+    Ok(())
 }
 
 pub trait KeypointDatabase {

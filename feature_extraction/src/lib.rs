@@ -206,10 +206,24 @@ mod test {
         let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
         let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
 
-        println!("{} - Keypoints: {}", img1_dir, img1_keypoints.keypoints.len());
-        println!("{} - Keypoints: {}", img2_dir, img2_keypoints.keypoints.len());
+        println!(
+            "{} - Keypoints: {}",
+            img1_dir,
+            img1_keypoints.keypoints.len()
+        );
+        println!(
+            "{} - Keypoints: {}",
+            img2_dir,
+            img2_keypoints.keypoints.len()
+        );
 
-        let matches = get_knn_matches(&img1_keypoints.descriptors, &img2_keypoints.descriptors, 2, 0.3).unwrap();
+        let matches = get_knn_matches(
+            &img1_keypoints.descriptors,
+            &img2_keypoints.descriptors,
+            2,
+            0.3,
+        )
+        .unwrap();
 
         println!("Matches: {}", matches.len());
 
@@ -222,8 +236,12 @@ mod test {
             "../resources/test/Geotiff/out.tif",
         );
 
-        let (img1_matched_points, img2_matched_points) =
-            get_points_from_matches(&img1_keypoints.keypoints, &img2_keypoints.keypoints, &matches).unwrap();
+        let (img1_matched_points, img2_matched_points) = get_points_from_matches(
+            &img1_keypoints.keypoints,
+            &img2_keypoints.keypoints,
+            &matches,
+        )
+        .unwrap();
 
         println!(
             "Points2f: {} - {}",
@@ -245,8 +263,16 @@ mod test {
         let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
         let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
 
-        println!("{} - Keypoints: {}", img1_dir, img1_keypoints.keypoints.len());
-        println!("{} - Keypoints: {}", img2_dir, img2_keypoints.keypoints.len());
+        println!(
+            "{} - Keypoints: {}",
+            img1_dir,
+            img1_keypoints.keypoints.len()
+        );
+        println!(
+            "{} - Keypoints: {}",
+            img2_dir,
+            img2_keypoints.keypoints.len()
+        );
 
         assert!(img1_keypoints.keypoints.len() == 9079 && img2_keypoints.keypoints.len() == 9357);
     }
@@ -262,7 +288,13 @@ mod test {
         let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
         let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
 
-        let matches = get_knn_matches(&img1_keypoints.descriptors, &img2_keypoints.descriptors, 2, 0.3).unwrap();
+        let matches = get_knn_matches(
+            &img1_keypoints.descriptors,
+            &img2_keypoints.descriptors,
+            2,
+            0.3,
+        )
+        .unwrap();
 
         assert!(matches.len() == 27);
     }
@@ -278,7 +310,9 @@ mod test {
         let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
         let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
 
-        let matches = get_bruteforce_matches(&img1_keypoints.descriptors, &img2_keypoints.descriptors).unwrap();
+        let matches =
+            get_bruteforce_matches(&img1_keypoints.descriptors, &img2_keypoints.descriptors)
+                .unwrap();
         println!("{}", matches.len());
 
         assert!(matches.len() == 3228);

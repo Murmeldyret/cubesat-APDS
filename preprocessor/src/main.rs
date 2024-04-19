@@ -1,6 +1,8 @@
 use diesel::PgConnection;
 use dotenvy::dotenv;
-use feature_database::{imagedb, keypointdb, imagedb::ImageDatabase, keypointdb::KeypointDatabase, models};
+use feature_database::{
+    imagedb, imagedb::ImageDatabase, keypointdb, keypointdb::KeypointDatabase, models,
+};
 use feature_extraction::{akaze_keypoint_descriptor_extraction_def, DbKeypoints};
 use geotiff_lib::image_extractor;
 use geotiff_lib::image_extractor::{Datasets, MosaicDataset, MosaicedDataset};
@@ -9,8 +11,8 @@ use indicatif::{MultiProgress, ProgressBar};
 use tempfile::tempdir;
 
 use level_of_detail::calculate_amount_of_levels;
-use rayon as raycon;
 use raycon::Scope;
+use rayon as raycon;
 
 use clap::Parser;
 use std::sync::{Arc, Mutex};
@@ -65,52 +67,51 @@ fn main() {
     println!("Read dataset");
 
     // Create a threadpool for multithreading.
-    let thread_pool = raycon::ThreadPoolBuilder::new().num_threads(args.cpu_num).build().unwrap();
+    let thread_pool = raycon::ThreadPoolBuilder::new()
+        .num_threads(args.cpu_num)
+        .build()
+        .expect("Could not create thread pool");
 
-        // A GDAL Dataset is not threadsafe. Therefore Arc<Mutex<_>> is necessary.
-        let mosaic: Arc<Mutex<MosaicedDataset>>;
-        let temp_dir = tempdir().expect(            // Creates a tmp directory which stores the dataset if no path is provided.
-                "Could not create temp directory\nPlease provide directory in the parameters",
-            );
+    // A GDAL Dataset is not threadsafe. Therefore Arc<Mutex<_>> is necessary.
+    let mosaic: Arc<Mutex<MosaicedDataset>>;
+    let temp_dir = tempdir().expect(
+        // Creates a tmp directory which stores the dataset if no path is provided.
+        "Could not create temp directory\nPlease provide directory in the parameters",
+    );
 
-        let temp_string = temp_dir.path().to_string_lossy().to_string();
+    let temp_string = temp_dir.path().to_string_lossy().to_string();
 
-        if args.dataset_path.is_some() {
-
-            let temp_path = args
-                .temp_path
-                .unwrap_or(temp_string);
-            let dataset = image_extractor::RawDataset::import_datasets(
-                &args.dataset_path.expect("No path provided"),
+    if args.dataset_path.is_some() {
+        let temp_path = args.temp_path.unwrap_or(temp_string);
+        let dataset = image_extractor::RawDataset::import_datasets(
+            &args.dataset_path.expect("No path provided"),
+        )
+        .expect("Could not open datasets");
+        println!("Converting dataset to mosaic");
+        mosaic = Arc::new(Mutex::new(
+            dataset
+                .to_mosaic_dataset(&temp_path)
+                .expect("Could not convert dataset."),
+        ));
+    } else if args.mosaic_path.is_some() {
+        mosaic = Arc::new(Mutex::new(
+            MosaicedDataset::import_mosaic_dataset(
+                &args.mosaic_path.expect("Expected mosaic path"),
             )
-            .expect("Could not open datasets");
-            println!("Converting dataset to mosaic");
-            mosaic = Arc::new(Mutex::new(
-                dataset
-                    .to_mosaic_dataset(&temp_path)
-                    .expect("Could not convert dataset."),
-            ));
-        } else if args.mosaic_path.is_some() {
-            mosaic = Arc::new(Mutex::new(
-                MosaicedDataset::import_mosaic_dataset(
-                    &args.mosaic_path.expect("Expected mosaic path"),
-                )
-                .expect("Could not read mosaic"),
-            ));
-        } else {
-            panic!("No dataset path provided");
-        }
+            .expect("Could not read mosaic"),
+        ));
+    } else {
+        panic!("No dataset path provided");
+    }
 
-
-
-    thread_pool.scope(move |s| {            // Scope prevents the main process from quiting before all threads are done.
+    thread_pool.scope(move |s| {
+        // Scope prevents the main process from quiting before all threads are done.
         println!("Processing mosaic");
 
         process_lod_from_mosaic(db_connection, mosaic, args.tile_size, s);
     });
     temp_dir.close().unwrap()
 }
-
 
 /// A function that initialize the downscaling and extraction of each level of detail.
 fn process_lod_from_mosaic(

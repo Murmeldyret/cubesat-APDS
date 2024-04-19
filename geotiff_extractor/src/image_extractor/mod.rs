@@ -77,7 +77,7 @@ impl DatasetOptionsBuilder {
 pub struct MosaicedDataset {
     pub dataset: Dataset,
     pub options: DatasetOptions,
-    pub min_max: Option<BandsMinMax>
+    pub min_max: Option<BandsMinMax>,
 }
 
 #[cfg_attr(test, automock)]
@@ -126,7 +126,12 @@ impl Datasets for RawDataset {
     fn import_datasets(path: &str) -> Result<RawDataset, errors::GdalError> {
         let directory = match std::fs::read_dir(path) {
             Ok(dir) => dir,
-            Err(_) => return Err(errors::GdalError::NullPointer { method_name: "read_dir", msg: String::from("No directory") })
+            Err(_) => {
+                return Err(errors::GdalError::NullPointer {
+                    method_name: "read_dir",
+                    msg: String::from("No directory"),
+                })
+            }
         };
 
         let ds = directory
@@ -163,7 +168,7 @@ impl Datasets for RawDataset {
         Ok(MosaicedDataset {
             dataset: mosaic,
             options: DatasetOptionsBuilder::new().build(),
-            min_max: None
+            min_max: None,
         })
     }
 
@@ -256,7 +261,7 @@ impl MosaicDataset for MosaicedDataset {
         Ok(MosaicedDataset {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
-            min_max: None
+            min_max: None,
         })
     }
 
@@ -288,10 +293,7 @@ fn band_merger(
     for i in 0..bands[0].len() {
         let mut alpha = 255;
 
-        if bands
-            .iter()
-            .fold(true, |acc, band| band[i].is_nan() && acc)
-        {
+        if bands.iter().fold(true, |acc, band| band[i].is_nan() && acc) {
             alpha = 0;
         }
 
@@ -389,8 +391,6 @@ mod tests {
 
         let result = RawDataset::import_datasets(&path.to_string_lossy());
 
-
-
         assert!(result.unwrap().datasets[0].raster_size() == (7309, 4322));
     }
 
@@ -441,7 +441,7 @@ mod tests {
         let mut dataset = MosaicedDataset {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
-            min_max: None
+            min_max: None,
         };
 
         let result = MosaicDataset::datasets_min_max(&mut dataset);
@@ -521,7 +521,7 @@ mod tests {
         let mut dataset = MosaicedDataset {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
-            min_max: None
+            min_max: None,
         };
 
         let window_size = dataset.dataset.raster_size();
@@ -546,7 +546,7 @@ mod tests {
         let dataset = MosaicedDataset {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
-            min_max: None
+            min_max: None,
         };
 
         let red_band = dataset.dataset.rasterband(1).expect("Could not open band");
