@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
 
+use feature_database::keypointdb::KeypointDatabase;
 use feature_database::models::Keypoint;
 use feature_database::schema::keypoint::descriptor;
 use feature_extraction::{
@@ -9,11 +10,11 @@ use feature_extraction::{
 use helpers::{get_camera_matrix, read_and_extract_kp, Coordinates3d};
 use homographier::homographier::{raster_to_mat, Cmat};
 
-use diesel::PgConnection;
-use opencv::core::{Point2f, Point3f};
+use diesel::{Connection, PgConnection};
+use opencv::core::{Point2f, Point3f, Vector};
 use rgb::alt::BGRA;
 use rgb::{alt::BGRA8, RGBA};
-use std::path::Path;
+use std::env;
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -72,9 +73,14 @@ type DbType = Arc<Mutex<PgConnection>>;
 #[allow(unreachable_code)]
 #[forbid(clippy::unwrap_used)]
 fn main() {
-    // dotenv().expect("failed to read environment variables");
+    dotenv().expect("failed to read environment variables");
     let args = Args::parse();
-    let conn: DbType = Arc::new(Mutex::new(todo!("acquire db connection")));
+    let conn: DbType = Arc::new(Mutex::new(
+        Connection::establish(
+            &env::var("DATABASE_URL").expect("Error reading environment variable"),
+        )
+        .expect("Failed to connect to database"),
+    ));
 
     let (image, keypoints, descriptors) = read_and_extract_kp(args.img_path);
 
@@ -82,9 +88,31 @@ fn main() {
     let filter_strength: f32 = todo!();
     let dmatches =
         get_knn_matches(&descriptors.mat, todo!(), k, filter_strength).expect("knn matches failed");
+    
 
-    let ref_keypoints = todo!();
-    let (img_points, obj_points) = get_points_from_matches(&keypoints, ref_keypoints, &dmatches)
+
+    let ref_keypoints = feature_database::keypointdb::Keypoint::read_keypoints_from_lod(
+        &mut conn.lock().unwrap(),
+        todo!("@Rasmus plz"),
+    )
+    .expect("epic db fail");
+
+    
+    let ref_keypoints: Vector<opencv::core::KeyPoint> =
+        Vector::from_iter(ref_keypoints.into_iter().map(|f| {
+            opencv::core::KeyPoint::new_point(
+                Point2f::new(f.x_coord as f32, f.y_coord as f32),
+                f.size as f32,
+                f.angle as f32,
+                f.response as f32,
+                f.octave,
+                f.class_id,
+            )
+            .expect("error in converting db keypoint to opencv keypoint")
+        }));
+
+    
+    let (img_points, obj_points) = get_points_from_matches(&keypoints, &ref_keypoints, &dmatches)
         .expect("failed to obtain point correspondences");
     assert!(
         img_points.len() >= 4,
