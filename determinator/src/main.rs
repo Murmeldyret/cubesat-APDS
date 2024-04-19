@@ -84,34 +84,36 @@ fn main() {
 
     let (image, keypoints, descriptors) = read_and_extract_kp(args.img_path);
 
-    let k: i32 = todo!();
-    let filter_strength: f32 = todo!();
-    let dmatches =
-        get_knn_matches(&descriptors.mat, todo!(), k, filter_strength).expect("knn matches failed");
-    
-
-
     let ref_keypoints = feature_database::keypointdb::Keypoint::read_keypoints_from_lod(
         &mut conn.lock().unwrap(),
         todo!("@Rasmus plz"),
     )
     .expect("epic db fail");
 
-    
-    let ref_keypoints: Vector<opencv::core::KeyPoint> =
-        Vector::from_iter(ref_keypoints.into_iter().map(|f| {
-            opencv::core::KeyPoint::new_point(
-                Point2f::new(f.x_coord as f32, f.y_coord as f32),
-                f.size as f32,
-                f.angle as f32,
-                f.response as f32,
-                f.octave,
-                f.class_id,
+    let (ref_keypoints, ref_descriptors): (Vec<_>, Vec<_>) = ref_keypoints
+        .into_iter()
+        .map(|f| {
+            (
+                opencv::core::KeyPoint::new_point(
+                    Point2f::new(f.x_coord as f32, f.y_coord as f32),
+                    f.size as f32,
+                    f.angle as f32,
+                    f.response as f32,
+                    f.octave,
+                    f.class_id,
+                )
+                .expect("error in converting db keypoint to opencv keypoint"),
+                f.descriptor,
             )
-            .expect("error in converting db keypoint to opencv keypoint")
-        }));
+        })
+        .unzip();
 
-    
+    let ref_keypoints = Vector::from_iter(ref_keypoints.into_iter());
+
+    let k: i32 = todo!();
+    let filter_strength: f32 = todo!();
+    let dmatches =
+        get_knn_matches(&descriptors.mat, todo!(), k, filter_strength).expect("knn matches failed");
     let (img_points, obj_points) = get_points_from_matches(&keypoints, &ref_keypoints, &dmatches)
         .expect("failed to obtain point correspondences");
     assert!(
