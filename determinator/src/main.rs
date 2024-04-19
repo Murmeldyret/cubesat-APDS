@@ -38,7 +38,7 @@ struct Args {
     /// List of distortion coefficients, if any is supplied, length should be either 4,5,8,8,12 or 14
     #[arg(short,long,num_args(4..))]
     dist_coeff: Option<Vec<f64>>,
-    /// Whether or not to run this program in demo mode, defaults to false
+    /// Whether or not to run this program in demo mode
     #[arg(long, default_value_t = false)]
     demo: bool,
 }
@@ -56,10 +56,10 @@ enum CameraIntrinsic {
         focal_len_x: f64,
         /// Usually the same as `focal_len_x`
         focal_len_y: f64,
-        /// Axis skew, defaults to 0
+        /// Axis skew
         #[arg(default_value_t = 0.0)]
         skew: f64,
-        /// Principal offset x coordinate, defaults to 0
+        /// Principal offset x coordinate
         #[arg(default_value_t = 0.0)]
         offset_x: f64,
         /// Principal offset y coordinate
@@ -74,33 +74,31 @@ type DbType = Arc<Mutex<PgConnection>>;
 fn main() {
     // dotenv().expect("failed to read environment variables");
     let args = Args::parse();
-    // 1/0f64.floor() as i32; // :)
-    // let path = args.img_path.to_str().expect("img_path is not valid unicode");
-
-    let (image, (keypoints, descriptors)) = read_and_extract_kp(args.img_path);
+    let conn: DbType = Arc::new(Mutex::new(todo!("acquire db connection")));
+    
+    
+    let (image, keypoints, descriptors) = read_and_extract_kp(args.img_path);
+    
 
     let k: i32 = todo!();
     let filter_strength: f32 = todo!();
     let dmatches =
         get_knn_matches(&descriptors.mat, todo!(), k, filter_strength).expect("knn matches failed");
 
-    let point_correspondences = get_points_from_matches(&keypoints, todo!(), &dmatches)
+    let (img_points, obj_points) = get_points_from_matches(&keypoints, todo!(), &dmatches)
         .expect("failed to obtain point correspondences");
     //TODO: map reference image keypoints to 3d coordinates
-    let ref_kp_woorld_coords: Vec<opencv::core::Point3f> = point_correspondences
-        .1
+    let ref_kp_woorld_coords: Vec<opencv::core::Point3f> = obj_points
         .into_iter()
         .map(|f| todo!())
         .collect();
 
     //TODO: use ObjImgPointcorrespondence
-    let point_correspondences: Vec<(Point2f, Point3f)> = point_correspondences
-        .0
+    let point_correspondences: Vec<(Point2f, Point3f)> = img_points
         .into_iter()
         .zip(ref_kp_woorld_coords)
         .map(|f| todo!())
         .collect();
     let camera_matrix = get_camera_matrix(args.cam_matrix).expect("Failed to get camera matrix");
 
-    let conn: DbType = Arc::new(Mutex::new(todo!("acquire db connection")));
 }
