@@ -21,9 +21,10 @@ pub fn akaze_keypoint_descriptor_extraction_def(
         0,
         3,
         0.001f32,
-        4,
+        1,
         4,
         KAZE_DiffusivityType::DIFF_PM_G2,
+        -1
     )?;
 
     let mut akaze_keypoints = Vector::default();
@@ -160,12 +161,39 @@ pub fn draw_homography_lines(
 ) -> Result<(), Error> {
     let (_object_corners, scene_corners) = get_object_and_scene_corners(&img1, &homography)?;
 
+    // TODO: remove this :), this code is for printing lat & long
+    let img1_dir = "../resources/test/Geotiff/31.tif";
+    let img2_dir = "../resources/test/Geotiff/30.tif";
+    let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
+    let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
+    let dataset = gdal::Dataset::open("../resources/test/Geotiff/30.tif");
+    let something = dataset.unwrap().geo_transform().unwrap();
+    println!("{:#?}", &something);
+    let x_min = something.get(0).unwrap().abs();
+    let x_size = something.get(1).unwrap().abs();
+    let y_min = something.get(3).unwrap().abs();
+    let y_size = something.get(5).unwrap().abs();
+
+    let ref_img_width = img2.size().unwrap().width;
+    let ref_img_height = img2.size().unwrap().height;
+
+    println!("width: {}, height: {}", ref_img_width, ref_img_height);
+
+
+
     for i in 0..4 {
         println!(
             "Pixel coords on ref x: {}, y: {}",
             scene_corners.get(i)?.x,
             scene_corners.get(i)?.y
         );
+
+        println!(
+            "Lat: {}, Long {}",
+            scene_corners.get(i)?.x as f64 * x_size + x_min,
+            scene_corners.get(i)?.y as f64 * y_size + y_min
+        );
+
         let _ = line(
             out_img,
             Point2i::new(
@@ -232,13 +260,22 @@ mod test {
         get_points_from_matches,
     };
 
+    use gdal::*;
+
     #[test]
     fn fake_test() {
         // Loads in the two images, img1 = query, img2 = reference
-        let img1_dir = "../resources/test/benchmark/Denmark_8192.png";
-        let img2_dir = "../resources/test/benchmark/Denmark_small.png";
+        let img1_dir = "../resources/test/Geotiff/31.tif";
+        let img2_dir = "../resources/test/Geotiff/30.tif";
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
+
+
+
+        
+
+
+
 
         // Gets keypoints and decsriptors using AKAZE
         let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
@@ -272,11 +309,12 @@ mod test {
             Some(1f64),
         );
 
+        
         let res = res.inspect_err(|e| {
             dbg!(e);
         });
         assert!(res.is_ok());
-
+        
         let res = res.unwrap();
         let homography = res.0;
         let mask = res.1;
@@ -287,6 +325,9 @@ mod test {
 
         // Draws a projection of where the query image is on the reference image
         let _ = draw_homography_lines(&mut out_img, &img1, &homography);
+
+
+
 
         imgcodecs::imwrite(
             "../resources/test/Geotiff/out-homo.png",
