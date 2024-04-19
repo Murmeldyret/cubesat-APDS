@@ -194,7 +194,7 @@ impl MosaicDataset for MosaicedDataset {
             blue_max: min_max[2].max,
         };
 
-        self.min_max = Some(min_max.clone());
+        self.min_max = Some(min_max);
 
         Ok(min_max)
     }
