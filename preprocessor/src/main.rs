@@ -59,7 +59,7 @@ fn main() {
     }
 
     // Must be in mutex since diesel is a sync library.
-    let db_connection: Arc<Mutex<PgConnection>> =
+    let db_connection: DbType =
         Arc::new(Mutex::new(feature_database::db_helpers::setup_database()));
 
     println!("Read dataset");
