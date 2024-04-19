@@ -75,23 +75,28 @@ fn main() {
     // dotenv().expect("failed to read environment variables");
     let args = Args::parse();
     let conn: DbType = Arc::new(Mutex::new(todo!("acquire db connection")));
-    
-    
+
     let (image, keypoints, descriptors) = read_and_extract_kp(args.img_path);
-    
 
     let k: i32 = todo!();
     let filter_strength: f32 = todo!();
     let dmatches =
         get_knn_matches(&descriptors.mat, todo!(), k, filter_strength).expect("knn matches failed");
 
-    let (img_points, obj_points) = get_points_from_matches(&keypoints, todo!(), &dmatches)
+    let ref_keypoints = todo!();
+    let (img_points, obj_points) = get_points_from_matches(&keypoints, ref_keypoints, &dmatches)
         .expect("failed to obtain point correspondences");
+    assert!(
+        img_points.len() >= 4,
+        "Image points length must be at least 4"
+    );
+    assert!(
+        obj_points.len() >= 4,
+        "Object points length must be at least 4"
+    );
     //TODO: map reference image keypoints to 3d coordinates
-    let ref_kp_woorld_coords: Vec<opencv::core::Point3f> = obj_points
-        .into_iter()
-        .map(|f| todo!())
-        .collect();
+    let ref_kp_woorld_coords: Vec<opencv::core::Point3f> =
+        obj_points.into_iter().map(|f| todo!()).collect();
 
     //TODO: use ObjImgPointcorrespondence
     let point_correspondences: Vec<(Point2f, Point3f)> = img_points
@@ -100,5 +105,4 @@ fn main() {
         .map(|f| todo!())
         .collect();
     let camera_matrix = get_camera_matrix(args.cam_matrix).expect("Failed to get camera matrix");
-
 }

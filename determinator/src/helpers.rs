@@ -58,8 +58,10 @@ pub fn read_and_extract_kp(im_path: PathBuf) -> (Cmat<BGRA8>, Vector<KeyPoint>, 
         .to_str()
         .expect("File extention is not valid unicode")
     {
-        "png" | "jpg" | "jpeg" | "tiff" | "tif"  => {}
-        _ => {panic!("Provided image uses unsupported file type")}
+        "png" | "jpg" | "jpeg" | "tiff" | "tif" => {}
+        _ => {
+            panic!("Provided image uses unsupported file type")
+        }
     }
     let path = im_path
         .to_str()
@@ -70,13 +72,13 @@ pub fn read_and_extract_kp(im_path: PathBuf) -> (Cmat<BGRA8>, Vector<KeyPoint>, 
     let (keypoints, descriptors) = akaze_keypoint_descriptor_extraction_def(&image.mat)
         .expect("AKAZE keypoint extraction failed");
 
+    assert_eq!(
+        descriptors.typ(),
+        u8::opencv_type(),
+        "keypoint descriptors are not of type u8"
+    );
 
-    assert_eq!(descriptors.typ(), u8::opencv_type(), "keypoint descriptors are not of type u8");
-
-    (
-        image,
-        keypoints, Cmat::<u8>::new(descriptors).expect("msg"),
-    )
+    (image, keypoints, Cmat::<u8>::new(descriptors).expect("msg"))
 }
 
 pub fn get_camera_matrix(cam_intrins: CameraIntrinsic) -> Result<Cmat<f64>, ()> {
