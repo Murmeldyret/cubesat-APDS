@@ -6,7 +6,7 @@ use feature_database::schema::keypoint::descriptor;
 use feature_extraction::{
     akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
 };
-use helpers::{get_camera_matrix, Coordinates3d};
+use helpers::{get_camera_matrix, read_and_extract_kp, Coordinates3d};
 use homographier::homographier::{raster_to_mat, Cmat};
 
 use diesel::PgConnection;
@@ -75,17 +75,14 @@ fn main() {
     // dotenv().expect("failed to read environment variables");
     let args = Args::parse();
     // 1/0f64.floor() as i32; // :)
-    let path = args.img_path.to_str().expect("img_path is not valid unicode");
+    // let path = args.img_path.to_str().expect("img_path is not valid unicode");
 
-    let image = Cmat::<BGRA8>::imread_checked(path, -1).expect("Failed to read image ");
-
-    let (keypoints, descriptors) = akaze_keypoint_descriptor_extraction_def(&image.mat)
-        .expect("AKAZE keypoint extraction failed");
+    let (image, (keypoints, descriptors)) = read_and_extract_kp(args.img_path);
 
     let k: i32 = todo!();
     let filter_strength: f32 = todo!();
     let dmatches =
-        get_knn_matches(&descriptors, todo!(), k, filter_strength).expect("knn matches failed");
+        get_knn_matches(&descriptors.mat, todo!(), k, filter_strength).expect("knn matches failed");
 
     let point_correspondences = get_points_from_matches(&keypoints, todo!(), &dmatches)
         .expect("failed to obtain point correspondences");
@@ -106,5 +103,4 @@ fn main() {
     let camera_matrix = get_camera_matrix(args.cam_matrix).expect("Failed to get camera matrix");
 
     let conn: DbType = Arc::new(Mutex::new(todo!("acquire db connection")));
-
 }

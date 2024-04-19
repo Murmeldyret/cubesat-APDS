@@ -5,8 +5,10 @@ use std::{
 };
 
 use diesel::PgConnection;
+use feature_extraction::akaze_keypoint_descriptor_extraction_def;
 use homographier::homographier::Cmat;
-use opencv::core::Mat;
+use opencv::core::{DataType, KeyPoint, MatTraitConst, Vector};
+use rgb::alt::BGRA8;
 
 use crate::CameraIntrinsic;
 
@@ -46,6 +48,37 @@ impl From<Coordinates3d> for Coordinates2d {
     }
 }
 
+pub fn read_and_extract_kp(im_path: PathBuf) -> (Cmat<BGRA8>, (Vector<KeyPoint>, Cmat<u8>)) {
+    if !im_path.is_file() {
+        panic!("Provided image path does not point to afile")
+    }
+    match im_path
+        .extension()
+        .expect("Provided image path has no file extension")
+        .to_str()
+        .expect("File extention is not valid unicode")
+    {
+        "png" | "jpg" | "jpeg" | "tiff" | "tif"  => {}
+        _ => {panic!("Provided image uses unsupported file type")}
+    }
+    let path = im_path
+        .to_str()
+        .expect("provided image path is not valid unicode");
+
+    let image = Cmat::<BGRA8>::imread_checked(&path, -1).expect("Failed to read image ");
+
+    let (keypoints, descriptors) = akaze_keypoint_descriptor_extraction_def(&image.mat)
+        .expect("AKAZE keypoint extraction failed");
+
+
+    assert_eq!(descriptors.typ(), u8::opencv_type(), "keypoint descriptors are not of type u8");
+
+    (
+        image,
+        (keypoints, Cmat::<u8>::new(descriptors).expect("msg")),
+    )
+}
+
 pub fn get_camera_matrix(cam_intrins: CameraIntrinsic) -> Result<Cmat<f64>, ()> {
     let mat: Cmat<f64> = match cam_intrins {
         CameraIntrinsic::File { path } => parse_into_matrix(path)?,
@@ -61,18 +94,18 @@ pub fn get_camera_matrix(cam_intrins: CameraIntrinsic) -> Result<Cmat<f64>, ()> 
                 [0.0, focal_len_y, offset_y],
                 [0.0, 0.0, 1.0],
             ];
-            Cmat::from_2d_slice(&arr).map_err(|_err|())?
+            Cmat::from_2d_slice(&arr).map_err(|_err| ())?
         }
     };
     Ok(mat)
 }
 
-fn parse_into_matrix(path: String) ->Result<Cmat<f64>,()> {
+fn parse_into_matrix(path: String) -> Result<Cmat<f64>, ()> {
     let path = PathBuf::from(path);
     match path.extension().ok_or(())?.to_str().ok_or(())? {
-        "json" => {todo!("har ikke opsat parser endnu :)")}
+        "json" => {
+            todo!("har ikke opsat parser endnu :)")
+        }
         _ => Err(()),
-        
     }
-
 }
