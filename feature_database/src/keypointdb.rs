@@ -68,10 +68,10 @@ impl<'a> KeypointDatabase for Keypoint<'a> {
 
     fn read_keypoints_from_coordinates(
         conn: &mut PgConnection,
-        x_start: f64,
-        y_start: f64,
-        x_end: f64,
-        y_end: f64,
+        x_start: f32,
+        y_start: f32,
+        x_end: f32,
+        y_end: f32,
         level_of_detail: i32,
     ) -> Result<Vec<models::Keypoint>, DieselError> {
         use crate::imagedb::ImageDatabase;
@@ -141,10 +141,10 @@ pub trait KeypointDatabase {
     ) -> Result<Vec<models::Keypoint>, DieselError>;
     fn read_keypoints_from_coordinates(
         conn: &mut PgConnection,
-        x_start: f64,
-        y_start: f64,
-        x_end: f64,
-        y_end: f64,
+        x_start: f32,
+        y_start: f32,
+        x_end: f32,
+        y_end: f32,
         level_of_detail: i32,
     ) -> Result<Vec<models::Keypoint>, DieselError>;
     fn delete_keypoint(conn: &mut PgConnection, id: i32) -> Result<(), DieselError>;

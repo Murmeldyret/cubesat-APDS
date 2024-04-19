@@ -317,7 +317,7 @@ fn creation_options() -> Vec<RasterCreationOption<'static>> {
     let create_options = vec![
         RasterCreationOption {
             key: "COMPRESS",
-            value: "ZSTD", // Should be changed to ZSTD when it is time to use the system.
+            value: "ZSTD",
         },
         RasterCreationOption {
             key: "PREDICTOR",
@@ -364,7 +364,7 @@ mod tests {
 
     #[test]
     fn import_dataset_missing() {
-        let wrong_paths = vec![String::from("/Nowhere")];
+        let wrong_paths = String::from("/Nowhere");
 
         let result = RawDataset::import_datasets(&wrong_paths);
 
