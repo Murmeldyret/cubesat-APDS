@@ -176,7 +176,7 @@ pub fn draw_homography_lines(
                 scene_corners.get((i + 1) % 4)?.x as i32 + img1.cols(),
                 scene_corners.get((i + 1) % 4)?.y as i32 + 0,
             ),
-            opencv::core::VecN::new(0.0, 0.0, 0.0, 0.0),
+            opencv::core::VecN::new(255.0, 0.0, 0.0, 0.0),
             2i32,
             LINE_8,
             0,
@@ -235,8 +235,8 @@ mod test {
     #[test]
     fn fake_test() {
         // Loads in the two images, img1 = query, img2 = reference
-        let img1_dir = "../resources/test/Geotiff/31.tif";
-        let img2_dir = "../resources/test/Geotiff/30.tif";
+        let img1_dir = "../resources/test/benchmark/Denmark_8192.png";
+        let img2_dir = "../resources/test/benchmark/Denmark_small.png";
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
@@ -285,6 +285,7 @@ mod test {
 
         //let dst_img = warp_perspective_def(&img1, &mut out_img, &homography, img2.size().unwrap());
 
+        // Draws a projection of where the query image is on the reference image
         let _ = draw_homography_lines(&mut out_img, &img1, &homography);
 
         imgcodecs::imwrite(
