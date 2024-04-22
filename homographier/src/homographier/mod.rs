@@ -648,7 +648,7 @@ mod test {
             ImgObjCorrespondence::new(Point3d::new(4f64, 5f64, 6f64), Point2d::new(4f64, 5f64));
         let corres_v = vec![corres_1, corres_2];
         let camera_intrinsic = Cmat::<f64>::zeros(3, 3).unwrap();
-        let res = pnp_solver_ransac(&corres_v, &camera_intrinsic, 50, 2.0, 0.99, None);
+        let res = pnp_solver_ransac(&corres_v, &camera_intrinsic, 50, 2.0, 0.99, None, None);
 
         assert!(res.is_err(), "{:?}", res);
     }
@@ -686,6 +686,7 @@ mod test {
             10000,
             100.0,
             0.5,
+            None,
             Some(SolvePnPMethod::SOLVEPNP_P3P),
         );
         // no errors during solving
