@@ -313,6 +313,7 @@ pub fn warp_image_perspective<T: DataType>(
 /// * iter_count: How many iteration the ransac algorithm should perform
 /// * reproj_thres:
 /// * confidence: //TODO
+/// * dist_coeffs: distortion coefficients from camera calibration, if [`None`], a zero length vector is assumed
 /// ## Returns
 /// A solution, consisting of a rotation and translation matrix, and the indices of inliers used for the solution, returns `Ok(None)` if no solution was found
 /// ## Errors
