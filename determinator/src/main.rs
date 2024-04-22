@@ -20,6 +20,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use crate::helpers::point2d_to_3d;
+
 pub mod helpers;
 
 ///TODO:
@@ -31,6 +33,9 @@ struct Args {
     /// Image should be 8bit RGBA
     #[arg(short, long)]
     img_path: PathBuf,
+    /// TODO: @Murmeldyret
+    #[arg(short, long)]
+    lod: i32,
     /// Iteration count when performing model estimation
     #[arg(short, long, default_value_t = 1000)] //TODO: skal 1k være default værdi?
     pnp_ransac_iter_count: u32,
@@ -78,7 +83,6 @@ fn main() {
 
     let (image, keypoints, descriptors) = read_and_extract_kp(args.img_path);
 
-    todo!();
     let conn: DbType = Arc::new(Mutex::new(
         Connection::establish(
             &env::var("DATABASE_URL").expect("Error reading environment variable"),
@@ -86,12 +90,14 @@ fn main() {
         .expect("Failed to connect to database"),
     ));
 
+    // retrieve keypoints from mosaic image
     let ref_keypoints = feature_database::keypointdb::Keypoint::read_keypoints_from_lod(
         &mut conn.lock().unwrap(),
-        todo!("@Rasmus plz"),
+        args.lod,
     )
     .expect("Failed to query database");
 
+    // Map keypoints to opencv compatible type
     let (ref_keypoints, ref_descriptors): (Vec<_>, Vec<_>) = ref_keypoints
         .into_iter()
         .map(|f| {
@@ -114,12 +120,14 @@ fn main() {
     let ref_descriptors = Cmat::from_2d_slice(&ref_descriptors)
         .expect("failed to convert to mosaic descriptors to opencv matrix type"); //? er ikke sikker på at dette er korrekt
 
-    let k: i32 = todo!();
-    let filter_strength: f32 = todo!();
-    let dmatches = get_knn_matches(&descriptors.mat, &ref_descriptors.mat, k, filter_strength)
+    const K: i32 = 2; // TODO: idk
+    const FILTER_STRENGTH: f32 = 0.8; //TODO: magic number :)
+    let dmatches = get_knn_matches(&descriptors.mat, &ref_descriptors.mat, K, FILTER_STRENGTH)
         .expect("knn matches failed");
     let (img_points, obj_points) = get_points_from_matches(&keypoints, &ref_keypoints, &dmatches)
         .expect("failed to obtain point correspondences");
+
+    // opencv's pnp solvers wont work with less than 4 point pairs
     assert!(
         img_points.len() >= 4,
         "Image points length must be at least 4"
@@ -128,11 +136,11 @@ fn main() {
         obj_points.len() >= 4,
         "Object points length must be at least 4"
     );
-    //TODO: map reference image keypoints to 3d coordinates
-    let ref_kp_woorld_coords: Vec<opencv::core::Point3f> = obj_points
-        .into_iter()
-        .map(|f| todo!("mangler elevation dataset for at udfylde den sidste dimension"))
-        .collect();
+
+    let ref_kp_woorld_coords: Vec<opencv::core::Point3f> = point2d_to_3d(
+        obj_points.into_iter().collect(),
+        todo!("mangler elevation dataset for at udfylde den sidste dimension"),
+    );
 
     //TODO: use ObjImgPointcorrespondence
     let point_correspondences: Vec<(Point2f, Point3f)> = img_points

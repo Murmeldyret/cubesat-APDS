@@ -7,21 +7,10 @@ use std::{
 use diesel::PgConnection;
 use feature_extraction::akaze_keypoint_descriptor_extraction_def;
 use homographier::homographier::Cmat;
-use opencv::core::{DataType, KeyPoint, MatTraitConst, Vector};
+use opencv::core::{DataType, KeyPoint, MatTraitConst, Point2f, Point3f, Vector};
 use rgb::alt::BGRA8;
 
 use crate::CameraIntrinsic;
-
-/// where the program should look for reference image(s) and keypoints
-pub enum ImgKeypointStore {
-    /// Local.0 images and Local.1 keypoints
-    Local((PathBuf, PathBuf)),
-    Pg(Arc<Mutex<PgConnection>>),
-}
-
-impl ImgKeypointStore {
-    // TODO: methods for selecting images and/or keypoints within a bounding box
-}
 
 #[derive(Debug, Clone)]
 pub enum Coordinates3d {
@@ -111,4 +100,20 @@ fn parse_into_matrix(path: String) -> Result<Cmat<f64>, ()> {
         }
         _ => Err(()),
     }
+}
+
+///
+pub fn point2d_to_3d(points: Vec<Point2f>, topo: Cmat<f32>) -> Vec<Point3f> {
+    points
+        .into_iter()
+        .map(|p| {
+            Point3f::new(
+                p.x,
+                p.y,
+                *topo
+                    .at_2d(p.x.floor() as i32, p.y.floor() as i32)
+                    .expect("Out of bounds"),
+            )
+        })
+        .collect::<Vec<_>>()
 }
