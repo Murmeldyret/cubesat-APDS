@@ -21,7 +21,7 @@ pub fn akaze_keypoint_descriptor_extraction_def(
         0,
         3,
         0.001f32,
-        1,
+        4,
         4,
         KAZE_DiffusivityType::DIFF_PM_G2,
         -1
@@ -162,8 +162,8 @@ pub fn draw_homography_lines(
     let (_object_corners, scene_corners) = get_object_and_scene_corners(&img1, &homography)?;
 
     // TODO: remove this :), this code is for printing lat & long
-    let img1_dir = "../resources/test/Geotiff/31.tif";
-    let img2_dir = "../resources/test/Geotiff/30.tif";
+    let img1_dir = "../resources/test/images/11.png";
+    let img2_dir = "../resources/test/images/10.png";
     let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
     let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
     let dataset = gdal::Dataset::open("../resources/test/Geotiff/30.tif");
@@ -190,8 +190,8 @@ pub fn draw_homography_lines(
 
         println!(
             "Lat: {}, Long {}",
-            scene_corners.get(i)?.x as f64 * x_size + x_min,
-            scene_corners.get(i)?.y as f64 * y_size + y_min
+            scene_corners.get(i)?.y as f64 * y_size + y_min,
+            scene_corners.get(i)?.x as f64 * x_size + x_min
         );
 
         let _ = line(
@@ -204,7 +204,7 @@ pub fn draw_homography_lines(
                 scene_corners.get((i + 1) % 4)?.x as i32 + img1.cols(),
                 scene_corners.get((i + 1) % 4)?.y as i32 + 0,
             ),
-            opencv::core::VecN::new(255.0, 0.0, 0.0, 0.0),
+            opencv::core::VecN::new(0.0, 0.0, 255.0, 0.0),
             2i32,
             LINE_8,
             0,
@@ -265,8 +265,8 @@ mod test {
     #[test]
     fn fake_test() {
         // Loads in the two images, img1 = query, img2 = reference
-        let img1_dir = "../resources/test/Geotiff/31.tif";
-        let img2_dir = "../resources/test/Geotiff/30.tif";
+        let img1_dir = "../resources/test/images/11.png";
+        let img2_dir = "../resources/test/images/10.png";
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
