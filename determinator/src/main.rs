@@ -75,7 +75,7 @@ type DbType = Arc<Mutex<PgConnection>>;
 fn main() {
     dotenv().expect("failed to read environment variables");
     let args = Args::parse();
-    
+
     let (image, keypoints, descriptors) = read_and_extract_kp(args.img_path);
 
     todo!();
@@ -85,7 +85,7 @@ fn main() {
         )
         .expect("Failed to connect to database"),
     ));
-    
+
     let ref_keypoints = feature_database::keypointdb::Keypoint::read_keypoints_from_lod(
         &mut conn.lock().unwrap(),
         todo!("@Rasmus plz"),
@@ -129,8 +129,10 @@ fn main() {
         "Object points length must be at least 4"
     );
     //TODO: map reference image keypoints to 3d coordinates
-    let ref_kp_woorld_coords: Vec<opencv::core::Point3f> =
-        obj_points.into_iter().map(|f| todo!("mangler elevation dataset for at udfylde den sidste dimension")).collect();
+    let ref_kp_woorld_coords: Vec<opencv::core::Point3f> = obj_points
+        .into_iter()
+        .map(|f| todo!("mangler elevation dataset for at udfylde den sidste dimension"))
+        .collect();
 
     //TODO: use ObjImgPointcorrespondence
     let point_correspondences: Vec<(Point2f, Point3f)> = img_points
