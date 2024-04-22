@@ -1,5 +1,5 @@
 use divan::{black_box, Bencher};
-use feature_extraction::feature_extraction::akaze_keypoint_descriptor_extraction_def;
+use feature_extraction::akaze_keypoint_descriptor_extraction_def;
 use image::imageops::FilterType;
 use image::io::Reader as ImageReader;
 use opencv::core::{Vec3b, VecN};

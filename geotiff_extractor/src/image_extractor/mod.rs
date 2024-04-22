@@ -1,5 +1,5 @@
 use gdal::errors;
-use gdal::raster::{RasterCreationOption, StatisticsMinMax};
+use gdal::raster::{ColorInterpretation, RasterCreationOption, StatisticsMinMax};
 use gdal::Dataset;
 
 use std::path::Path;
@@ -10,6 +10,9 @@ use gdal::programs::raster::build_vrt;
 
 #[cfg(test)]
 use mockall::{automock, predicate::*};
+
+const GAMMA_VALUE: f32 = 1.0/2.2;
+const U8_MAX: f32 = u8::MAX as f32;
 
 // A struct for handling raw datasets from disk in Geotiff format
 pub struct RawDataset {
@@ -196,11 +199,19 @@ impl MosaicDataset for MosaicedDataset {
         window_size: (usize, usize),
         size: (usize, usize),
     ) -> Result<Vec<rgb::RGBA8>, errors::GdalError> {
-        let red_band = extract_band(&self.dataset.rasterband(1)?, window, window_size, size)?;
-        let green_band = extract_band(&self.dataset.rasterband(2)?, window, window_size, size)?;
-        let blue_band = extract_band(&self.dataset.rasterband(3)?, window, window_size, size)?;
+        let mut red_band = self.dataset.rasterband(1)?;
+        red_band.set_color_interpretation(ColorInterpretation::RedBand)?;
+        let red_converted = extract_band(&red_band, window, window_size, size)?;
 
-        let bands = vec![red_band, green_band, blue_band];
+        let mut green_band = self.dataset.rasterband(2)?;
+        green_band.set_color_interpretation(ColorInterpretation::GreenBand)?;
+        let green_converted = extract_band(&green_band, window, window_size, size)?;
+
+        let mut blue_band = self.dataset.rasterband(3)?;
+        blue_band.set_color_interpretation(ColorInterpretation::BlueBand)?;
+        let blue_converted = extract_band(&blue_band, window, window_size, size)?;
+
+        let bands = vec![red_converted, green_converted, blue_converted];
 
         let min_max = self.datasets_min_max()?;
 
@@ -250,13 +261,13 @@ fn band_merger(
     let mut combined_bands: Vec<rgb::RGBA8> = Vec::with_capacity(bands[0].len() * 4);
 
     for i in 0..bands[0].len() {
-        let mut alpha = 0;
+        let mut alpha = 255;
 
         if bands
             .into_iter()
             .fold(true, |acc, band| band[i].is_nan() && acc)
         {
-            alpha = 255;
+            alpha = 0;
         }
 
         let red =
@@ -307,7 +318,7 @@ fn gamma_correction(input_value: f32) -> Result<f32, PixelConversion> {
         return Err(PixelConversion::GammaOutOfRange);
     }
 
-    Ok(input_value.powf(2.2))
+    Ok(input_value.powf(GAMMA_VALUE))
 }
 
 fn f32_to_u8(input_value: f32, min: f32, max: f32) -> Result<u8, PixelConversion> {
@@ -319,7 +330,9 @@ fn f32_to_u8(input_value: f32, min: f32, max: f32) -> Result<u8, PixelConversion
 
     let normal_float = gamma_correction(float)?;
 
-    Ok((normal_float * 255.0).round() as u8)
+    let converted_integer = (normal_float * U8_MAX).round() as u8;
+
+    Ok(converted_integer)
 }
 
 #[cfg(test)]
@@ -419,7 +432,7 @@ mod tests {
 
         dbg!(&output_value.clone().unwrap());
 
-        assert!(output_value.is_ok_and(|result| result == 0.21763763));
+        assert!(output_value.is_ok_and(|result| result == 0.7297401));
     }
 
     #[test]
@@ -449,7 +462,7 @@ mod tests {
 
         let output_value = f32_to_u8(input_value, min, max);
 
-        assert!(output_value.is_ok_and(|result| result == 55));
+        assert!(output_value.is_ok_and(|result| result == 186));
     }
 
     #[test]
@@ -472,7 +485,8 @@ mod tests {
 
         current_dir.pop();
 
-        current_dir.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+        current_dir
+            .push("resources/test/Geotiff/ESA_WorldCover_10m_2021_v200_N54E009_S2RGBNIR.tif");
 
         let ds = Dataset::open(current_dir.as_path()).expect("Could not open dataset");
 
@@ -483,11 +497,10 @@ mod tests {
 
         let window_size = dataset.dataset.raster_size();
 
-        let image: Result<Vec<rgb::RGBA8>, _> = dataset.to_rgb((0, 0), window_size, (20, 20));
+        let image_rgba: Result<Vec<rgb::RGBA8>, _> =
+            dataset.to_rgb((0, 0), window_size, (20, 20));
 
-        // dbg!(&image.as_ref().unwrap().len());
-
-        assert!(image.is_ok_and(|image_vec| image_vec.len() == 20 * 20));
+        assert!(image_rgba.is_ok_and(|image_vec| image_vec.len() == 20 * 20));
     }
 
     #[test]
@@ -512,7 +525,7 @@ mod tests {
         let band_vec =
             extract_band(&red_band, (0, 0), dataset.dataset.raster_size(), (20, 20)).unwrap();
 
-        dbg!(&band_vec);
+        // dbg!(&band_vec);
 
         assert_eq!(band_vec.len(), 400);
     }
@@ -537,7 +550,7 @@ mod tests {
         let merged_bands = band_merger(&combined, &min_max).expect("Could not merge bands");
 
         assert_eq!(merged_bands.len(), 3);
-        assert_eq!(merged_bands[0].r, 23);
+        assert_eq!(merged_bands[0].r, 155);
     }
 
     #[test]

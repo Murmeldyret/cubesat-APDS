@@ -2,7 +2,8 @@ use std::marker::PhantomData;
 
 use opencv::{
     calib3d::{find_homography, solve_pnp_ransac, SolvePnPMethod, RANSAC},
-    core::{Point2d, Point3d, ToInputArray, ToOutputArray, Vec4b, Vector, CV_8UC4},
+    core::{Point2d, Scalar, Point3d, ToInputArray, ToOutputArray, Vec4b, Vector, CV_8UC4},
+    imgproc::{warp_perspective, INTER_LINEAR},
     prelude::*,
     Error,
 };
@@ -16,6 +17,14 @@ impl PixelElemType for BGRA {
     fn to_cv_const(&self) -> i32 {
         CV_8UC4
     }
+}
+
+#[derive(Clone, Copy)]
+pub enum HomographyMethod {
+    Default = 0,
+    LMEDS = 4,
+    RANSAC = 8,
+    RHO = 16,
 }
 
 #[non_exhaustive]
@@ -52,6 +61,7 @@ impl ImgObjCorrespondence {
     }
 }
 /// Checked Mat type
+/// T is the matrix element type, usually T should implement [`opencv::core::DataType`]
 /// # Notes
 /// Guarantees that a contained mat contains data, but makes no assumptions about validity
 #[derive(Debug)]
@@ -73,6 +83,9 @@ impl<T> Cmat<T> {
     //     // let res =
     //     Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
     // }
+    pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
+        Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
+    }
 
     fn check_owned(self) -> Result<Self, MatError> {
         match self.mat.dims() {
@@ -116,7 +129,10 @@ impl<T: DataType> Cmat<T> {
         Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
     }
     /// Checked element access
-    /// Will return [`MatError::OutOfBounds`] if either row or column exceeds matrix width and size respectively
+    /// 
+    /// ## Errors
+    /// Will return [`MatError::OutOfBounds`] if either row or column exceeds matrix width and size respectively.
+    /// If the type T does not match the inner Mat's type, an error is returned
     pub fn at_2d(&self, row: i32, col: i32) -> Result<&T, MatError> {
         let size = self.mat.size().map_err(|_err| MatError::Unknown)?;
         if (row > size.width) || (col > size.height) {
@@ -160,6 +176,16 @@ impl<T> ToOutputArray for Cmat<T> {
     }
 }
 
+/// Converts a slice of [`RGBA8`] to a [`Cmat<Vec4b>`]
+/// 
+/// ## Parameters
+/// pixels: the slice of pixels that should be converted to a matrix, the slice length should be equal to `w*h`
+/// w: the width of the image, or the number of columns
+/// h: the height of the image, or the number of rows
+/// ## Notes
+/// Since OpenCV uses BGRA pixel ordering, the resulting matrix will be converted from RGBA to BGRA
+/// ## Errors
+/// Errors if pixel length != `w*h`
 pub fn raster_to_mat(pixels: &[RGBA8], w: i32, h: i32) -> Result<Cmat<Vec4b>, MatError> {
     //RGBA<u8> is equivalent to opencv's Vec4b, which implements DataType
     if pixels.len() != (w * h) as usize {
@@ -199,22 +225,84 @@ fn rbga8_to_vec4b(pixel: RGBA8) -> Vec4b {
     Vec4b::new(pixel.b, pixel.g, pixel.r, pixel.a)
 }
 
+/// Estimates the homography between 2 planes, this matrix is always 3x3 `CV_F64C1`
+/// ## Parameters
+/// * input: Points taken from the source plane (length should be atleast 4, and points cannot be colinear)
+/// * reference: Points taken from the destination plane (length should be atleast 4, and points cannot be colinear)
+/// * method: the method used to compute, default is Least median squares (Lmeds)
+/// * repreproj_threshold: Maximum allowed error, if the error is greater, a point is considered an outlier (used in RANSAC and RHO), defaults to 3.0
+/// 
+/// ## Errors
+/// TODO
 pub fn find_homography_mat(
-    input: &impl ToInputArray,
-    reference: &impl ToInputArray,
+    input: &[Point2f],
+    reference: &[Point2f],
+    method: Option<HomographyMethod>,
     reproj_threshold: Option<f64>,
-) -> Result<Mat, opencv::Error> {
-    let mut mask = Mat::default();
-    let _homography = find_homography(
-        input,
-        reference,
-        &mut mask,
-        RANSAC,
-        reproj_threshold.unwrap_or(10.0),
-    ); // RANSAC is used since some feature matching may be erroneous.
+) -> Result<(Cmat<f64>, Option<Cmat<u8>>), MatError> {
+    let input = opencv::core::Vector::from_slice(input);
+    let reference = opencv::core::Vector::from_slice(reference);
 
-    // homography
-    todo!()
+    let mut mask = Mat::default();
+    let method_i = method.unwrap_or(HomographyMethod::Default) as i32;
+
+    let homography = find_homography(
+        &input,
+        &reference,
+        &mut mask,
+        method_i,
+        reproj_threshold.unwrap_or(3f64),
+    )
+    .map_err(MatError::Opencv)?; // RANSAC is used since some feature matching may be erroneous.
+
+    // let mask = Cmat::<Point2f>::new(mask)?; //
+    let out_mask = match method {
+        Some(HomographyMethod::RANSAC) => Some(Cmat::new(mask)?),
+        Some(HomographyMethod::LMEDS) => Some(Cmat::new(mask)?),
+        _ => None,
+    };
+    Ok((Cmat::<f64>::new(homography)?, out_mask))
+}
+
+/// Warps the perspective of `src` image using `m`
+///
+/// ## Parameters
+/// * src: The image that will be transformed
+/// * m: a 3x3 transformation matrix, usually the one returned by [`find_homography_mat`]
+/// size: the size of the output image, by default the size is equal to that of `src`
+///
+/// ## Errors
+/// TODO
+/// If the matrix m is not 3x3, an error is returned
+pub fn warp_image_perspective<T: DataType>(
+    src: &Cmat<T>,
+    m: &Cmat<f64>, // could be replaced with Matx33d as a potential optimization
+    size: Option<Size2i>,
+) -> Result<Cmat<T>, MatError> {
+    let size = size.unwrap_or(src.mat.size().map_err(MatError::Opencv)?);
+    let src_size = src.mat.size().map_err(|_err| MatError::Unknown)?;
+    let mut mat = Mat::new_rows_cols_with_default(
+        src_size.height,
+        src_size.width,
+        src.mat.typ(),
+        Scalar::new(1f64, 1f64, 1f64, 1f64),
+    )
+    .map_err(MatError::Opencv)?;
+
+    warp_perspective(
+        src,
+        &mut mat,
+        m,
+        size,
+        INTER_LINEAR,
+        BORDER_CONSTANT,
+        Scalar::new(1f64, 1f64, 1f64, 1f64),
+    )
+    .map_err(MatError::Opencv)?;
+
+    debug_assert!(mat.typ() == src.mat.typ()); //stoler ikke på openCV
+
+    Cmat::<T>::new(mat)
 }
 
 /// Estimates the pose of the camera using a subset of provided image-object point correspondences.
@@ -312,7 +400,7 @@ mod test {
     };
 
     use rgb::alt::BGRA8;
-    use std::{env, io, path::PathBuf};
+    use std::{env, io, num::NonZeroIsize, path::PathBuf};
     type Image<T> = Vec<Vec<T>>;
     fn path_to_test_images() -> io::Result<PathBuf> {
         let mut img_dir = env::current_dir()?;
@@ -360,36 +448,49 @@ mod test {
 
     const CAMERA_FOCAL_LENGTH_IN_MM: f64 = 16f64;
 
+    
+    fn empty_homography() -> Cmat<f64> {
+        // an idempotent homography is also the identity matrix
+        const SLICE: [[f64; 3]; 3] = [[1f64, 0f64, 0f64], [0f64, 1f64, 0f64], [0f64, 0f64, 1f64]];
+        Cmat::from_2d_slice(&SLICE).unwrap()
+    }
     #[ignore = "Skal bruge Akaze keypoints"]
     #[test]
     fn homography_success() {
-        let mut img_dir = path_to_test_images().expect("epic fail");
-        img_dir.pop();
-        img_dir.push("images");
-        // dbg!(current_dir);
+        let mut points: Vec<Point2f> = Vec::with_capacity(100);
 
-        let mut input_path = img_dir.clone();
-        input_path.push("3.png");
-        let mut reference_path = img_dir.clone();
-        reference_path.push("1.png");
+        // Create many sample keypoints should be high, else it will distort the image too much.
+        for i in 1..=10 {
+            for j in 1..=10 {
+                points.push(Point2f::new(i as f32, j as f32));
+            }
+        }
 
-        let input = opencv::imgcodecs::imread(
-            input_path.to_str().unwrap(),
-            ImreadModes::IMREAD_UNCHANGED.into(),
-        )
-        .unwrap();
-        let reference = opencv::imgcodecs::imread(
-            reference_path.to_str().unwrap(),
-            ImreadModes::IMREAD_UNCHANGED.into(),
-        )
-        .unwrap();
-        // dbg!(&input);
-        // dbg!(&reference);
-        let res = find_homography_mat(&input, &reference, None);
+        let res = find_homography_mat(
+            &points.clone(),
+            &points.clone(),
+            Some(HomographyMethod::RANSAC),
+            Some(1f64),
+        );
         let res = res.inspect_err(|e| {
-            // dbg!(e);
+            dbg!(e);
         });
-        assert!(res.is_ok())
+        assert!(res.is_ok());
+
+        let res = res.unwrap();
+        let homography = res.0;
+        let mask = res.1;
+
+        // Assert for identity matrix
+        for col in 0..3 {
+            for row in 0..3 {
+                if col == row {
+                    assert_eq!(&homography.at_2d(row, col).unwrap().round(), &1f64);
+                } else {
+                    assert_eq!(&homography.at_2d(row, col).unwrap().round(), &0f64);
+                }
+            }
+        }
     }
 
     #[test]
@@ -545,7 +646,6 @@ mod test {
         assert_eq!(image.at_2d(3, 3).unwrap().clone(), Vec4b::new(4, 4, 1, 1));
     }
 
-    #[test]
     fn pnp_solver_ransac_no_work_lthan_3_points() {
         let corres_1 =
             ImgObjCorrespondence::new(Point3d::new(1f64, 2f64, 3f64), Point2d::new(1f64, 2f64));
@@ -597,5 +697,30 @@ mod test {
         let res = res.unwrap();
         assert!(res.is_some(), "No solution was found to the PNP problem");
         let res = res.unwrap();
+    #[test]
+    fn warp_image_empty() {
+        const SIZE: i32 = 4;
+        let image = test_image(SIZE as usize);
+        let homography = empty_homography();
+
+        let warped = warp_image_perspective(&image, &homography, None);
+
+        assert!(warped.is_ok());
+        let warped = warped.expect("lol, lmao even");
+
+        // applying an "empty" transformation should be idempotent
+        for row in 0..SIZE {
+            for col in 0..SIZE {
+                print!("src: {:?} ", image.at_2d(row, col).unwrap());
+                print!("dst: {:?}\n", warped.at_2d(row, col).unwrap());
+                assert_eq!(
+                    image.at_2d(row, col).unwrap(),
+                    warped.at_2d(row, col).unwrap(),
+                    "row: {} col: {}",
+                    row,
+                    col
+                );
+            }
+        }
     }
 }
