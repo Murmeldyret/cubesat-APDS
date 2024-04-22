@@ -1,9 +1,9 @@
 use cv::{
-    core::{perspective_transform, DMatch, KeyPoint, Mat, Point2f, Point2i, Vector, NORM_HAMMING},
+    core::{perspective_transform, DMatch, KeyPoint, Mat, Point2d, Point2f, Point2i, Vector, NORM_HAMMING},
     features2d::{AKAZE_DescriptorType, BFMatcher, DrawMatchesFlags, KAZE_DiffusivityType, AKAZE},
     imgcodecs,
     imgproc::{line, line_def, warp_perspective, warp_perspective_def, LINE_8},
-    types::{VectorOfDMatch, VectorOfPoint2f, VectorOfVectorOfDMatch},
+    types::{VectorOfDMatch, VectorOfPoint2d, VectorOfPoint2f, VectorOfVectorOfDMatch},
     Error,
 };
 use homographier::homographier::Cmat;
@@ -154,6 +154,50 @@ pub fn get_object_and_scene_corners(
     Ok((object_corners, scene_corners))
 }
 
+pub fn get_lat_long(
+    img1: Mat,
+    img2_dir: &str,
+    homography: &Cmat<f64>
+) -> Result<Vector<Point2d>, Error> {
+
+    let (_object_corners, scene_corners) = get_object_and_scene_corners(&img1, &homography)?;
+
+    let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
+    let dataset = gdal::Dataset::open(img2_dir);
+    let projected_dataset = dataset.unwrap().geo_transform().unwrap();
+    println!("{:#?}", &projected_dataset);
+    let x_min = projected_dataset.get(0).unwrap().abs();
+    let x_size = projected_dataset.get(1).unwrap().abs();
+    let y_min = projected_dataset.get(3).unwrap().abs();
+    let y_size = projected_dataset.get(5).unwrap().abs();
+
+    let ref_img_width = img2.size().unwrap().width;
+    let ref_img_height = img2.size().unwrap().height;
+
+    println!("width: {}, height: {}", ref_img_width, ref_img_height);
+
+    let mut projected_geo_coords = VectorOfPoint2d::new();
+
+    for i in 0..4 {
+        projected_geo_coords.insert(
+            i,
+            Point2d::new(
+                scene_corners.get(i)?.y as f64 * y_size + y_min,
+                scene_corners.get(i)?.x as f64 * x_size + x_min
+            )
+        )?;
+
+        println!(
+            "Lat: {}, Long {}",
+            projected_geo_coords.get(i)?.x,
+            projected_geo_coords.get(i)?.y
+        );
+    }
+
+    Ok(projected_geo_coords)
+
+}
+
 pub fn draw_homography_lines(
     out_img: &mut Mat,
     img1: &Mat,
@@ -161,37 +205,11 @@ pub fn draw_homography_lines(
 ) -> Result<(), Error> {
     let (_object_corners, scene_corners) = get_object_and_scene_corners(&img1, &homography)?;
 
-    // TODO: remove this :), this code is for printing lat & long
-    let img1_dir = "../resources/test/images/11.png";
-    let img2_dir = "../resources/test/images/10.png";
-    let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
-    let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
-    let dataset = gdal::Dataset::open("../resources/test/Geotiff/30.tif");
-    let something = dataset.unwrap().geo_transform().unwrap();
-    println!("{:#?}", &something);
-    let x_min = something.get(0).unwrap().abs();
-    let x_size = something.get(1).unwrap().abs();
-    let y_min = something.get(3).unwrap().abs();
-    let y_size = something.get(5).unwrap().abs();
-
-    let ref_img_width = img2.size().unwrap().width;
-    let ref_img_height = img2.size().unwrap().height;
-
-    println!("width: {}, height: {}", ref_img_width, ref_img_height);
-
-
-
     for i in 0..4 {
         println!(
             "Pixel coords on ref x: {}, y: {}",
             scene_corners.get(i)?.x,
             scene_corners.get(i)?.y
-        );
-
-        println!(
-            "Lat: {}, Long {}",
-            scene_corners.get(i)?.y as f64 * y_size + y_min,
-            scene_corners.get(i)?.x as f64 * x_size + x_min
         );
 
         let _ = line(
@@ -255,9 +273,7 @@ mod test {
     use opencv::{self as cv, prelude::*};
 
     use crate::{
-        akaze_keypoint_descriptor_extraction_def, draw_homography_lines, export_matches,
-        get_bruteforce_matches, get_knn_matches, get_mat_from_dir, get_matched_points_vec,
-        get_points_from_matches,
+        akaze_keypoint_descriptor_extraction_def, draw_homography_lines, export_matches, get_bruteforce_matches, get_knn_matches, get_lat_long, get_mat_from_dir, get_matched_points_vec, get_points_from_matches
     };
 
     use gdal::*;
@@ -265,17 +281,10 @@ mod test {
     #[test]
     fn fake_test() {
         // Loads in the two images, img1 = query, img2 = reference
-        let img1_dir = "../resources/test/images/11.png";
-        let img2_dir = "../resources/test/images/10.png";
+        let img1_dir = "../resources/test/Geotiff/31.tif";
+        let img2_dir = "../resources/test/Geotiff/30.tif";
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
-
-
-
-        
-
-
-
 
         // Gets keypoints and decsriptors using AKAZE
         let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
@@ -326,8 +335,7 @@ mod test {
         // Draws a projection of where the query image is on the reference image
         let _ = draw_homography_lines(&mut out_img, &img1, &homography);
 
-
-
+        let _ = get_lat_long(img1, img2_dir, &homography);
 
         imgcodecs::imwrite(
             "../resources/test/Geotiff/out-homo.png",
