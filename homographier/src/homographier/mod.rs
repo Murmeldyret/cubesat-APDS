@@ -366,7 +366,9 @@ pub fn pnp_solver_ransac(
     let solution = res.then_some(solution);
     Ok(solution)
 }
-
+#[allow(unused_variables)]
+#[allow(unused_imports)]
+#[allow(dead_code)]
 #[cfg(test)]
 mod test {
     use crate::homographier::*;
@@ -622,6 +624,7 @@ mod test {
         assert_eq!(image.at_2d(3, 3).unwrap().clone(), Vec4b::new(4, 4, 1, 1));
     }
 
+    #[test]
     fn pnp_solver_ransac_no_work_lthan_3_points() {
         let corres_1 =
             ImgObjCorrespondence::new(Point3d::new(1f64, 2f64, 3f64), Point2d::new(1f64, 2f64));
