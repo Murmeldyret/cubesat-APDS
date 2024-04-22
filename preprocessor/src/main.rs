@@ -38,7 +38,7 @@ struct Args {
     #[arg(short, long, default_value_t = 1000)]
     tile_size: u64,
 
-    /// The number of CPU threads to use for processingcarg
+    /// The number of CPU threads to use for processing arg
     #[arg(short, long, default_value_t = 1)]
     cpu_num: usize,
 }
@@ -86,27 +86,23 @@ fn main() {
     let temp_string = temp_dir.path().to_string_lossy().to_string();
 
     match args.dataset_path {
-    DatasetPath::Dataset { path } => {
-        let temp_path = args.temp_path.unwrap_or(temp_string);
-        let dataset = image_extractor::RawDataset::import_datasets(
-            &path,
-        )
-        .expect("Could not open datasets");
-        println!("Converting dataset to mosaic");
-        mosaic = Arc::new(Mutex::new(
-            dataset
-                .to_mosaic_dataset(&temp_path)
-                .expect("Could not convert dataset."),
-        ));
-    },
-    DatasetPath::Mosaic { path } => {
-        mosaic = Arc::new(Mutex::new(
-            MosaicedDataset::import_mosaic_dataset(
-                &path,
-            )
-            .expect("Could not read mosaic"),
-        ));
-    },}
+        DatasetPath::Dataset { path } => {
+            let temp_path = args.temp_path.unwrap_or(temp_string);
+            let dataset = image_extractor::RawDataset::import_datasets(&path)
+                .expect("Could not open datasets");
+            println!("Converting dataset to mosaic");
+            mosaic = Arc::new(Mutex::new(
+                dataset
+                    .to_mosaic_dataset(&temp_path)
+                    .expect("Could not convert dataset."),
+            ));
+        }
+        DatasetPath::Mosaic { path } => {
+            mosaic = Arc::new(Mutex::new(
+                MosaicedDataset::import_mosaic_dataset(&path).expect("Could not read mosaic"),
+            ));
+        }
+    }
 
     thread_pool.scope(move |s| {
         // Scope prevents the main process from quiting before all threads are done.
