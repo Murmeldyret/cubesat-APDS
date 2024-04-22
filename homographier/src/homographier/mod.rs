@@ -328,6 +328,7 @@ pub fn pnp_solver_ransac(
     iter_count: i32,
     reproj_thres: f32,
     confidence: f64,
+    dist_coeffs: Option<&[f64]>,
     method: Option<SolvePnPMethod>,
 ) -> Result<Option<PNPRANSACSolution>, MatError> {
     let (obj_points, img_points): (Vec<_>, Vec<_>) = point_correspondences
