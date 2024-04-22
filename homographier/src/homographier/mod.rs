@@ -79,13 +79,6 @@ impl<T> Cmat<T> {
         .check_owned()
     }
 
-    // pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
-    //     // let res =
-    //     Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
-    // }
-    // pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
-    //     Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
-    // }
 
     fn check_owned(self) -> Result<Self, MatError> {
         match self.mat.dims() {
