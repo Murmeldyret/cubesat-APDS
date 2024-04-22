@@ -358,20 +358,6 @@ pub fn pnp_solver_ransac(
         method.unwrap_or(SolvePnPMethod::SOLVEPNP_EPNP) as i32,
     )
     .map_err(MatError::Opencv)?;
-    // dbg!(rvec.channels());
-    // dbg!(rvec.depth());
-    // dbg!(rvec.typ());
-
-    // dbg!(tvec.channels());
-    // dbg!(tvec.depth());
-    // dbg!(tvec.typ());
-
-    // dbg!(inliers.channels());
-    // dbg!(inliers.depth());
-    // dbg!(inliers.typ());
-
-    // dbg!(res);
-    // let solution = res.then_some(PNPRANSACSolution{rvec,tvec,inliers});
     let solution = PNPRANSACSolution {
         rvec,
         tvec,
@@ -382,11 +368,7 @@ pub fn pnp_solver_ransac(
     Ok(solution)
 }
 
-// clippy er dum, så vi sætter den lige på plads
-#[allow(clippy::unwrap_used)]
-#[allow(unused_variables)]
-#[allow(unused_imports)]
-#[allow(dead_code)]
+#[cfg(test)]
 mod test {
     use crate::homographier::*;
     use opencv::{
