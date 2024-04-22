@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use opencv::{
     calib3d::{find_homography, solve_pnp_ransac, SolvePnPMethod, RANSAC},
-    core::{Point2d, Scalar, Point3d, ToInputArray, ToOutputArray, Vec4b, Vector, CV_8UC4},
+    core::{Point2d, Point2f, Point3d, Scalar, Size2i, ToInputArray, ToOutputArray, Vec4b, Vector, BORDER_CONSTANT, CV_8UC4},
     imgproc::{warp_perspective, INTER_LINEAR},
     prelude::*,
     Error,
@@ -83,9 +83,9 @@ impl<T> Cmat<T> {
     //     // let res =
     //     Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
     // }
-    pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
-        Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
-    }
+    // pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
+    //     Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
+    // }
 
     fn check_owned(self) -> Result<Self, MatError> {
         match self.mat.dims() {
@@ -454,7 +454,7 @@ mod test {
         const SLICE: [[f64; 3]; 3] = [[1f64, 0f64, 0f64], [0f64, 1f64, 0f64], [0f64, 0f64, 1f64]];
         Cmat::from_2d_slice(&SLICE).unwrap()
     }
-    #[ignore = "Skal bruge Akaze keypoints"]
+    
     #[test]
     fn homography_success() {
         let mut points: Vec<Point2f> = Vec::with_capacity(100);
@@ -495,7 +495,7 @@ mod test {
 
     #[test]
     fn cmat_init() {
-        assert!(Cmat::<BGRA>::new(Mat::default()).is_err())
+        assert!(Cmat::<BGRA8>::new(Mat::default()).is_err())
     }
     #[test]
     fn cmat_init_2d() {
@@ -526,7 +526,7 @@ mod test {
         img_dir.push("images");
 
         img_dir.push("1.png");
-        let img = Cmat::<BGRA>::imread_checked(img_dir.to_str().unwrap(), IMREAD_UNCHANGED.into())
+        let img = Cmat::<BGRA8>::imread_checked(img_dir.to_str().unwrap(), IMREAD_UNCHANGED.into())
             .expect("could not find image at location");
 
         assert_eq!(img.mat.depth(), CV_8U);
@@ -658,6 +658,7 @@ mod test {
         assert!(res.is_err(), "{:?}", res);
     }
 
+    #[ignore = "Skal bruge Akaze keypoints"]
     #[test]
     fn pnp_solver_works() {
         let corres_1 = ImgObjCorrespondence::new(
@@ -697,6 +698,7 @@ mod test {
         let res = res.unwrap();
         assert!(res.is_some(), "No solution was found to the PNP problem");
         let res = res.unwrap();
+    }
     #[test]
     fn warp_image_empty() {
         const SIZE: i32 = 4;
