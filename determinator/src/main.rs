@@ -92,7 +92,7 @@ fn main() {
 
     // retrieve keypoints from mosaic image
     let ref_keypoints = feature_database::keypointdb::Keypoint::read_keypoints_from_lod(
-        &mut conn.lock().unwrap(),
+        &mut conn.lock().expect("Mutex poisoning"),
         args.lod,
     )
     .expect("Failed to query database");
@@ -116,7 +116,7 @@ fn main() {
         })
         .unzip();
 
-    let ref_keypoints = Vector::from_iter(ref_keypoints.into_iter());
+    let ref_keypoints = Vector::from_iter(ref_keypoints);
     let ref_descriptors = Cmat::from_2d_slice(&ref_descriptors)
         .expect("failed to convert to mosaic descriptors to opencv matrix type"); //? er ikke sikker på at dette er korrekt
 

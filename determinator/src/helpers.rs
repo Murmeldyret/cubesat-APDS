@@ -56,7 +56,7 @@ pub fn read_and_extract_kp(im_path: PathBuf) -> (Cmat<BGRA8>, Vector<KeyPoint>, 
         .to_str()
         .expect("provided image path is not valid unicode");
 
-    let image = Cmat::<BGRA8>::imread_checked(&path, -1).expect("Failed to read image ");
+    let image = Cmat::<BGRA8>::imread_checked(path, -1).expect("Failed to read image ");
 
     // dbg!(&image);
     let (keypoints, descriptors) = akaze_keypoint_descriptor_extraction_def(&image.mat)
