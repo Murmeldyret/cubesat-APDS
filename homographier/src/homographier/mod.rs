@@ -2,7 +2,10 @@ use std::marker::PhantomData;
 
 use opencv::{
     calib3d::{find_homography, solve_pnp_ransac, SolvePnPMethod, RANSAC},
-    core::{Point2d, Point2f, Point3d, Scalar, Size2i, ToInputArray, ToOutputArray, Vec4b, Vector, BORDER_CONSTANT, CV_8UC4},
+    core::{
+        Point2d, Point2f, Point3d, Scalar, Size2i, ToInputArray, ToOutputArray, Vec4b, Vector,
+        BORDER_CONSTANT, CV_8UC4,
+    },
     imgproc::{warp_perspective, INTER_LINEAR},
     prelude::*,
     Error,
@@ -79,7 +82,6 @@ impl<T> Cmat<T> {
         .check_owned()
     }
 
-
     fn check_owned(self) -> Result<Self, MatError> {
         match self.mat.dims() {
             // dims will always be >=2, unless the Mat is empty
@@ -109,9 +111,8 @@ impl<T> Cmat<T> {
 }
 
 impl<T: DataType> Cmat<T> {
-
-    pub fn new(mat: Mat) -> Result<Self,MatError> {
-        match T::opencv_type()==mat.typ() {
+    pub fn new(mat: Mat) -> Result<Self, MatError> {
+        match T::opencv_type() == mat.typ() {
             true => Ok(Cmat::from_mat(mat)?),
             false => Err(MatError::Empty),
         }
@@ -122,7 +123,7 @@ impl<T: DataType> Cmat<T> {
         Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
     }
     /// Checked element access
-    /// 
+    ///
     /// ## Errors
     /// Will return [`MatError::OutOfBounds`] if either row or column exceeds matrix width and size respectively.
     /// If the type T does not match the inner Mat's type, an error is returned
@@ -170,7 +171,7 @@ impl<T> ToOutputArray for Cmat<T> {
 }
 
 /// Converts a slice of [`RGBA8`] to a [`Cmat<Vec4b>`]
-/// 
+///
 /// ## Parameters
 /// pixels: the slice of pixels that should be converted to a matrix, the slice length should be equal to `w*h`
 /// w: the width of the image, or the number of columns
@@ -224,7 +225,7 @@ fn rbga8_to_vec4b(pixel: RGBA8) -> Vec4b {
 /// * reference: Points taken from the destination plane (length should be atleast 4, and points cannot be colinear)
 /// * method: the method used to compute, default is Least median squares (Lmeds)
 /// * repreproj_threshold: Maximum allowed error, if the error is greater, a point is considered an outlier (used in RANSAC and RHO), defaults to 3.0
-/// 
+///
 /// ## Errors
 /// TODO
 pub fn find_homography_mat(
@@ -426,13 +427,12 @@ mod test {
 
     const CAMERA_FOCAL_LENGTH_IN_MM: f64 = 16f64;
 
-    
     fn empty_homography() -> Cmat<f64> {
         // an idempotent homography is also the identity matrix
         const SLICE: [[f64; 3]; 3] = [[1f64, 0f64, 0f64], [0f64, 1f64, 0f64], [0f64, 0f64, 1f64]];
         Cmat::from_2d_slice(&SLICE).unwrap()
     }
-    
+
     #[test]
     fn homography_success() {
         let mut points: Vec<Point2f> = Vec::with_capacity(100);
