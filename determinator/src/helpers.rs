@@ -42,7 +42,7 @@ impl From<Coordinates3d> for Coordinates2d {
 
 pub fn read_and_extract_kp(im_path: PathBuf) -> (Cmat<BGRA8>, Vector<KeyPoint>, Cmat<u8>) {
     if !im_path.is_file() {
-        panic!("Provided image path does not point to afile")
+        panic!("{} Provided image path does not point to a file", im_path.to_str().expect("TODO"));
     }
     match im_path
         .extension()

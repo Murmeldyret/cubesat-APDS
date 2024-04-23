@@ -158,6 +158,6 @@ fn main() {
         todo!(),
         todo!(),
         args.dist_coeff.as_deref(),
-        Some(SolvePnPMethod::SOLVEPNP_EPNP),
+        Some(SolvePnPMethod::SOLVEPNP_EPNP), // i think this method is most appropiate, optionally it could be program argument
     );
 }
