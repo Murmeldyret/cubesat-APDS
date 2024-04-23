@@ -1,8 +1,8 @@
-use std::{ffi::OsStr, fs::DirEntry, path::{Path, PathBuf}};
+use std::{ffi::OsStr, path::{Path}};
 
 use homographier::homographier::Cmat;
 use opencv::imgcodecs::IMREAD_GRAYSCALE;
-use rgb::alt::BGRA8;
+
 
 /// Reads all valid images found in a provided path
 /// ## Notes
