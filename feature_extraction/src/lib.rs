@@ -260,8 +260,8 @@ mod test {
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
-        let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
-        let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
+        let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1).unwrap().keypoints;
+        let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2).unwrap().keypoints;
 
         println!(
             "{} - Keypoints: {}",
