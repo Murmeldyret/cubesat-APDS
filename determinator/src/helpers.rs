@@ -8,7 +8,9 @@ use std::{
 use diesel::PgConnection;
 use feature_extraction::akaze_keypoint_descriptor_extraction_def;
 use homographier::homographier::Cmat;
-use opencv::core::{DataType, KeyPoint, MatTraitConst, Point2d, Point2f, Point3d, Point3f, Point_, Vector};
+use opencv::core::{
+    DataType, KeyPoint, MatTraitConst, Point2d, Point2f, Point3d, Point3f, Point_, Vector,
+};
 use rgb::alt::BGRA8;
 
 use crate::CameraIntrinsic;

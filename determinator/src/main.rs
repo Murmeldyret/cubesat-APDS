@@ -151,6 +151,13 @@ fn main() {
         .collect();
     let camera_matrix = get_camera_matrix(args.cam_matrix).expect("Failed to get camera matrix");
 
-
-    let solution = pnp_solver_ransac(&point_correspondences, &camera_matrix, args.pnp_ransac_iter_count.try_into().unwrap_or(1000), todo!(), todo!(), args.dist_coeff.as_deref(), Some(SolvePnPMethod::SOLVEPNP_EPNP));
+    let solution = pnp_solver_ransac(
+        &point_correspondences,
+        &camera_matrix,
+        args.pnp_ransac_iter_count.try_into().unwrap_or(1000),
+        todo!(),
+        todo!(),
+        args.dist_coeff.as_deref(),
+        Some(SolvePnPMethod::SOLVEPNP_EPNP),
+    );
 }
