@@ -8,9 +8,10 @@ use feature_extraction::{
     akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
 };
 use helpers::{get_camera_matrix, read_and_extract_kp, Coordinates3d};
-use homographier::homographier::{raster_to_mat, Cmat};
+use homographier::homographier::{pnp_solver_ransac, raster_to_mat, Cmat, ImgObjCorrespondence};
 
 use diesel::{Connection, PgConnection};
+use opencv::calib3d::SolvePnPMethod;
 use opencv::core::{Point2f, Point3f, Vector};
 use rgb::alt::BGRA;
 use rgb::{alt::BGRA8, RGBA};
@@ -20,7 +21,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::helpers::point2d_to_3d;
+use crate::helpers::{point2d_to_3d, point2f_to2d, point3f_to3d};
 
 pub mod helpers;
 
@@ -142,11 +143,14 @@ fn main() {
         todo!("mangler elevation dataset for at udfylde den sidste dimension"),
     );
 
-    //TODO: use ObjImgPointcorrespondence
-    let point_correspondences: Vec<(Point2f, Point3f)> = img_points
+    // opencv kræver f64 :D
+    let point_correspondences: Vec<ImgObjCorrespondence> = img_points
         .into_iter()
         .zip(ref_kp_woorld_coords)
-        .map(|f| todo!("Mangler OjbImgPointCorrespondence fra branch #16"))
+        .map(|f| ImgObjCorrespondence::new(point3f_to3d(f.1), point2f_to2d(f.0)))
         .collect();
     let camera_matrix = get_camera_matrix(args.cam_matrix).expect("Failed to get camera matrix");
+
+
+    let solution = pnp_solver_ransac(&point_correspondences, &camera_matrix, args.pnp_ransac_iter_count.try_into().unwrap_or(1000), todo!(), todo!(), args.dist_coeff.as_deref(), Some(SolvePnPMethod::SOLVEPNP_EPNP));
 }

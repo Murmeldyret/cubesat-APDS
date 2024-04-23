@@ -1,3 +1,4 @@
+use core::f64;
 use std::{
     clone,
     path::{Path, PathBuf},
@@ -7,7 +8,7 @@ use std::{
 use diesel::PgConnection;
 use feature_extraction::akaze_keypoint_descriptor_extraction_def;
 use homographier::homographier::Cmat;
-use opencv::core::{DataType, KeyPoint, MatTraitConst, Point2f, Point3f, Vector};
+use opencv::core::{DataType, KeyPoint, MatTraitConst, Point2d, Point2f, Point3d, Point3f, Point_, Vector};
 use rgb::alt::BGRA8;
 
 use crate::CameraIntrinsic;
@@ -116,4 +117,12 @@ pub fn point2d_to_3d(points: Vec<Point2f>, topo: Cmat<f32>) -> Vec<Point3f> {
             )
         })
         .collect::<Vec<_>>()
+}
+
+pub fn point2f_to2d(p: Point2f) -> Point2d {
+    Point2d::new(p.x as f64, p.y as f64)
+}
+
+pub fn point3f_to3d(p: Point3f) -> Point3d {
+    Point3d::new(p.x as f64, p.y as f64, p.z as f64)
 }
