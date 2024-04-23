@@ -6,8 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-opencv ={ version = "0.90.0", features = ["clang-runtime"]}
+homographier = { version = "0.1.0", path="../homographier"}
+
+
 clap = { version = "4.5.4", features = ["derive"] }
+rgb = "0.8.37"
+opencv ={ version = "0.90.0", features = ["clang-runtime","rgb"]}
 
 [lints]
 workspace = true
