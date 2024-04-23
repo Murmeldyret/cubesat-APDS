@@ -554,7 +554,7 @@ mod tests {
         let band_vec =
             extract_band(&red_band, (0, 0), dataset.dataset.raster_size(), (20, 20)).unwrap();
 
-        dbg!(&band_vec);
+        // dbg!(&band_vec);
 
         assert_eq!(band_vec.len(), 400);
     }
