@@ -69,7 +69,10 @@ pub fn get_knn_matches(
     Ok(good_matches)
 }
 
-pub fn get_bruteforce_matches(origin_desc: &Mat, target_desc: &Mat) -> Result<Vector<DMatch>, Error> {
+pub fn get_bruteforce_matches(
+    origin_desc: &Mat,
+    target_desc: &Mat,
+) -> Result<Vector<DMatch>, Error> {
     let mut matches = VectorOfDMatch::new();
     let bf_matcher = BFMatcher::new(NORM_HAMMING, true)?;
 

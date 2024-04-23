@@ -1,5 +1,5 @@
 use divan::{black_box, Bencher};
-use feature_extraction::feature_extraction::akaze_keypoint_descriptor_extraction_def;
+use feature_extraction::akaze_keypoint_descriptor_extraction_def;
 use image::imageops::FilterType;
 use image::io::Reader as ImageReader;
 use opencv::core::{Vec3b, VecN};
@@ -34,8 +34,12 @@ fn extract_features_from_image(bencher: Bencher, sample_size: u32) {
 
     bencher.bench(|| {
         akaze_keypoint_descriptor_extraction_def(
-            &Mat::from_slice_rows_cols::<Vec3b>(&image_vec, sample_size as usize, sample_size as usize)
-                .unwrap(),
+            &Mat::from_slice_rows_cols::<Vec3b>(
+                &image_vec,
+                sample_size as usize,
+                sample_size as usize,
+            )
+            .unwrap(),
         )
     });
 }
