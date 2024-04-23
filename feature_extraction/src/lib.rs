@@ -274,7 +274,7 @@ mod test {
             img2_keypoints.keypoints.len()
         );
 
-        assert!(img1_keypoints.keypoints.len() == 9079 && img2_keypoints.keypoints.len() == 9357);
+        assert!(img1_keypoints.len() == 9079 && img2_keypoints.len() == 9357);
     }
 
     #[test]
