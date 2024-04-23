@@ -1,9 +1,13 @@
 use std::{ffi::OsStr, fs::DirEntry, path::PathBuf};
 
 use homographier::homographier::Cmat;
+use opencv::imgcodecs::IMREAD_GRAYSCALE;
 use rgb::alt::BGRA8;
 
-pub fn read_images(p: &PathBuf) -> Vec<Cmat<BGRA8>> {
+/// Reads all valid images found in a provided path
+/// ## Notes
+/// The input path should be a directory
+pub fn read_images(p: &PathBuf) -> Vec<Cmat<u8>> {
     let res = p
         .read_dir()
         .expect("Failed to read input path")
@@ -15,9 +19,13 @@ pub fn read_images(p: &PathBuf) -> Vec<Cmat<BGRA8>> {
                 .is_some()
         })
         .filter_map(|f| f.path().to_str().map(|s| <&str as Into<String>>::into(s)))
-        .collect::<Vec<String>>();
+        .map(|f| {
+            Cmat::<u8>::imread_checked(&f, IMREAD_GRAYSCALE)
+                .expect(format!("Failed to read image named {}", f).as_str())
+        })
+        .collect::<Vec<Cmat<u8>>>();
 
-    todo!()
+    res
 }
 
 fn valid_img_extension(ext: &OsStr) -> bool {
@@ -26,8 +34,3 @@ fn valid_img_extension(ext: &OsStr) -> bool {
         _ => false,
     }
 }
-// fn read_if_image(e: DirEntry) -> Option<Cmat<BGRA8>> {
-//     e.
-
-//     todo!()
-// }

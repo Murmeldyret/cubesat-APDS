@@ -14,4 +14,10 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
+    let images = read_images(&args.img_path);
+    assert!(
+        images.len() >= 10,
+        "At least 10 images are necesarry to perform image calibration, but only {} was found",
+        images.len()
+    );
 }
