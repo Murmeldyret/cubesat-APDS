@@ -2,7 +2,7 @@ use gdal::errors;
 use gdal::raster::{ColorInterpretation, RasterCreationOption, StatisticsMinMax};
 use gdal::Dataset;
 
-use std::path::Path;
+use std::path::PathBuf;
 
 use gdal::raster::ResampleAlg;
 
@@ -11,7 +11,7 @@ use gdal::programs::raster::build_vrt;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 
-const GAMMA_VALUE: f32 = 1.0/2.2;
+const GAMMA_VALUE: f32 = 1.0 / 2.2;
 const U8_MAX: f32 = u8::MAX as f32;
 
 // A struct for handling raw datasets from disk in Geotiff format
@@ -77,22 +77,23 @@ impl DatasetOptionsBuilder {
 pub struct MosaicedDataset {
     pub dataset: Dataset,
     pub options: DatasetOptions,
+    pub min_max: Option<BandsMinMax>,
 }
 
 #[cfg_attr(test, automock)]
 pub trait Datasets {
-    fn import_datasets(paths: &[String]) -> Result<RawDataset, errors::GdalError>;
-    fn to_mosaic_dataset(&self, output_path: &Path) -> Result<MosaicedDataset, errors::GdalError>;
+    fn import_datasets(paths: &str) -> Result<RawDataset, errors::GdalError>;
+    fn to_mosaic_dataset(&self, output_path: &str) -> Result<MosaicedDataset, errors::GdalError>;
 }
 
 #[cfg_attr(test, automock)]
 pub trait MosaicDataset {
     fn import_mosaic_dataset(path: &str) -> Result<MosaicedDataset, errors::GdalError>;
-    fn datasets_min_max(&self) -> Result<BandsMinMax, errors::GdalError>;
+    fn datasets_min_max(&mut self) -> Result<BandsMinMax, errors::GdalError>;
     fn get_dimensions(&self) -> Result<(i64, i64), errors::GdalError>;
     fn set_scaling(&self, dimensions: (usize, usize));
     fn to_rgb(
-        &self,
+        &mut self,
         window: (isize, isize),
         window_size: (usize, usize),
         size: (usize, usize),
@@ -102,7 +103,7 @@ pub trait MosaicDataset {
     fn set_bands(&self, red_band: isize, green_band: isize, blue_band: isize);
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct BandsMinMax {
     pub red_min: f64,
     pub red_max: f64,
@@ -122,8 +123,21 @@ pub enum PixelConversion {
 impl Datasets for RawDataset {
     /// The function will import multiple datasets from a vector of paths.
     /// Providing the function of a slice of [Path]s then it will return a [Result<RawDataset>]
-    fn import_datasets(paths: &[String]) -> Result<RawDataset, errors::GdalError> {
-        let ds = paths.into_iter().map(|p| Dataset::open(p)).collect(); // Opens every dataset that a path points to.
+    fn import_datasets(path: &str) -> Result<RawDataset, errors::GdalError> {
+        let directory = match std::fs::read_dir(path) {
+            Ok(dir) => dir,
+            Err(_) => {
+                return Err(errors::GdalError::NullPointer {
+                    method_name: "read_dir",
+                    msg: String::from("No directory"),
+                })
+            }
+        };
+
+        let ds = directory
+            .into_iter()
+            .map(|p| Dataset::open(p.unwrap().path()))
+            .collect(); // Opens every dataset that a path points to.
         let unwrapped_data = match ds {
             Ok(data) => data,
             Err(e) => return Err(e),
@@ -134,9 +148,9 @@ impl Datasets for RawDataset {
     }
 
     /// Returns a mosaic dataset that is a combined version of the [RawDataset] dataset provided.
-    fn to_mosaic_dataset(&self, output_path: &Path) -> Result<MosaicedDataset, errors::GdalError> {
-        let mut vrt_path = output_path.to_path_buf();
-        let mut cog_path = output_path.to_path_buf();
+    fn to_mosaic_dataset(&self, output_path: &str) -> Result<MosaicedDataset, errors::GdalError> {
+        let mut vrt_path = PathBuf::from(&output_path);
+        let mut cog_path = PathBuf::from(output_path);
 
         vrt_path.push("dataset.vrt");
         cog_path.push("dataset.tif");
@@ -154,6 +168,7 @@ impl Datasets for RawDataset {
         Ok(MosaicedDataset {
             dataset: mosaic,
             options: DatasetOptionsBuilder::new().build(),
+            min_max: None,
         })
     }
 
@@ -161,11 +176,14 @@ impl Datasets for RawDataset {
 }
 
 impl MosaicDataset for MosaicedDataset {
-    fn datasets_min_max(&self) -> Result<BandsMinMax, errors::GdalError> {
+    fn datasets_min_max(&mut self) -> Result<BandsMinMax, errors::GdalError> {
+        if self.min_max.is_some() {
+            return Ok(self.min_max.expect("Could not return min_max"));
+        }
+
         let dataset = &self.dataset;
 
         let min_max: Vec<StatisticsMinMax> = (1..4)
-            .into_iter()
             .map(|i| {
                 let ds_min_max = dataset.rasterband(i)?.compute_raster_min_max(true)?;
                 Ok::<StatisticsMinMax, errors::GdalError>(StatisticsMinMax {
@@ -175,18 +193,24 @@ impl MosaicDataset for MosaicedDataset {
             })
             .collect::<Result<Vec<StatisticsMinMax>, errors::GdalError>>()?;
 
-        Ok(BandsMinMax {
+        let min_max = BandsMinMax {
             red_min: min_max[0].min,
             red_max: min_max[0].max,
             green_min: min_max[1].min,
             green_max: min_max[1].max,
             blue_min: min_max[2].min,
             blue_max: min_max[2].max,
-        })
+        };
+
+        self.min_max = Some(min_max);
+
+        Ok(min_max)
     }
 
     fn get_dimensions(&self) -> Result<(i64, i64), errors::GdalError> {
-        todo!()
+        let dimensions = self.dataset.raster_size();
+
+        Ok((dimensions.0 as i64, dimensions.1 as i64))
     }
 
     fn set_scaling(&self, _dimensions: (usize, usize)) {
@@ -194,7 +218,7 @@ impl MosaicDataset for MosaicedDataset {
     }
 
     fn to_rgb(
-        &self,
+        &mut self,
         window: (isize, isize),
         window_size: (usize, usize),
         size: (usize, usize),
@@ -231,8 +255,14 @@ impl MosaicDataset for MosaicedDataset {
         todo!()
     }
 
-    fn import_mosaic_dataset(_path: &str) -> Result<MosaicedDataset, errors::GdalError> {
-        todo!()
+    fn import_mosaic_dataset(path: &str) -> Result<MosaicedDataset, errors::GdalError> {
+        let ds = Dataset::open(path)?;
+
+        Ok(MosaicedDataset {
+            dataset: ds,
+            options: DatasetOptionsBuilder::new().build(),
+            min_max: None,
+        })
     }
 
     fn set_bands(&self, _red_band: isize, _green_band: isize, _blue_band: isize) {
@@ -263,10 +293,7 @@ fn band_merger(
     for i in 0..bands[0].len() {
         let mut alpha = 255;
 
-        if bands
-            .into_iter()
-            .fold(true, |acc, band| band[i].is_nan() && acc)
-        {
+        if bands.iter().fold(true, |acc, band| band[i].is_nan() && acc) {
             alpha = 0;
         }
 
@@ -295,7 +322,7 @@ fn creation_options() -> Vec<RasterCreationOption<'static>> {
     let create_options = vec![
         RasterCreationOption {
             key: "COMPRESS",
-            value: "LZW", // Should be changed to ZSTD when it is time to use the system.
+            value: "ZSTD",
         },
         RasterCreationOption {
             key: "PREDICTOR",
@@ -314,7 +341,7 @@ fn creation_options() -> Vec<RasterCreationOption<'static>> {
 }
 
 fn gamma_correction(input_value: f32) -> Result<f32, PixelConversion> {
-    if input_value < 0.0 || input_value > 1.0 {
+    if !(0.0..=1.0).contains(&input_value) {
         return Err(PixelConversion::GammaOutOfRange);
     }
 
@@ -342,7 +369,7 @@ mod tests {
 
     #[test]
     fn import_dataset_missing() {
-        let wrong_paths = vec![String::from("/Nowhere")];
+        let wrong_paths = String::from("/Nowhere");
 
         let result = RawDataset::import_datasets(&wrong_paths);
 
@@ -358,13 +385,13 @@ mod tests {
         dbg!(&current_dir);
 
         let mut path = current_dir.clone();
-        path.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+        path.push("resources/test/Geotiff/gdal_tests");
 
-        let path_vec = vec![path.to_string_lossy().into()];
+        dbg!(&path.to_string_lossy());
 
-        let result = RawDataset::import_datasets(&path_vec);
+        let result = RawDataset::import_datasets(&path.to_string_lossy());
 
-        assert!(result.is_ok_and(|d| d.datasets[0].raster_size() == (7309, 4322)));
+        assert!(result.unwrap().datasets[0].raster_size() == (7309, 4322));
     }
 
     #[test]
@@ -375,10 +402,10 @@ mod tests {
         current_dir.pop();
 
         let mut path1 = current_dir.clone();
-        path1.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+        path1.push("resources/test/Geotiff/gdal_tests/MOSAIC-0000018944-0000037888.tif");
 
         let mut path2 = current_dir.clone();
-        path2.push("resources/test/Geotiff/MOSAIC-0000018944-0000018944.tif");
+        path2.push("resources/test/Geotiff/gdal_tests/MOSAIC-0000018944-0000018944.tif");
 
         let mut output_path = current_dir.clone();
 
@@ -394,7 +421,7 @@ mod tests {
 
         let datasets = RawDataset { datasets };
 
-        let result = datasets.to_mosaic_dataset(output_path.as_path());
+        let result = datasets.to_mosaic_dataset(output_path.to_str().unwrap());
 
         assert!(result.is_ok());
     }
@@ -405,18 +432,19 @@ mod tests {
 
         current_dir.pop();
 
-        current_dir.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+        current_dir.push("resources/test/Geotiff/gdal_tests/MOSAIC-0000018944-0000037888.tif");
 
         dbg!(&current_dir);
 
         let ds = Dataset::open(current_dir.as_path()).expect("Could not open dataset");
 
-        let dataset = MosaicedDataset {
+        let mut dataset = MosaicedDataset {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
+            min_max: None,
         };
 
-        let result = MosaicDataset::datasets_min_max(&dataset);
+        let result = MosaicDataset::datasets_min_max(&mut dataset);
 
         assert_eq!(
             0.0017,
@@ -486,19 +514,19 @@ mod tests {
         current_dir.pop();
 
         current_dir
-            .push("resources/test/Geotiff/ESA_WorldCover_10m_2021_v200_N54E009_S2RGBNIR.tif");
+            .push("resources/test/Geotiff/ESA/ESA_WorldCover_10m_2021_v200_N54E009_S2RGBNIR.tif");
 
         let ds = Dataset::open(current_dir.as_path()).expect("Could not open dataset");
 
-        let dataset = MosaicedDataset {
+        let mut dataset = MosaicedDataset {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
+            min_max: None,
         };
 
         let window_size = dataset.dataset.raster_size();
 
-        let image_rgba: Result<Vec<rgb::RGBA8>, _> =
-            dataset.to_rgb((0, 0), window_size, (20, 20));
+        let image_rgba: Result<Vec<rgb::RGBA8>, _> = dataset.to_rgb((0, 0), window_size, (20, 20));
 
         assert!(image_rgba.is_ok_and(|image_vec| image_vec.len() == 20 * 20));
     }
@@ -509,7 +537,7 @@ mod tests {
 
         current_dir.pop();
 
-        current_dir.push("resources/test/Geotiff/MOSAIC-0000018944-0000037888.tif");
+        current_dir.push("resources/test/Geotiff/gdal_tests/MOSAIC-0000018944-0000037888.tif");
 
         dbg!(&current_dir);
 
@@ -518,6 +546,7 @@ mod tests {
         let dataset = MosaicedDataset {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
+            min_max: None,
         };
 
         let red_band = dataset.dataset.rasterband(1).expect("Could not open band");

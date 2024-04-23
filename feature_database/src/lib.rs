@@ -3,8 +3,7 @@ pub mod keypointdb;
 pub mod models;
 pub mod schema;
 
-#[cfg(test)]
-pub mod testhelpers {
+pub mod db_helpers {
     use std::env;
     use std::sync::{Arc, Mutex};
 
@@ -20,14 +19,14 @@ pub mod testhelpers {
 
         let lock = DATABASE_LOCK.lock();
 
-        if lock.is_err() {
-            return lock.unwrap_err().into_inner();
+        if let Err(poison_lock) = lock {
+            return poison_lock.into_inner();
         }
 
         lock.unwrap()
     }
 
-    pub fn setup_test_database() -> PgConnection {
+    pub fn setup_database() -> PgConnection {
         dotenv().ok();
 
         let database_url =

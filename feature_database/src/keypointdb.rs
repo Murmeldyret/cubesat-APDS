@@ -15,16 +15,9 @@ impl<'a> KeypointDatabase for Keypoint<'a> {
         input_keypoint: Keypoint,
     ) -> Result<(), DieselError> {
         match input_keypoint {
-            Keypoint::One(single_image) => create_keypoint_in_database(conn, &single_image)?,
+            Keypoint::One(single_image) => create_keypoint_in_database(conn, &[single_image])?,
             Keypoint::Multiple(multiple_images) => {
-                let result: Result<Vec<()>, DieselError> = multiple_images
-                    .into_iter()
-                    .map(|key| create_keypoint_in_database(conn, &key))
-                    .collect();
-                match result {
-                    Ok(_) => return Ok(()),
-                    Err(e) => return Err(e),
-                }
+                create_keypoint_in_database(conn, &multiple_images)?
             }
         }
         Ok(())
@@ -77,10 +70,10 @@ impl<'a> KeypointDatabase for Keypoint<'a> {
 
     fn read_keypoints_from_coordinates(
         conn: &mut PgConnection,
-        x_start: f64,
-        y_start: f64,
-        x_end: f64,
-        y_end: f64,
+        x_start: f32,
+        y_start: f32,
+        x_end: f32,
+        y_end: f32,
         level_of_detail: i32,
     ) -> Result<Vec<models::Keypoint>, DieselError> {
         use crate::imagedb::ImageDatabase;
@@ -122,17 +115,13 @@ impl<'a> KeypointDatabase for Keypoint<'a> {
 
 fn create_keypoint_in_database(
     connection: &mut PgConnection,
-    input_keypoint: &models::InsertKeypoint,
+    input_keypoint: &[models::InsertKeypoint],
 ) -> Result<(), DieselError> {
-    let result = diesel::insert_into(crate::schema::keypoint::table)
+    diesel::insert_into(crate::schema::keypoint::table)
         .values(input_keypoint)
-        .returning(models::Keypoint::as_returning())
-        .get_result(connection);
+        .execute(connection)?;
 
-    match result {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e),
-    }
+    Ok(())
 }
 
 pub trait KeypointDatabase {
@@ -154,10 +143,10 @@ pub trait KeypointDatabase {
     ) -> Result<Vec<models::Keypoint>, DieselError>;
     fn read_keypoints_from_coordinates(
         conn: &mut PgConnection,
-        x_start: f64,
-        y_start: f64,
-        x_end: f64,
-        y_end: f64,
+        x_start: f32,
+        y_start: f32,
+        x_end: f32,
+        y_end: f32,
         level_of_detail: i32,
     ) -> Result<Vec<models::Keypoint>, DieselError>;
     fn delete_keypoint(conn: &mut PgConnection, id: i32) -> Result<(), DieselError>;
@@ -168,8 +157,8 @@ mod tests {
     use self::models::InsertImage;
 
     use super::*;
+    use crate::db_helpers::{obtain_lock, setup_database};
     use crate::schema::keypoint::dsl::*;
-    use crate::testhelpers::{obtain_lock, setup_test_database};
 
     fn generate_images_in_database(connection: &mut PgConnection, amount: i32) {
         use rand::prelude::*;
@@ -195,7 +184,7 @@ mod tests {
     #[test]
     fn keypoint_creation() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         generate_images_in_database(connection, 1);
 
@@ -239,7 +228,7 @@ mod tests {
     #[test]
     fn keypoint_fetching_id() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         generate_images_in_database(connection, 1);
 
@@ -281,7 +270,7 @@ mod tests {
     #[test]
     fn keypoint_fetching_id_not_available() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         let fetched_keypoint = Keypoint::read_keypoint_from_id(connection, 1);
 
@@ -291,7 +280,7 @@ mod tests {
     #[test]
     fn keypoint_fetching_image_id() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         generate_images_in_database(connection, 3);
 
@@ -377,7 +366,7 @@ mod tests {
     #[test]
     fn keypoints_fetched_from_lod() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         let insert_image = InsertImage {
             x_start: &0,
@@ -459,7 +448,7 @@ mod tests {
     #[test]
     fn keypoint_fetching_coordinates() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         let image_vec = vec![
             InsertImage {
@@ -553,7 +542,7 @@ mod tests {
     #[test]
     fn deleting_keypoint() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         generate_images_in_database(connection, 1);
 
