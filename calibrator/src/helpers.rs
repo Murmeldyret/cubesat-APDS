@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, fs::DirEntry, path::PathBuf};
+use std::{ffi::OsStr, fs::DirEntry, path::{Path, PathBuf}};
 
 use homographier::homographier::Cmat;
 use opencv::imgcodecs::IMREAD_GRAYSCALE;
@@ -7,7 +7,7 @@ use rgb::alt::BGRA8;
 /// Reads all valid images found in a provided path
 /// ## Notes
 /// The input path should be a directory
-pub fn read_images(p: &PathBuf) -> Vec<Cmat<u8>> {
+pub fn read_images(p: &Path) -> Vec<Cmat<u8>> {
     let res = p
         .read_dir()
         .expect("Failed to read input path")
@@ -18,10 +18,10 @@ pub fn read_images(p: &PathBuf) -> Vec<Cmat<u8>> {
                 .filter(|ext| valid_img_extension(ext))
                 .is_some()
         })
-        .filter_map(|f| f.path().to_str().map(|s| <&str as Into<String>>::into(s)))
+        .filter_map(|f| f.path().to_str().map(<&str as Into<String>>::into))
         .map(|f| {
             Cmat::<u8>::imread_checked(&f, IMREAD_GRAYSCALE)
-                .expect(format!("Failed to read image named {}", f).as_str())
+                .unwrap_or_else(|_| panic!("Failed to read image named {}", f))
         })
         .collect::<Vec<Cmat<u8>>>();
 
@@ -29,8 +29,5 @@ pub fn read_images(p: &PathBuf) -> Vec<Cmat<u8>> {
 }
 
 fn valid_img_extension(ext: &OsStr) -> bool {
-    match ext.to_str() {
-        Some(val) if ["png", "jpg", "jpeg", "tif", "tiff"].contains(&val) => true,
-        _ => false,
-    }
+    matches!(ext.to_str(), Some(val) if ["png", "jpg", "jpeg", "tif", "tiff"].contains(&val))
 }

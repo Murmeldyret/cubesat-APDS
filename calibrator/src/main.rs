@@ -20,4 +20,6 @@ fn main() {
         "At least 10 images are necesarry to perform image calibration, but only {} was found",
         images.len()
     );
+
+    
 }
