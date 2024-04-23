@@ -364,6 +364,7 @@ pub fn pnp_solver_ransac(
         tvec,
         inliers,
     };
+    // dbg!(&solution.inliers.mat.size());
     let solution = res.then_some(solution);
     Ok(solution)
 }

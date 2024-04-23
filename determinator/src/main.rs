@@ -140,7 +140,7 @@ fn main() {
 
     let ref_kp_woorld_coords: Vec<opencv::core::Point3f> = point2d_to_3d(
         obj_points.into_iter().collect(),
-        todo!("mangler elevation dataset for at udfylde den sidste dimension"),
+        Cmat::zeros(1000, 1000).expect("failed to construct matrix"), //TODO Skal bruge elevation dataset 
     );
 
     // opencv kræver f64 :D
@@ -151,13 +151,15 @@ fn main() {
         .collect();
     let camera_matrix = get_camera_matrix(args.cam_matrix).expect("Failed to get camera matrix");
 
+    // TODO: needs real camera matrix. Probably also a good guess for reproj_thres and confidnce
     let solution = pnp_solver_ransac(
         &point_correspondences,
         &camera_matrix,
         args.pnp_ransac_iter_count.try_into().unwrap_or(1000),
-        todo!(),
-        todo!(),
+        10000f32,
+        0.9,
         args.dist_coeff.as_deref(),
-        Some(SolvePnPMethod::SOLVEPNP_EPNP), // i think this method is most appropiate, optionally it could be program argument
-    );
+        Some(SolvePnPMethod::SOLVEPNP_EPNP), // i think this method is most appropriate, optionally it could be program argument
+    ).expect("Failed to solve PNP problem");
+    // dbg!(solution);
 }
