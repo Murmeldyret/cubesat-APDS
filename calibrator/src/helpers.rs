@@ -43,5 +43,4 @@ pub fn img_points_from_size(size: &Size2i) -> Vector<Point3f> {
         }
     }
     Vector::from_iter(output)
-
 }
