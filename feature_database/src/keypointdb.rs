@@ -209,7 +209,7 @@ mod tests {
                 class_id: 1,
                 descriptor: [6_u8].to_vec(),
                 image_id: 1,
-            });
+            });}
 
         let mut insert_keypoints: Vec<InsertKeypoint> = Vec::with_capacity(amount.try_into().unwrap());
 
@@ -225,14 +225,26 @@ mod tests {
             descriptor: &int_keypoint.descriptor,
             image_id: &int_keypoint.image_id,
         });
-    }
-
-        let db_insert_keypoints = Keypoint::Multiple(insert_keypoints);
+        if insert_keypoints.len() == 1024 {
+            let db_insert_keypoints = Keypoint::Multiple(insert_keypoints.clone());
 
             Keypoint::create_keypoint(connection, db_insert_keypoints).unwrap();
 
-
+            insert_keypoints.clear();
         }
+
+        let db_insert_keypoints = Keypoint::Multiple(insert_keypoints.clone());
+
+            Keypoint::create_keypoint(connection, db_insert_keypoints).unwrap();
+
+            insert_keypoints.clear();
+
+    }
+
+
+
+
+
     }
 
     #[test]
@@ -644,13 +656,11 @@ mod tests {
         assert!(func_result.is_ok());
     }
 
-    #[ignore = "Very slow"]
+    // #[ignore = "Very slow"]
     #[test]
     fn opencv_limit_enforcement() {
         let _lock = obtain_lock();
         let connection = &mut setup_database();
-
-        const amount:  = OPENCV_KEYPOINT_LIMIT + 1000;
 
         generate_keypoints_in_database(connection, OPENCV_KEYPOINT_LIMIT + 1000);
 
