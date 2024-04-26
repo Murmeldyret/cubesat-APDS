@@ -14,8 +14,6 @@ use opencv::{self as cv, prelude::*};
 pub fn akaze_keypoint_descriptor_extraction_def(
     img: &Mat,
 ) -> Result<(Vector<KeyPoint>, Mat), Error> {
-    //let img: Mat = cv::imgcodecs::imread(file_location, cv::imgcodecs::IMREAD_COLOR).unwrap();
-
     let mut akaze: Ptr<AKAZE> = <AKAZE>::create(
         AKAZE_DescriptorType::DESCRIPTOR_MLDB,
         0,
@@ -24,7 +22,7 @@ pub fn akaze_keypoint_descriptor_extraction_def(
         4,
         4,
         KAZE_DiffusivityType::DIFF_PM_G2,
-        -1
+        262143
     )?;
 
     let mut akaze_keypoints = Vector::default();
@@ -58,14 +56,9 @@ pub fn get_knn_matches(
     let mut good_matches = VectorOfDMatch::new();
 
     for i in &matches {
-        for m in &i {
-            for n in &i {
-                if m.distance < filter_strength * n.distance {
-                    good_matches.push(m);
-                    break;
-                }
-            }
-        }
+        if i.get(0)?.distance < i.get(1)?.distance * filter_strength {
+            good_matches.push(i.get(0)?);
+        } 
     }
 
     Ok(good_matches)
@@ -174,7 +167,7 @@ pub fn get_lat_long(
     let ref_img_width = img2.size().unwrap().width;
     let ref_img_height = img2.size().unwrap().height;
 
-    println!("width: {}, height: {}", ref_img_width, ref_img_height);
+    println!("width: {}, height: {}", ref_img_width, ref_img_height);  // TODO: remove this
 
     let mut projected_geo_coords = VectorOfPoint2d::new();
 
@@ -191,7 +184,13 @@ pub fn get_lat_long(
             "Lat: {}, Long {}",
             projected_geo_coords.get(i)?.x,
             projected_geo_coords.get(i)?.y
-        );
+        );  // TODO: remove this
+
+        println!(
+            "x: {}, y: {}",
+            scene_corners.get(i)?.x,
+            scene_corners.get(i)?.y
+        ); // TODO: remove this
     }
 
     Ok(projected_geo_coords)
@@ -206,12 +205,6 @@ pub fn draw_homography_lines(
     let (_object_corners, scene_corners) = get_object_and_scene_corners(&img1, &homography)?;
 
     for i in 0..4 {
-        println!(
-            "Pixel coords on ref x: {}, y: {}",
-            scene_corners.get(i)?.x,
-            scene_corners.get(i)?.y
-        );
-
         let _ = line(
             out_img,
             Point2i::new(
@@ -281,8 +274,8 @@ mod test {
     #[test]
     fn fake_test() {
         // Loads in the two images, img1 = query, img2 = reference
-        let img1_dir = "../resources/test/Geotiff/31.tif";
-        let img2_dir = "../resources/test/Geotiff/30.tif";
+        let img1_dir = "../resources/test/benchmark/Denmark_8192(2).png";
+        let img2_dir = "../resources/test/benchmark/Denmark_8192-small-v2.png";
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
@@ -294,7 +287,8 @@ mod test {
         println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
 
         // Gets k(2)nn matches using Lowe's distance ratio
-        let matches = get_knn_matches(&img1_desc, &img2_desc, 2, 0.5).unwrap();println!("Matches: {}", matches.len());
+        let matches = get_knn_matches(&img1_desc, &img2_desc, 2, 0.7).unwrap();
+        println!("Matches: {}", matches.len());
 
         // Exports an image containing img1 & img2 and draws lines between their matches
         let mut out_img = export_matches(
@@ -315,7 +309,7 @@ mod test {
             &img1_matched_points_vec,
             &img2_matched_points_vec,
             Some(HomographyMethod::RANSAC),
-            Some(1f64),
+            Some(10f64),
         );
 
         
@@ -328,14 +322,14 @@ mod test {
         let homography = res.0;
         let mask = res.1;
         let matches_mask = mask.unwrap();
-        //let mut k = &mut Mat::default();
+
 
         //let dst_img = warp_perspective_def(&img1, &mut out_img, &homography, img2.size().unwrap());
 
         // Draws a projection of where the query image is on the reference image
         let _ = draw_homography_lines(&mut out_img, &img1, &homography);
 
-        let _ = get_lat_long(img1, img2_dir, &homography);
+        //let _ = get_lat_long(img1, img2_dir, &homography);
 
         imgcodecs::imwrite(
             "../resources/test/Geotiff/out-homo.png",
