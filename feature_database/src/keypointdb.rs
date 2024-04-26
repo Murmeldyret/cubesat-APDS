@@ -9,6 +9,8 @@ pub enum Keypoint<'a> {
     Multiple(Vec<models::InsertKeypoint<'a>>),
 }
 
+const OPENCV_KEYPOINT_LIMIT: i64 = 2_i64.pow(18) - 1;
+
 impl<'a> KeypointDatabase for Keypoint<'a> {
     fn create_keypoint(
         conn: &mut PgConnection,
@@ -39,6 +41,8 @@ impl<'a> KeypointDatabase for Keypoint<'a> {
     ) -> Result<Vec<models::Keypoint>, DieselError> {
         dsl::keypoint
             .filter(dsl::image_id.eq(image_id))
+            .order(dsl::response.desc())
+            .limit(OPENCV_KEYPOINT_LIMIT)
             .select(models::Keypoint::as_select())
             .load(conn)
     }
@@ -48,22 +52,14 @@ impl<'a> KeypointDatabase for Keypoint<'a> {
         level_of_detail: i32,
     ) -> Result<Vec<models::Keypoint>, DieselError> {
         use crate::schema::ref_image;
-        let image_ids: Vec<i32> = ref_image::dsl::ref_image
+
+        let keypoints_vec: Vec<models::Keypoint> = dsl::keypoint
+            .inner_join(ref_image::dsl::ref_image)
             .filter(ref_image::dsl::level_of_detail.eq(level_of_detail))
-            .select(ref_image::dsl::id)
+            .order(dsl::response.desc())
+            .limit(OPENCV_KEYPOINT_LIMIT)
+            .select(models::Keypoint::as_select())
             .load(conn)?;
-
-        let keypoints_vec: Vec<Vec<models::Keypoint>> = image_ids
-            .into_iter()
-            .flat_map(|id| {
-                dsl::keypoint
-                    .filter(dsl::image_id.eq(id))
-                    .select(models::Keypoint::as_select())
-                    .load(conn)
-            })
-            .collect();
-
-        let keypoints_vec = keypoints_vec.into_iter().flatten().collect();
 
         Ok(keypoints_vec)
     }
@@ -76,31 +72,19 @@ impl<'a> KeypointDatabase for Keypoint<'a> {
         y_end: f32,
         level_of_detail: i32,
     ) -> Result<Vec<models::Keypoint>, DieselError> {
-        use crate::imagedb::ImageDatabase;
-        let image_ids = crate::imagedb::Image::find_images_from_dimensions(
-            conn,
-            x_start.floor() as i32,
-            y_start.floor() as i32,
-            x_end.ceil() as i32,
-            y_end.ceil() as i32,
-            level_of_detail,
-        )?;
+        use crate::schema::ref_image;
 
-        let keypoints_vec: Result<Vec<Vec<models::Keypoint>>, DieselError> = image_ids
-            .into_iter()
-            .map(|id| {
-                dsl::keypoint
-                    .filter(dsl::image_id.eq(id))
-                    .filter(dsl::x_coord.ge(x_start.floor()))
-                    .filter(dsl::x_coord.le(x_end.ceil()))
-                    .filter(dsl::y_coord.ge(y_start.floor()))
-                    .filter(dsl::y_coord.le(y_end.ceil()))
-                    .select(models::Keypoint::as_select())
-                    .load(conn)
-            })
-            .collect();
-
-        let keypoints_vec: Vec<models::Keypoint> = keypoints_vec?.into_iter().flatten().collect();
+        let keypoints_vec: Vec<models::Keypoint> = dsl::keypoint
+            .inner_join(ref_image::dsl::ref_image)
+            .filter(ref_image::dsl::level_of_detail.eq(level_of_detail))
+            .filter(dsl::x_coord.ge(x_start.floor()))
+            .filter(dsl::x_coord.le(x_end.ceil()))
+            .filter(dsl::y_coord.ge(y_start.floor()))
+            .filter(dsl::y_coord.le(y_end.ceil()))
+            .order(dsl::response.desc())
+            .limit(OPENCV_KEYPOINT_LIMIT)
+            .select(models::Keypoint::as_select())
+            .load(conn)?;
 
         Ok(keypoints_vec)
     }
@@ -155,6 +139,7 @@ pub trait KeypointDatabase {
 #[cfg(test)]
 mod tests {
     use self::models::InsertImage;
+    use self::models::InsertKeypoint;
 
     use super::*;
     use crate::db_helpers::{obtain_lock, setup_database};
@@ -178,6 +163,75 @@ mod tests {
                 .returning(models::Image::as_returning())
                 .get_result(connection)
                 .expect("Could not generate images to the database");
+        }
+    }
+
+    struct TestKeypoint {
+        pub x_coord: f32,
+    pub y_coord: f32,
+    pub size: f32,
+    pub angle: f32,
+    pub response: f32,
+    pub octave: i32,
+    pub class_id: i32,
+    pub descriptor: Vec<u8>,
+    pub image_id: i32,
+    }
+
+    fn generate_keypoints_in_database(connection: &mut PgConnection, amount: i64) {
+        use rand::prelude::*;
+        let mut rng = rand::thread_rng();
+
+        let insert_image = InsertImage {
+                x_start: &rng.gen(),
+                y_start: &rng.gen(),
+                x_end: &rng.gen(),
+                y_end: &rng.gen(),
+                level_of_detail: &1,
+            };
+
+            diesel::insert_into(crate::schema::ref_image::table)
+                .values(insert_image)
+                .returning(models::Image::as_returning())
+                .get_result(connection)
+                .expect("Could not generate images to the database");
+
+                let mut keypoints: Vec<TestKeypoint> = Vec::with_capacity(amount.try_into().unwrap());
+
+        for _i in 0..amount {
+                keypoints.push(TestKeypoint {
+                x_coord: 1.0,
+                y_coord: 1.0,
+                size: 1.0,
+                angle: 1.0,
+                response: 1.0,
+                octave: 1,
+                class_id: 1,
+                descriptor: [6_u8].to_vec(),
+                image_id: 1,
+            });
+
+        let mut insert_keypoints: Vec<InsertKeypoint> = Vec::with_capacity(amount.try_into().unwrap());
+
+        for int_keypoint in &keypoints {
+        insert_keypoints.push(models::InsertKeypoint {
+            x_coord: &int_keypoint.x_coord,
+            y_coord: &int_keypoint.y_coord,
+            size: &int_keypoint.size,
+            angle: &int_keypoint.angle,
+            response: &int_keypoint.response,
+            octave: &int_keypoint.octave,
+            class_id: &int_keypoint.class_id,
+            descriptor: &int_keypoint.descriptor,
+            image_id: &int_keypoint.image_id,
+        });
+    }
+
+        let db_insert_keypoints = Keypoint::Multiple(insert_keypoints);
+
+            Keypoint::create_keypoint(connection, db_insert_keypoints).unwrap();
+
+
         }
     }
 
@@ -588,5 +642,20 @@ mod tests {
 
         assert_eq!(db_result[0].id, 2);
         assert!(func_result.is_ok());
+    }
+
+    #[ignore = "Very slow"]
+    #[test]
+    fn opencv_limit_enforcement() {
+        let _lock = obtain_lock();
+        let connection = &mut setup_database();
+
+        const amount:  = OPENCV_KEYPOINT_LIMIT + 1000;
+
+        generate_keypoints_in_database(connection, OPENCV_KEYPOINT_LIMIT + 1000);
+
+        let keypoints = Keypoint::read_keypoints_from_lod(connection, 1).unwrap();
+
+        assert_eq!(keypoints.len(), OPENCV_KEYPOINT_LIMIT.try_into().unwrap());
     }
 }
