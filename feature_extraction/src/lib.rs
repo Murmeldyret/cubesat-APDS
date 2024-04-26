@@ -261,12 +261,12 @@ mod test {
         println!(
             "{} - Keypoints: {}",
             img1_dir,
-            img1_keypoints.keypoints.len()
+            img1_keypoints.len()
         );
         println!(
             "{} - Keypoints: {}",
             img2_dir,
-            img2_keypoints.keypoints.len()
+            img2_keypoints.len()
         );
 
         assert!(img1_keypoints.len() == 9079 && img2_keypoints.len() == 9357);
