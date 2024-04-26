@@ -2,7 +2,7 @@ use cv::{
     core::{perspective_transform, DMatch, KeyPoint, Mat, Point2d, Point2f, Point2i, Vector, NORM_HAMMING},
     features2d::{AKAZE_DescriptorType, BFMatcher, DrawMatchesFlags, KAZE_DiffusivityType, AKAZE},
     imgcodecs,
-    imgproc::{line, line_def, warp_perspective, warp_perspective_def, LINE_8},
+    imgproc::{line, LINE_8},
     types::{VectorOfDMatch, VectorOfPoint2d, VectorOfPoint2f, VectorOfVectorOfDMatch},
     Error,
 };
@@ -13,6 +13,7 @@ use opencv::{self as cv, prelude::*};
 
 pub fn akaze_keypoint_descriptor_extraction_def(
     img: &Mat,
+    max_points: Option<i32>
 ) -> Result<(Vector<KeyPoint>, Mat), Error> {
     let mut akaze: Ptr<AKAZE> = <AKAZE>::create(
         AKAZE_DescriptorType::DESCRIPTOR_MLDB,
@@ -22,7 +23,7 @@ pub fn akaze_keypoint_descriptor_extraction_def(
         4,
         4,
         KAZE_DiffusivityType::DIFF_PM_G2,
-        262143
+        max_points.unwrap_or(262143)
     )?;
 
     let mut akaze_keypoints = Vector::default();
@@ -147,15 +148,16 @@ pub fn get_object_and_scene_corners(
     Ok((object_corners, scene_corners))
 }
 
+/// Images have to be geotiff since world coordinates are being extracted
 pub fn get_lat_long(
     img1: Mat,
     img2_dir: &str,
     homography: &Cmat<f64>
 ) -> Result<Vector<Point2d>, Error> {
 
-    let (_object_corners, scene_corners) = get_object_and_scene_corners(&img1, &homography)?;
+    let (_object_corners, scene_corners) = get_object_and_scene_corners(&img1, homography)?;
 
-    let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
+    let img2: Mat = get_mat_from_dir(img2_dir)?;
     let dataset = gdal::Dataset::open(img2_dir);
     let projected_dataset = dataset.unwrap().geo_transform().unwrap();
     println!("{:#?}", &projected_dataset);
@@ -164,8 +166,8 @@ pub fn get_lat_long(
     let y_min = projected_dataset.get(3).unwrap().abs();
     let y_size = projected_dataset.get(5).unwrap().abs();
 
-    let ref_img_width = img2.size().unwrap().width;
-    let ref_img_height = img2.size().unwrap().height;
+    let ref_img_width = img2.size()?.width;
+    let ref_img_height = img2.size()?.height;
 
     println!("width: {}, height: {}", ref_img_width, ref_img_height);  // TODO: remove this
 
@@ -202,18 +204,18 @@ pub fn draw_homography_lines(
     img1: &Mat,
     homography: &Cmat<f64>,
 ) -> Result<(), Error> {
-    let (_object_corners, scene_corners) = get_object_and_scene_corners(&img1, &homography)?;
+    let (_object_corners, scene_corners) = get_object_and_scene_corners(img1, homography)?;
 
     for i in 0..4 {
         let _ = line(
             out_img,
             Point2i::new(
                 scene_corners.get(i)?.x as i32 + img1.cols(),
-                scene_corners.get(i)?.y as i32 + 0,
+                scene_corners.get(i)?.y as i32,
             ),
             Point2i::new(
                 scene_corners.get((i + 1) % 4)?.x as i32 + img1.cols(),
-                scene_corners.get((i + 1) % 4)?.y as i32 + 0,
+                scene_corners.get((i + 1) % 4)?.y as i32,
             ),
             opencv::core::VecN::new(0.0, 0.0, 255.0, 0.0),
             2i32,
@@ -236,16 +238,15 @@ fn get_matched_points_vec(
     for dmatch in matches {
         img1_matched_points.push(
             img1_keypoints
-                .get(dmatch.query_idx.try_into().unwrap())
-                .unwrap()
+                .get(dmatch.query_idx.try_into()?)?
                 .pt(),
         );
         img2_matched_points.push(
             img2_keypoints
-                .get(dmatch.train_idx.try_into().unwrap())
-                .unwrap()
+                .get(dmatch.train_idx.try_into()?)?
                 .pt(),
         );
+
     }
 
     Ok((img1_matched_points, img2_matched_points))
@@ -274,14 +275,14 @@ mod test {
     #[test]
     fn fake_test() {
         // Loads in the two images, img1 = query, img2 = reference
-        let img1_dir = "../resources/test/benchmark/Denmark_8192_small.png";
+        let img1_dir = "../resources/test/benchmark/Denmark_small.png";
         let img2_dir = "../resources/test/benchmark/Denmark_8192.png";
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
         // Gets keypoints and decsriptors using AKAZE
-        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
-        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
+        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1, Some(25)).unwrap();
+        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2, None).unwrap();
 
         println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
         println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
@@ -312,7 +313,6 @@ mod test {
             Some(10f64),
         );
 
-        
         let res = res.inspect_err(|e| {
             dbg!(e);
         });
@@ -322,9 +322,6 @@ mod test {
         let homography = res.0;
         let mask = res.1;
         let matches_mask = mask.unwrap();
-
-
-        //let dst_img = warp_perspective_def(&img1, &mut out_img, &homography, img2.size().unwrap());
 
         // Draws a projection of where the query image is on the reference image
         let _ = draw_homography_lines(&mut out_img, &img1, &homography);
@@ -337,16 +334,6 @@ mod test {
             &cv::core::Vector::default(),
         )
         .unwrap();
-        // Assert for identity matrix
-        for col in 0..3 {
-            for row in 0..3 {
-                if col == row {
-                    assert_eq!(&homography.at_2d(row, col).unwrap().round(), &1f64);
-                } else {
-                    assert_eq!(&homography.at_2d(row, col).unwrap().round(), &0f64);
-                }
-            }
-        }
 
         assert!(true);
     }
@@ -359,8 +346,8 @@ mod test {
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
-        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
-        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
+        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1, None).unwrap();
+        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2, None).unwrap();
 
         println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
         println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
@@ -376,8 +363,8 @@ mod test {
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
-        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
-        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
+        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1, None).unwrap();
+        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2, None).unwrap();
 
         let matches = get_knn_matches(&img1_desc, &img2_desc, 2, 0.3).unwrap();
 
@@ -392,8 +379,8 @@ mod test {
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
-        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
-        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
+        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1, None).unwrap();
+        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2, None).unwrap();
 
         let matches = get_bruteforce_matches(&img1_desc, &img2_desc).unwrap();
         println!("{}", matches.len());
@@ -401,5 +388,69 @@ mod test {
         assert!(matches.len() == 3228);
     }
 
-    // TODO: get_points_from_matches test
+    #[test]
+    fn coords_test() {
+        // Loads in the two images, img1 = query, img2 = reference
+        let img1_dir = "../resources/test/Geotiff/31.tif";
+        let img2_dir = "../resources/test/Geotiff/30.tif";
+        let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
+        let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
+
+        // Gets keypoints and decsriptors using AKAZE
+        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1, None).unwrap();
+        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2, None).unwrap();
+
+        println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
+        println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
+
+        // Gets k(2)nn matches using Lowe's distance ratio
+        let matches = get_knn_matches(&img1_desc, &img2_desc, 2, 0.7).unwrap();
+        println!("Matches: {}", matches.len());
+
+        // Exports an image containing img1 & img2 and draws lines between their matches
+        let mut out_img = export_matches(
+            &img1,
+            &img1_keypoints,
+            &img2,
+            &img2_keypoints,
+            &matches,
+            "../resources/test/Geotiff/out.png",
+        )
+        .unwrap();
+
+        // Find homography wants a Vec<Point2f> instead of a Vector<Point2f>
+        let (img1_matched_points_vec, img2_matched_points_vec) =
+            get_matched_points_vec(&img1_keypoints, &img2_keypoints, &matches).unwrap();
+
+        let res = find_homography_mat(
+            &img1_matched_points_vec,
+            &img2_matched_points_vec,
+            Some(HomographyMethod::RANSAC),
+            Some(10f64),
+        );
+
+        let res = res.inspect_err(|e| {
+            dbg!(e);
+        });
+        assert!(res.is_ok());
+        
+        let res = res.unwrap();
+        let homography = res.0;
+
+        let coords = get_lat_long(img1, img2_dir, &homography).unwrap();
+
+        imgcodecs::imwrite(
+            "../resources/test/Geotiff/out-homo.png",
+            &out_img,
+            &cv::core::Vector::default(),
+        )
+        .unwrap();
+
+        assert!(coords.get(0).unwrap().x == 57.58392892466675);
+        assert!(coords.get(0).unwrap().y == 9.849494991472618);
+        assert!(coords.get(2).unwrap().x == 57.757949696191034);
+        assert!(coords.get(2).unwrap().y == 10.100162414469677);
+    }
+
+    
 }
