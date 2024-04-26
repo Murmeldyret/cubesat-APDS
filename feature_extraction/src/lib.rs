@@ -274,8 +274,8 @@ mod test {
     #[test]
     fn fake_test() {
         // Loads in the two images, img1 = query, img2 = reference
-        let img1_dir = "../resources/test/benchmark/Denmark_8192(2).png";
-        let img2_dir = "../resources/test/benchmark/Denmark_8192-small-v2.png";
+        let img1_dir = "../resources/test/benchmark/Denmark_8192_small.png";
+        let img2_dir = "../resources/test/benchmark/Denmark_8192.png";
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
