@@ -2,11 +2,11 @@
 
 CREATE TABLE "keypoint" (
   "id" SERIAL PRIMARY KEY,
-  "x_coord" float NOT NULL,
-  "y_coord" float NOT NULL,
-  "size" float NOT NULL,
-  "angle" float NOT NULL,
-  "response" float NOT NULL,
+  "x_coord" real NOT NULL,
+  "y_coord" real NOT NULL,
+  "size" real NOT NULL,
+  "angle" real NOT NULL,
+  "response" real NOT NULL,
   "octave" integer NOT NULL,
   "class_id" integer NOT NULL,
   "descriptor" bytea NOT NULL,
