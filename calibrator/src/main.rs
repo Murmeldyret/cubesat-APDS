@@ -63,11 +63,12 @@ fn main() {
 
     let mut cam_mat = Cmat::<f64>::zeros(3, 3).expect("matrix intiliaztion should not fail");
     let mut dist_coeffs = Vector::<f64>::new();
+
     // these parameters does not really matter, but opencv wants them
     let mut _rvec = Cmat::<Vec3d>::zeros(3, 3).expect("TODO");
     let mut _tvec = Cmat::<Vec3d>::zeros(3, 3).expect("TODO");
 
-    let res = calibrate_camera_def(
+    let rms_reproj = calibrate_camera_def(
         &obj_points,
         &img_points,
         images[0].mat.size().expect("epic fail"),
@@ -75,18 +76,11 @@ fn main() {
         &mut dist_coeffs,
         &mut _rvec.mat,
         &mut _tvec.mat,
-    );
-    // dbg!(cam_mat.at_2d(0, 0));
-    // dbg!(cam_mat.at_2d(1, 1));
-    // dbg!(cam_mat.at_2d(0, 1));
-    // dbg!(cam_mat.at_2d(2, 2));
-    // dbg!(cam_mat.at_2d(0, 2));
-    // dbg!(cam_mat.at_2d(1, 2));
-    // dbg!(dist_coeffs.len());
-    // for (i, elem) in corners.iter().enumerate() {
-    //     draw_chessboard_corners(&mut images[i].mat, size, elem, corner_found[i]).expect("msg");
-    //     imshow("pattern", &images[i].mat).expect("epic fail");
-    //     wait_key(5000).expect("msg");
-    // }
-    // destroy_all_windows().expect("msg");
+    ).expect("Camera calibration estimation failed");
+    let foc_x = cam_mat.at_2d(0, 0).expect("TODO");
+    let skew = cam_mat.at_2d(0, 1).expect("TODO");
+    let princip_x = cam_mat.at_2d(0, 2).expect("TODO");
+    let foc_y = cam_mat.at_2d(1, 1).expect("TODO");
+    let princip_y = cam_mat.at_2d(1, 2).expect("TODO");
+    println!("|{:.3},{:.3},{:.3}|\n|0.000,{:.3},{:.3}|\n|0.000,0.000,1.000|\nRMS reprojection error:{:.3}",foc_x,skew,princip_x,foc_y,princip_y,rms_reproj);
 }
