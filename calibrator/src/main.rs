@@ -4,14 +4,8 @@ use clap::Parser;
 use helpers::*;
 use homographier::homographier::Cmat;
 use opencv::{
-    calib3d::{
-        calibrate_camera, calibrate_camera_def, draw_chessboard_corners, CALIB_CB_ADAPTIVE_THRESH,
-    },
-    core::{
-        MatTraitConst, Point2f, Point3f, Size2i, TermCriteria, TermCriteria_COUNT,
-        TermCriteria_MAX_ITER, TermCriteria_Type, Vec3d, Vector, CV_64FC3,
-    },
-    highgui::{destroy_all_windows, imshow, wait_key},
+    calib3d::{calibrate_camera_def, CALIB_CB_ADAPTIVE_THRESH},
+    core::{MatTraitConst, Point2f, Vec3d, Vector},
 };
 
 pub mod helpers;
@@ -76,7 +70,8 @@ fn main() {
         &mut dist_coeffs,
         &mut _rvec.mat,
         &mut _tvec.mat,
-    ).expect("Camera calibration estimation failed");
+    )
+    .expect("Camera calibration estimation failed");
     let foc_x = cam_mat.at_2d(0, 0).expect("TODO");
     let skew = cam_mat.at_2d(0, 1).expect("TODO");
     let princip_x = cam_mat.at_2d(0, 2).expect("TODO");
