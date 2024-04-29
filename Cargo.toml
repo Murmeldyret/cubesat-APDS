@@ -1,5 +1,7 @@
 [workspace]
-members = ["benchmarks", "feature_database", "feature_extraction", "geotiff_extractor", "homographier", "preprocessor"]
+
+members = ["benchmarks", "calibrator", "feature_database", "feature_extraction", "geotiff_extractor", "homographier", "preprocessor"]
+
 resolver = "2"
 
 [workspace.lints.clippy]
