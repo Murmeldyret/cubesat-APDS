@@ -11,22 +11,21 @@ pub enum Image<'a> {
 }
 
 impl ImageDatabase for Image<'_> {
-    fn create_image(conn: &mut PgConnection, input_image: Image) -> Result<(), DieselError> {
+    fn create_image(conn: &mut PgConnection, input_image: Image) -> Result<i32, DieselError> {
         match input_image {
-            Image::One(single_image) => create_image_in_database(conn, &single_image)?,
+            Image::One(single_image) => Ok(create_image_in_database(conn, &single_image)?),
             Image::Multiple(multiple_images) => {
-                let result: Result<Vec<()>, DieselError> = multiple_images
+                let result: Result<Vec<i32>, DieselError> = multiple_images
                     .into_iter()
                     .map(|img| create_image_in_database(conn, &img))
                     .collect();
 
                 match result {
-                    Ok(_) => return Ok(()),
-                    Err(e) => return Err(e),
+                    Ok(image_vec) => Ok(image_vec[0]),
+                    Err(e) => Err(e),
                 }
             }
         }
-        Ok(())
     }
 
     fn read_image_from_id(conn: &mut PgConnection, id: i32) -> Result<models::Image, DieselError> {
@@ -75,20 +74,21 @@ impl ImageDatabase for Image<'_> {
 fn create_image_in_database(
     connection: &mut PgConnection,
     insert_image: &models::InsertImage,
-) -> Result<(), DieselError> {
-    let result = diesel::insert_into(crate::schema::ref_image::table)
-        .values(insert_image)
-        .returning(models::Image::as_returning())
-        .get_result(connection);
+) -> Result<i32, DieselError> {
+    let result: Result<models::Image, DieselError> =
+        diesel::insert_into(crate::schema::ref_image::table)
+            .values(insert_image)
+            .returning(models::Image::as_returning())
+            .get_result(connection);
 
     match result {
-        Ok(_) => Ok(()),
+        Ok(image_db) => Ok(image_db.id),
         Err(e) => Err(e),
     }
 }
 
 pub trait ImageDatabase {
-    fn create_image(conn: &mut PgConnection, image: Image) -> Result<(), DieselError>;
+    fn create_image(conn: &mut PgConnection, image: Image) -> Result<i32, DieselError>;
     fn read_image_from_id(conn: &mut PgConnection, id: i32) -> Result<models::Image, DieselError>;
     fn find_images_from_dimensions(
         conn: &mut PgConnection,
@@ -108,13 +108,13 @@ pub trait ImageDatabase {
 #[cfg(test)]
 mod image_tests {
     use super::*;
+    use crate::db_helpers::{obtain_lock, setup_database};
     use crate::schema::ref_image::dsl::*;
-    use crate::testhelpers::{obtain_lock, setup_test_database};
 
     #[test]
     fn image_creation() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         let insert_image = models::InsertImage {
             x_start: &0,
@@ -144,7 +144,7 @@ mod image_tests {
     #[test]
     fn image_fetching_id() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         let insert_image = models::InsertImage {
             x_start: &0,
@@ -173,7 +173,7 @@ mod image_tests {
     #[test]
     fn image_fetching_id_not_available() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         let fetched_image = Image::read_image_from_id(connection, 1);
 
@@ -183,7 +183,7 @@ mod image_tests {
     #[test]
     fn image_fetching_dimensions() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         // TODO: Make a generator of images
         let insert_images = vec![
@@ -233,7 +233,7 @@ mod image_tests {
     #[test]
     fn images_fetched_from_lod() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         // TODO: Make a generator of images
         let insert_images = vec![
@@ -285,7 +285,7 @@ mod image_tests {
     #[test]
     fn image_deletion() {
         let _lock = obtain_lock();
-        let connection = &mut setup_test_database();
+        let connection = &mut setup_database();
 
         let insert_images = vec![
             models::InsertImage {

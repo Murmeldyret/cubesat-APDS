@@ -1,6 +1,6 @@
 [workspace]
 
-members = ["benchmarks", "determinator", "feature_database", "feature_extraction", "geotiff_extractor", "homographier"]
+members = ["benchmarks", "determinator", "calibrator", "feature_database", "feature_extraction", "geotiff_extractor", "homographier", "preprocessor"]
 
 resolver = "2"
 

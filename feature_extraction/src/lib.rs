@@ -9,9 +9,53 @@ use opencv::core::Ptr;
 
 use opencv::{self as cv, prelude::*};
 
-pub fn akaze_keypoint_descriptor_extraction_def(
-    img: &Mat,
-) -> Result<(Vector<KeyPoint>, Mat), Error> {
+pub struct ExtractedKeyPoint {
+    pub keypoints: Vector<KeyPoint>,
+    pub descriptors: Mat,
+}
+
+#[derive(Debug)]
+pub struct DbKeypoints {
+    pub x_coord: f32,
+    pub y_coord: f32,
+    pub size: f32,
+    pub angle: f32,
+    pub response: f32,
+    pub octave: i32,
+    pub class_id: i32,
+    pub descriptor: Vec<u8>,
+    pub image_id: i32,
+}
+
+impl ExtractedKeyPoint {
+    pub fn to_db_type(&self, image_id: i32) -> Vec<DbKeypoints> {
+        let keypoints = self.keypoints.to_vec();
+
+        let mut db_keypoints: Vec<DbKeypoints> = Vec::with_capacity(self.keypoints.len());
+
+        for (i, keypoint) in keypoints.iter().enumerate() {
+            db_keypoints.push(DbKeypoints {
+                x_coord: keypoint.pt().x,
+                y_coord: keypoint.pt().y,
+                size: keypoint.size(),
+                angle: keypoint.angle(),
+                response: keypoint.response(),
+                octave: keypoint.octave(),
+                class_id: keypoint.class_id(),
+                descriptor: self
+                    .descriptors
+                    .at_row(i.try_into().expect("Could not cast i"))
+                    .expect("Could not find descriptor")
+                    .to_vec(),
+                image_id,
+            });
+        }
+
+        db_keypoints
+    }
+}
+
+pub fn akaze_keypoint_descriptor_extraction_def(img: &Mat) -> Result<ExtractedKeyPoint, Error> {
     //let img: Mat = cv::imgcodecs::imread(file_location, cv::imgcodecs::IMREAD_COLOR).unwrap();
 
     let mut akaze: Ptr<AKAZE> = <AKAZE>::create(
@@ -26,20 +70,22 @@ pub fn akaze_keypoint_descriptor_extraction_def(
     )?;
 
     let mut akaze_keypoints = Vector::default();
-    let mut akaze_desc = Mat::default();
-    let mut dst_img = Mat::default();
+    let mut akaze_desc: Mat = Mat::default();
     let mask = Mat::default();
 
     akaze.detect_and_compute(&img, &mask, &mut akaze_keypoints, &mut akaze_desc, false)?;
-    cv::features2d::draw_keypoints(
-        &img,
-        &akaze_keypoints,
-        &mut dst_img,
-        cv::core::VecN([0., 255., 0., 255.]),
-        DrawMatchesFlags::DEFAULT,
-    )?;
+    // cv::features2d::draw_keypoints(
+    //     &img,
+    //     &akaze_keypoints,
+    //     &mut dst_img,
+    //     cv::core::VecN([0., 255., 0., 255.]),
+    //     DrawMatchesFlags::DEFAULT,
+    // )?;
 
-    Ok((akaze_keypoints, akaze_desc))
+    Ok(ExtractedKeyPoint {
+        keypoints: akaze_keypoints,
+        descriptors: akaze_desc,
+    })
 }
 
 pub fn get_knn_matches(
@@ -56,14 +102,9 @@ pub fn get_knn_matches(
     let mut good_matches = VectorOfDMatch::new();
 
     for i in &matches {
-        for m in &i {
-            for n in &i {
-                if m.distance < filter_strength * n.distance {
-                    good_matches.push(m);
-                    break;
-                }
-            }
-        }
+        if i.get(0)?.distance < i.get(1)?.distance * filter_strength {
+            good_matches.push(i.get(0)?);
+        } 
     }
 
     Ok(good_matches)
@@ -157,27 +198,45 @@ mod test {
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
-        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
-        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
+        let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
+        let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
 
-        println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
-        println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
+        println!(
+            "{} - Keypoints: {}",
+            img1_dir,
+            img1_keypoints.keypoints.len()
+        );
+        println!(
+            "{} - Keypoints: {}",
+            img2_dir,
+            img2_keypoints.keypoints.len()
+        );
 
-        let matches = get_knn_matches(&img1_desc, &img2_desc, 2, 0.3).unwrap();
+        let matches = get_knn_matches(
+            &img1_keypoints.descriptors,
+            &img2_keypoints.descriptors,
+            2,
+            0.3,
+        )
+        .unwrap();
 
         println!("Matches: {}", matches.len());
 
         let _ = export_matches(
             &img1,
-            &img1_keypoints,
+            &img1_keypoints.keypoints,
             &img2,
-            &img2_keypoints,
+            &img2_keypoints.keypoints,
             &matches,
             "../resources/test/Geotiff/out.tif",
         );
 
-        let (img1_matched_points, img2_matched_points) =
-            get_points_from_matches(&img1_keypoints, &img2_keypoints, &matches).unwrap();
+        let (img1_matched_points, img2_matched_points) = get_points_from_matches(
+            &img1_keypoints.keypoints,
+            &img2_keypoints.keypoints,
+            &matches,
+        )
+        .unwrap();
 
         println!(
             "Points2f: {} - {}",
@@ -196,11 +255,19 @@ mod test {
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
-        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
-        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
+        let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1).unwrap().keypoints;
+        let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2).unwrap().keypoints;
 
-        println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
-        println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
+        println!(
+            "{} - Keypoints: {}",
+            img1_dir,
+            img1_keypoints.len()
+        );
+        println!(
+            "{} - Keypoints: {}",
+            img2_dir,
+            img2_keypoints.len()
+        );
 
         assert!(img1_keypoints.len() == 9079 && img2_keypoints.len() == 9357);
     }
@@ -213,10 +280,16 @@ mod test {
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
-        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
-        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
+        let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
+        let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
 
-        let matches = get_knn_matches(&img1_desc, &img2_desc, 2, 0.3).unwrap();
+        let matches = get_knn_matches(
+            &img1_keypoints.descriptors,
+            &img2_keypoints.descriptors,
+            2,
+            0.3,
+        )
+        .unwrap();
 
         assert!(matches.len() == 27);
     }
@@ -229,10 +302,12 @@ mod test {
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
-        let (img1_keypoints, img1_desc) = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
-        let (img2_keypoints, img2_desc) = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
+        let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1).unwrap();
+        let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2).unwrap();
 
-        let matches = get_bruteforce_matches(&img1_desc, &img2_desc).unwrap();
+        let matches =
+            get_bruteforce_matches(&img1_keypoints.descriptors, &img2_keypoints.descriptors)
+                .unwrap();
         println!("{}", matches.len());
 
         assert!(matches.len() == 3228);

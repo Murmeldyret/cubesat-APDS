@@ -3,11 +3,11 @@
 diesel::table! {
     keypoint (id) {
         id -> Int4,
-        x_coord -> Float8,
-        y_coord -> Float8,
-        size -> Float8,
-        angle -> Float8,
-        response -> Float8,
+        x_coord -> Float4,
+        y_coord -> Float4,
+        size -> Float4,
+        angle -> Float4,
+        response -> Float4,
         octave -> Int4,
         class_id -> Int4,
         descriptor -> Bytea,

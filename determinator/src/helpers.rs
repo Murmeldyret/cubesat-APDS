@@ -64,16 +64,16 @@ pub fn read_and_extract_kp(im_path: PathBuf) -> (Cmat<BGRA8>, Vector<KeyPoint>, 
     let image = Cmat::<BGRA8>::imread_checked(path, -1).expect("Failed to read image ");
 
     // dbg!(&image);
-    let (keypoints, descriptors) = akaze_keypoint_descriptor_extraction_def(&image.mat)
+    let extracted = akaze_keypoint_descriptor_extraction_def(&image.mat)
         .expect("AKAZE keypoint extraction failed");
 
-    assert_eq!(
-        descriptors.typ(),
-        u8::opencv_type(),
-        "keypoint descriptors are not of type u8"
-    );
+    // assert_eq!(
+    //     descriptors.typ(),
+    //     u8::opencv_type(),
+    //     "keypoint descriptors are not of type u8"
+    // );
 
-    (image, keypoints, Cmat::<u8>::new(descriptors).expect("msg"))
+    (image, extracted.keypoints, Cmat::<u8>::new(extracted.descriptors).expect("msg"))
 }
 
 pub fn get_camera_matrix(cam_intrins: CameraIntrinsic) -> Result<Cmat<f64>, ()> {
