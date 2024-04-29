@@ -1,11 +1,12 @@
 use core::f64;
 use std::{
-    clone,
+    clone, env,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
-use diesel::PgConnection;
+use diesel::{Connection, PgConnection};
+use feature_database::keypointdb::KeypointDatabase;
 use feature_extraction::akaze_keypoint_descriptor_extraction_def;
 use homographier::homographier::Cmat;
 use opencv::core::{
@@ -13,7 +14,7 @@ use opencv::core::{
 };
 use rgb::alt::BGRA8;
 
-use crate::CameraIntrinsic;
+use crate::{Args, CameraIntrinsic, DbType};
 
 #[derive(Debug, Clone)]
 pub enum Coordinates3d {
@@ -42,10 +43,16 @@ impl From<Coordinates3d> for Coordinates2d {
 
 pub fn read_and_extract_kp(im_path: PathBuf) -> (Cmat<BGRA8>, Vector<KeyPoint>, Cmat<u8>) {
     if !im_path.is_file() {
-        panic!("{} Provided image path does not point to a file", im_path.to_str().expect("TODO"));
+        panic!(
+            "{} Provided image path does not point to a file",
+            im_path.to_str().expect("TODO")
+        );
     }
 
-    assert!(matches!(im_path.extension().expect("").to_str(), Some(val) if ["png", "jpg", "jpeg", "tif", "tiff"].contains(&val.to_lowercase().as_str())),"input image file format is unsupported");
+    assert!(
+        matches!(im_path.extension().expect("").to_str(), Some(val) if ["png", "jpg", "jpeg", "tif", "tiff"].contains(&val.to_lowercase().as_str())),
+        "input image file format is unsupported"
+    );
     // match im_path
     //     .extension()
     //     .expect("Provided image path has no file extension")
@@ -73,7 +80,11 @@ pub fn read_and_extract_kp(im_path: PathBuf) -> (Cmat<BGRA8>, Vector<KeyPoint>, 
     //     "keypoint descriptors are not of type u8"
     // );
 
-    (image, extracted.keypoints, Cmat::<u8>::new(extracted.descriptors).expect("msg"))
+    (
+        image,
+        extracted.keypoints,
+        Cmat::<u8>::new(extracted.descriptors).expect("msg"),
+    )
 }
 
 pub fn get_camera_matrix(cam_intrins: CameraIntrinsic) -> Result<Cmat<f64>, ()> {
@@ -105,6 +116,48 @@ fn parse_into_matrix(path: String) -> Result<Cmat<f64>, ()> {
         }
         _ => Err(()),
     }
+}
+pub fn get_keypoints(arg: &Args) -> (Vec<KeyPoint>, Vec<Vec<u8>>) {
+    match arg.demo {
+        true => {todo!("keypoints fra et 7x7 skakbræt")}
+        false => keypoints_from_db(&env::var("DATABASE_URL").expect("failed to read DATABASE_URL"), &arg),
+    }
+}
+
+fn keypoints_from_db(conn: &str, arg: &Args) -> (Vec<KeyPoint>, Vec<Vec<u8>>) {
+    let conn: DbType = Arc::new(Mutex::new(
+        Connection::establish(
+            &env::var("DATABASE_URL").expect("Error reading environment variable"),
+        )
+        .expect("Failed to connect to database"),
+    ));
+
+    // retrieve keypoints from mosaic image
+    let ref_keypoints = feature_database::keypointdb::Keypoint::read_keypoints_from_lod(
+        &mut conn.lock().expect("Mutex poisoning"),
+        arg.lod,
+    )
+    .expect("Failed to query database");
+    // Map keypoints to opencv compatible type
+    let (ref_keypoints, ref_descriptors): (Vec<_>, Vec<_>) = ref_keypoints
+        .into_iter()
+        .map(|f| {
+            (
+                opencv::core::KeyPoint::new_point(
+                    Point2f::new(f.x_coord as f32, f.y_coord as f32),
+                    f.size as f32,
+                    f.angle as f32,
+                    f.response as f32,
+                    f.octave,
+                    f.class_id,
+                )
+                .expect("error in converting db keypoint to opencv keypoint"),
+                f.descriptor,
+            )
+        })
+        .unzip();
+
+    (ref_keypoints,ref_descriptors)
 }
 
 ///

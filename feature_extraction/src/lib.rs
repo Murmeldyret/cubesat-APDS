@@ -104,7 +104,7 @@ pub fn get_knn_matches(
     for i in &matches {
         if i.get(0)?.distance < i.get(1)?.distance * filter_strength {
             good_matches.push(i.get(0)?);
-        } 
+        }
     }
 
     Ok(good_matches)
@@ -255,19 +255,15 @@ mod test {
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
-        let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1).unwrap().keypoints;
-        let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2).unwrap().keypoints;
+        let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1)
+            .unwrap()
+            .keypoints;
+        let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2)
+            .unwrap()
+            .keypoints;
 
-        println!(
-            "{} - Keypoints: {}",
-            img1_dir,
-            img1_keypoints.len()
-        );
-        println!(
-            "{} - Keypoints: {}",
-            img2_dir,
-            img2_keypoints.len()
-        );
+        println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
+        println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
 
         assert!(img1_keypoints.len() == 9079 && img2_keypoints.len() == 9357);
     }

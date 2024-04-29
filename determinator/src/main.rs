@@ -140,7 +140,7 @@ fn main() {
 
     let ref_kp_woorld_coords: Vec<opencv::core::Point3f> = point2d_to_3d(
         obj_points.into_iter().collect(),
-        Cmat::zeros(1000, 1000).expect("failed to construct matrix"), //TODO Skal bruge elevation dataset 
+        Cmat::zeros(1000, 1000).expect("failed to construct matrix"), //TODO Skal bruge elevation dataset
     );
 
     // opencv kræver f64 :D
@@ -160,6 +160,7 @@ fn main() {
         0.9,
         args.dist_coeff.as_deref(),
         Some(SolvePnPMethod::SOLVEPNP_EPNP), // i think this method is most appropriate, optionally it could be program argument
-    ).expect("Failed to solve PNP problem");
+    )
+    .expect("Failed to solve PNP problem");
     // dbg!(solution);
 }
