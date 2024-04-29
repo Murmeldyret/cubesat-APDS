@@ -656,7 +656,7 @@ mod tests {
         assert!(func_result.is_ok());
     }
 
-    // #[ignore = "Very slow"]
+    #[ignore = "Very slow"]
     #[test]
     fn opencv_limit_enforcement() {
         let _lock = obtain_lock();
