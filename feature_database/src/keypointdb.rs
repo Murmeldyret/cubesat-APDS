@@ -168,14 +168,14 @@ mod tests {
 
     struct TestKeypoint {
         pub x_coord: f32,
-    pub y_coord: f32,
-    pub size: f32,
-    pub angle: f32,
-    pub response: f32,
-    pub octave: i32,
-    pub class_id: i32,
-    pub descriptor: Vec<u8>,
-    pub image_id: i32,
+        pub y_coord: f32,
+        pub size: f32,
+        pub angle: f32,
+        pub response: f32,
+        pub octave: i32,
+        pub class_id: i32,
+        pub descriptor: Vec<u8>,
+        pub image_id: i32,
     }
 
     fn generate_keypoints_in_database(connection: &mut PgConnection, amount: i64) {
@@ -183,23 +183,23 @@ mod tests {
         let mut rng = rand::thread_rng();
 
         let insert_image = InsertImage {
-                x_start: &rng.gen(),
-                y_start: &rng.gen(),
-                x_end: &rng.gen(),
-                y_end: &rng.gen(),
-                level_of_detail: &1,
-            };
+            x_start: &rng.gen(),
+            y_start: &rng.gen(),
+            x_end: &rng.gen(),
+            y_end: &rng.gen(),
+            level_of_detail: &1,
+        };
 
-            diesel::insert_into(crate::schema::ref_image::table)
-                .values(insert_image)
-                .returning(models::Image::as_returning())
-                .get_result(connection)
-                .expect("Could not generate images to the database");
+        diesel::insert_into(crate::schema::ref_image::table)
+            .values(insert_image)
+            .returning(models::Image::as_returning())
+            .get_result(connection)
+            .expect("Could not generate images to the database");
 
-                let mut keypoints: Vec<TestKeypoint> = Vec::with_capacity(amount.try_into().unwrap());
+        let mut keypoints: Vec<TestKeypoint> = Vec::with_capacity(amount.try_into().unwrap());
 
         for _i in 0..amount {
-                keypoints.push(TestKeypoint {
+            keypoints.push(TestKeypoint {
                 x_coord: 1.0,
                 y_coord: 1.0,
                 size: 1.0,
@@ -209,42 +209,38 @@ mod tests {
                 class_id: 1,
                 descriptor: [6_u8].to_vec(),
                 image_id: 1,
-            });}
+            });
+        }
 
-        let mut insert_keypoints: Vec<InsertKeypoint> = Vec::with_capacity(amount.try_into().unwrap());
+        let mut insert_keypoints: Vec<InsertKeypoint> =
+            Vec::with_capacity(amount.try_into().unwrap());
 
         for int_keypoint in &keypoints {
-        insert_keypoints.push(models::InsertKeypoint {
-            x_coord: &int_keypoint.x_coord,
-            y_coord: &int_keypoint.y_coord,
-            size: &int_keypoint.size,
-            angle: &int_keypoint.angle,
-            response: &int_keypoint.response,
-            octave: &int_keypoint.octave,
-            class_id: &int_keypoint.class_id,
-            descriptor: &int_keypoint.descriptor,
-            image_id: &int_keypoint.image_id,
-        });
-        if insert_keypoints.len() == 1024 {
+            insert_keypoints.push(models::InsertKeypoint {
+                x_coord: &int_keypoint.x_coord,
+                y_coord: &int_keypoint.y_coord,
+                size: &int_keypoint.size,
+                angle: &int_keypoint.angle,
+                response: &int_keypoint.response,
+                octave: &int_keypoint.octave,
+                class_id: &int_keypoint.class_id,
+                descriptor: &int_keypoint.descriptor,
+                image_id: &int_keypoint.image_id,
+            });
+            if insert_keypoints.len() == 1024 {
+                let db_insert_keypoints = Keypoint::Multiple(insert_keypoints.clone());
+
+                Keypoint::create_keypoint(connection, db_insert_keypoints).unwrap();
+
+                insert_keypoints.clear();
+            }
+
             let db_insert_keypoints = Keypoint::Multiple(insert_keypoints.clone());
 
             Keypoint::create_keypoint(connection, db_insert_keypoints).unwrap();
 
             insert_keypoints.clear();
         }
-
-        let db_insert_keypoints = Keypoint::Multiple(insert_keypoints.clone());
-
-            Keypoint::create_keypoint(connection, db_insert_keypoints).unwrap();
-
-            insert_keypoints.clear();
-
-    }
-
-
-
-
-
     }
 
     #[test]
