@@ -44,17 +44,19 @@ pub fn read_and_extract_kp(im_path: PathBuf) -> (Cmat<BGRA8>, Vector<KeyPoint>, 
     if !im_path.is_file() {
         panic!("{} Provided image path does not point to a file", im_path.to_str().expect("TODO"));
     }
-    match im_path
-        .extension()
-        .expect("Provided image path has no file extension")
-        .to_str()
-        .expect("File extention is not valid unicode")
-    {
-        "png" | "jpg" | "jpeg" | "tiff" | "tif" => {}
-        _ => {
-            panic!("Provided image uses unsupported file type")
-        }
-    }
+
+    assert!(matches!(im_path.extension().expect("").to_str(), Some(val) if ["png", "jpg", "jpeg", "tif", "tiff"].contains(&val.to_lowercase().as_str())),"input image file format is unsupported");
+    // match im_path
+    //     .extension()
+    //     .expect("Provided image path has no file extension")
+    //     .to_str()
+    //     .expect("File extention is not valid unicode")
+    // {
+    //     "png" | "jpg" | "jpeg" | "tiff" | "tif" => {}
+    //     _ => {
+    //         panic!("Provided image uses unsupported file type")
+    //     }
+    // }
     let path = im_path
         .to_str()
         .expect("provided image path is not valid unicode");
