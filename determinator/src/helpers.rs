@@ -12,8 +12,11 @@ use feature_extraction::{
 };
 use homographier::homographier::{Cmat, ImgObjCorrespondence};
 use opencv::{
-    core::{DataType, KeyPoint, MatTraitConst, Point2d, Point2f, Point3d, Point3f, Point_, Vector},
-    imgcodecs::IMREAD_COLOR,
+    core::{
+        DataType, KeyPoint, MatTraitConst, Point2d, Point2f, Point3d, Point3f, Point_, Size2i,
+        Size_, Vector,
+    },
+    imgcodecs::{IMREAD_COLOR, IMREAD_GRAYSCALE},
 };
 use rgb::alt::{BGR8, BGRA8};
 
@@ -127,6 +130,17 @@ pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjC
         )
         .expect("TODO"),
         None => {
+            // let points = get_points_from_matches(image.1, ref_keypoints, matches)
+            let mut img_points: Vector<Point2f> = Vector::new();
+            let _ = opencv::calib3d::find_chessboard_corners_def(
+                &Cmat::<u8>::imread_checked(&args.img_path.to_string_lossy(), IMREAD_GRAYSCALE)
+                    .expect("failed to read image")
+                    .mat,
+                Size2i::new(7, 7),
+                &mut img_points,
+            ).expect("msg").then_some(()).expect("msg");
+            // let obj_points = point2d_to_3d(ref_keypoints, todo!());
+            // point_pair_to_correspondence(image.1, obj_points)
             todo!()
         }
     }
@@ -144,17 +158,24 @@ fn matching_with_descriptors(
 
     let obj_points = point2d_to_3d(obj_points_2d.into_iter().collect(), todo!());
 
-    Ok(img_points
+    Ok(point_pair_to_correspondence(img_points, obj_points))
+}
+
+fn point_pair_to_correspondence(
+    img_points: Vector<Point_<f32>>,
+    obj_points: Vec<opencv::core::Point3_<f32>>,
+) -> Vec<ImgObjCorrespondence> {
+    img_points
         .into_iter()
         .zip(obj_points)
         .map(|f| ImgObjCorrespondence::new(point3f_to3d(f.1), point2f_to2d(f.0)))
-        .collect())
+        .collect()
 }
 
 pub fn ref_keypoints(args: &Args) -> (Vec<KeyPoint>, Option<Vec<Vec<u8>>>) {
     match args.demo {
         true => {
-            // TIHI @Murmeldyret
+            // TIHI @Murmeldyret, here be no side effects
             let points: Result<Vec<KeyPoint>, _> = (1..7)
                 .map(|f| (f, (1..7)))
                 .flat_map(|row| {
