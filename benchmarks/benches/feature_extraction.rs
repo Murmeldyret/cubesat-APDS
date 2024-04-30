@@ -2,7 +2,7 @@ use divan::{black_box, Bencher};
 use feature_extraction::akaze_keypoint_descriptor_extraction_def;
 use image::imageops::FilterType;
 use image::io::Reader as ImageReader;
-use opencv::core::{Vec3b, VecN};
+use opencv::core::{KeyPoint, Vec3b, VecN, Vector};
 use opencv::prelude::*;
 use std::env;
 use std::{io::Cursor, path::Path};
@@ -40,7 +40,6 @@ fn extract_features_from_image(bencher: Bencher, sample_size: u32) {
                 sample_size as usize,
             )
             .unwrap(),
-            None
         )
     });
 }
