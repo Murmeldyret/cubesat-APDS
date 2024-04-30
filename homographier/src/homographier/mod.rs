@@ -114,7 +114,7 @@ impl<T> Cmat<T> {
 
 impl<T: DataType> Cmat<T> {
     pub fn new(mat: Mat) -> Result<Self, MatError> {
-        match dbg!(T::opencv_type()) == dbg!(mat.typ()) {
+        match T::opencv_type() == mat.typ() {
             true => Ok(Cmat::from_mat(mat)?),
             false => Err(MatError::OpenCvTypeMismatch { provided: T::opencv_type(), actual: mat.typ() }),
         }
