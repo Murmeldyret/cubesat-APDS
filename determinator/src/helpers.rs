@@ -11,10 +11,11 @@ use feature_extraction::{
     akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
 };
 use homographier::homographier::{Cmat, ImgObjCorrespondence};
-use opencv::core::{
-    DataType, KeyPoint, MatTraitConst, Point2d, Point2f, Point3d, Point3f, Point_, Vector,
+use opencv::{
+    core::{DataType, KeyPoint, MatTraitConst, Point2d, Point2f, Point3d, Point3f, Point_, Vector},
+    imgcodecs::IMREAD_COLOR,
 };
-use rgb::alt::BGRA8;
+use rgb::alt::{BGR8, BGRA8};
 
 use crate::{Args, CameraIntrinsic, DbType};
 
@@ -43,9 +44,9 @@ impl From<Coordinates3d> for Coordinates2d {
     }
 }
 
-pub struct ReadAndExtractKpResult(pub Cmat<BGRA8>, pub Vector<KeyPoint>, pub Cmat<u8>);
+pub struct ReadAndExtractKpResult(pub Cmat<BGR8>, pub Vector<KeyPoint>, pub Cmat<u8>);
 
-pub fn read_and_extract_kp(im_path: &PathBuf) -> ReadAndExtractKpResult {
+pub fn read_and_extract_kp(im_path: &Path) -> ReadAndExtractKpResult {
     if !im_path.is_file() {
         panic!(
             "{} Provided image path does not point to a file",
@@ -61,7 +62,8 @@ pub fn read_and_extract_kp(im_path: &PathBuf) -> ReadAndExtractKpResult {
         .to_str()
         .expect("provided image path is not valid unicode");
 
-    let image = Cmat::<BGRA8>::imread_checked(path, -1).expect("Failed to read image ");
+    // it is assumed that input images will not contain an alpha channel
+    let image = Cmat::<BGR8>::imread_checked(path, IMREAD_COLOR).expect("Failed to read image");
 
     // dbg!(&image);
     let extracted = akaze_keypoint_descriptor_extraction_def(&image.mat)
@@ -81,6 +83,9 @@ pub fn read_and_extract_kp(im_path: &PathBuf) -> ReadAndExtractKpResult {
 }
 
 pub fn get_camera_matrix(cam_intrins: CameraIntrinsic) -> Result<Cmat<f64>, ()> {
+    // [[f_x,s  ,c_x],
+    //  [0.0,f_y,c_y],
+    //  [0.0,0.0,1.0]]
     let mat: Cmat<f64> = match cam_intrins {
         CameraIntrinsic::File { path } => parse_into_matrix(path)?,
         CameraIntrinsic::Manual {
@@ -112,7 +117,7 @@ fn parse_into_matrix(path: String) -> Result<Cmat<f64>, ()> {
 }
 
 pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjCorrespondence> {
-    let (ref_keypoints, ref_descriptors) = ref_keypoints(&args);
+    let (ref_keypoints, ref_descriptors) = ref_keypoints(args);
 
     match ref_descriptors {
         Some(val) => matching_with_descriptors(
@@ -141,7 +146,7 @@ fn matching_with_descriptors(
 
     Ok(img_points
         .into_iter()
-        .zip(obj_points.into_iter())
+        .zip(obj_points)
         .map(|f| ImgObjCorrespondence::new(point3f_to3d(f.1), point2f_to2d(f.0)))
         .collect())
 }
@@ -149,12 +154,20 @@ fn matching_with_descriptors(
 pub fn ref_keypoints(args: &Args) -> (Vec<KeyPoint>, Option<Vec<Vec<u8>>>) {
     match args.demo {
         true => {
-            todo!("keypoints fra et 7x7 skakbræt")
+            // TIHI @Murmeldyret
+            let points: Result<Vec<KeyPoint>, _> = (1..7)
+                .map(|f| (f, (1..7)))
+                .flat_map(|row| {
+                    row.1
+                        .map(move |col| KeyPoint::new_coords_def(row.0 as f32, col as f32, 1.0))
+                })
+                .collect();
+            (points.expect("Failed to create keypoints"), None)
         }
         false => {
             let (keypoints_from_db, descriptors) = keypoints_from_db(
                 &env::var("DATABASE_URL").expect("failed to read DATABASE_URL"),
-                &args,
+                args,
             );
             (keypoints_from_db, Some(descriptors))
         }
@@ -186,10 +199,10 @@ fn db_kp_to_opencv_kp(
         .map(|f| {
             (
                 opencv::core::KeyPoint::new_point(
-                    Point2f::new(f.x_coord as f32, f.y_coord as f32),
-                    f.size as f32,
-                    f.angle as f32,
-                    f.response as f32,
+                    Point2f::new(f.x_coord, f.y_coord),
+                    f.size,
+                    f.angle,
+                    f.response,
                     f.octave,
                     f.class_id,
                 )

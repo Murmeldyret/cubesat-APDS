@@ -40,7 +40,7 @@ pub enum MatError {
     /// Matrix is not rectangular (columns or rows with differing lengths)
     Jagged,
     /// Tried to construct a matrix with element type `provided`, got `actual` instead
-    OpenCvTypeMismatch{provided: i32, actual: i32},
+    OpenCvTypeMismatch { provided: i32, actual: i32 },
     /// An unknown error
     Unknown,
 }
@@ -116,7 +116,10 @@ impl<T: DataType> Cmat<T> {
     pub fn new(mat: Mat) -> Result<Self, MatError> {
         match T::opencv_type() == mat.typ() {
             true => Ok(Cmat::from_mat(mat)?),
-            false => Err(MatError::OpenCvTypeMismatch { provided: T::opencv_type(), actual: mat.typ() }),
+            false => Err(MatError::OpenCvTypeMismatch {
+                provided: T::opencv_type(),
+                actual: mat.typ(),
+            }),
         }
     }
 

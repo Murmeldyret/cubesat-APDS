@@ -33,7 +33,7 @@ pub mod helpers;
 struct Args {
     /// Path to the input image
     ///
-    /// Image should be 8bit RGBA
+    /// Image should be 8bit RGB, otherwise, opencv will try to convert
     #[arg(short, long)]
     img_path: PathBuf,
     /// TODO: @Murmeldyret
