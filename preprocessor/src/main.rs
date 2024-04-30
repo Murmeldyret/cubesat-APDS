@@ -227,7 +227,7 @@ fn feature_extraction_to_database(
     let tile_mat = raster_to_mat(&tile, tile_size as i32, tile_size as i32)
         .expect("Could not convert tile to mat");
     // Extract keypoints and descriptors
-    let keypoints = akaze_keypoint_descriptor_extraction_def(&tile_mat.mat).unwrap();
+    let keypoints = akaze_keypoint_descriptor_extraction_def(&tile_mat.mat, None).unwrap();
 
     // Insert the image into the database.
     let insert_image = models::InsertImage {
