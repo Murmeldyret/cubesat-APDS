@@ -7,8 +7,10 @@ use std::{
 
 use diesel::{Connection, PgConnection};
 use feature_database::keypointdb::KeypointDatabase;
-use feature_extraction::akaze_keypoint_descriptor_extraction_def;
-use homographier::homographier::Cmat;
+use feature_extraction::{
+    akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
+};
+use homographier::homographier::{Cmat, ImgObjCorrespondence};
 use opencv::core::{
     DataType, KeyPoint, MatTraitConst, Point2d, Point2f, Point3d, Point3f, Point_, Vector,
 };
@@ -41,7 +43,9 @@ impl From<Coordinates3d> for Coordinates2d {
     }
 }
 
-pub fn read_and_extract_kp(im_path: PathBuf) -> (Cmat<BGRA8>, Vector<KeyPoint>, Cmat<u8>) {
+pub struct ReadAndExtractKpResult(pub Cmat<BGRA8>, pub Vector<KeyPoint>, pub Cmat<u8>);
+
+pub fn read_and_extract_kp(im_path: &PathBuf) -> ReadAndExtractKpResult {
     if !im_path.is_file() {
         panic!(
             "{} Provided image path does not point to a file",
@@ -53,17 +57,6 @@ pub fn read_and_extract_kp(im_path: PathBuf) -> (Cmat<BGRA8>, Vector<KeyPoint>, 
         matches!(im_path.extension().expect("").to_str(), Some(val) if ["png", "jpg", "jpeg", "tif", "tiff"].contains(&val.to_lowercase().as_str())),
         "input image file format is unsupported"
     );
-    // match im_path
-    //     .extension()
-    //     .expect("Provided image path has no file extension")
-    //     .to_str()
-    //     .expect("File extention is not valid unicode")
-    // {
-    //     "png" | "jpg" | "jpeg" | "tiff" | "tif" => {}
-    //     _ => {
-    //         panic!("Provided image uses unsupported file type")
-    //     }
-    // }
     let path = im_path
         .to_str()
         .expect("provided image path is not valid unicode");
@@ -80,7 +73,7 @@ pub fn read_and_extract_kp(im_path: PathBuf) -> (Cmat<BGRA8>, Vector<KeyPoint>, 
     //     "keypoint descriptors are not of type u8"
     // );
 
-    (
+    ReadAndExtractKpResult(
         image,
         extracted.keypoints,
         Cmat::<u8>::new(extracted.descriptors).expect("msg"),
@@ -117,19 +110,60 @@ fn parse_into_matrix(path: String) -> Result<Cmat<f64>, ()> {
         _ => Err(()),
     }
 }
-pub fn get_keypoints(arg: &Args) -> (Vec<KeyPoint>, Vec<Vec<u8>>) {
-    match arg.demo {
-        true => {todo!("keypoints fra et 7x7 skakbræt")}
-        false => keypoints_from_db(&env::var("DATABASE_URL").expect("failed to read DATABASE_URL"), &arg),
+
+pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjCorrespondence> {
+    let (ref_keypoints, ref_descriptors) = ref_keypoints(&args);
+
+    match ref_descriptors {
+        Some(val) => matching_with_descriptors(
+            &image,
+            &Cmat::<u8>::from_2d_slice(&val).expect("Failed to convert keypoints to matrix"),
+            Vector::from_iter(ref_keypoints),
+        )
+        .expect("TODO"),
+        None => {
+            todo!()
+        }
     }
 }
 
-fn keypoints_from_db(conn: &str, arg: &Args) -> (Vec<KeyPoint>, Vec<Vec<u8>>) {
+fn matching_with_descriptors(
+    img: &ReadAndExtractKpResult,
+    ref_desc: &Cmat<u8>,
+    ref_kp: Vector<KeyPoint>,
+) -> Result<Vec<ImgObjCorrespondence>, opencv::Error> {
+    let matches = get_knn_matches(&img.0.mat, &ref_desc.mat, 2, 0.8)?;
+
+    let (img_points, obj_points_2d) = get_points_from_matches(&img.1, &ref_kp, &matches)?;
+    assert_eq!(img_points.len(), obj_points_2d.len());
+
+    let obj_points = point2d_to_3d(obj_points_2d.into_iter().collect(), todo!());
+
+    Ok(img_points
+        .into_iter()
+        .zip(obj_points.into_iter())
+        .map(|f| ImgObjCorrespondence::new(point3f_to3d(f.1), point2f_to2d(f.0)))
+        .collect())
+}
+
+pub fn ref_keypoints(args: &Args) -> (Vec<KeyPoint>, Option<Vec<Vec<u8>>>) {
+    match args.demo {
+        true => {
+            todo!("keypoints fra et 7x7 skakbræt")
+        }
+        false => {
+            let (keypoints_from_db, descriptors) = keypoints_from_db(
+                &env::var("DATABASE_URL").expect("failed to read DATABASE_URL"),
+                &args,
+            );
+            (keypoints_from_db, Some(descriptors))
+        }
+    }
+}
+
+fn keypoints_from_db(conn_url: &str, arg: &Args) -> (Vec<KeyPoint>, Vec<Vec<u8>>) {
     let conn: DbType = Arc::new(Mutex::new(
-        Connection::establish(
-            &env::var("DATABASE_URL").expect("Error reading environment variable"),
-        )
-        .expect("Failed to connect to database"),
+        Connection::establish(conn_url).expect("Failed to connect to database"),
     ));
 
     // retrieve keypoints from mosaic image
@@ -139,6 +173,14 @@ fn keypoints_from_db(conn: &str, arg: &Args) -> (Vec<KeyPoint>, Vec<Vec<u8>>) {
     )
     .expect("Failed to query database");
     // Map keypoints to opencv compatible type
+    let (ref_keypoints, ref_descriptors) = db_kp_to_opencv_kp(ref_keypoints);
+
+    (ref_keypoints, ref_descriptors)
+}
+
+fn db_kp_to_opencv_kp(
+    ref_keypoints: Vec<feature_database::models::Keypoint>,
+) -> (Vec<KeyPoint>, Vec<Vec<u8>>) {
     let (ref_keypoints, ref_descriptors): (Vec<_>, Vec<_>) = ref_keypoints
         .into_iter()
         .map(|f| {
@@ -156,8 +198,7 @@ fn keypoints_from_db(conn: &str, arg: &Args) -> (Vec<KeyPoint>, Vec<Vec<u8>>) {
             )
         })
         .unzip();
-
-    (ref_keypoints,ref_descriptors)
+    (ref_keypoints, ref_descriptors)
 }
 
 ///

@@ -7,7 +7,9 @@ use feature_database::schema::keypoint::descriptor;
 use feature_extraction::{
     akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
 };
-use helpers::{get_camera_matrix, read_and_extract_kp, Coordinates3d};
+use helpers::{
+    get_camera_matrix, img_obj_corres, read_and_extract_kp, Coordinates3d, ReadAndExtractKpResult,
+};
 use homographier::homographier::{pnp_solver_ransac, raster_to_mat, Cmat, ImgObjCorrespondence};
 
 use diesel::{Connection, PgConnection};
@@ -21,7 +23,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::helpers::{point2d_to_3d, point2f_to2d, point3f_to3d};
+use crate::helpers::{point2d_to_3d, point2f_to2d, point3f_to3d, ref_keypoints};
 
 pub mod helpers;
 
@@ -82,76 +84,78 @@ fn main() {
     dotenv().expect("failed to read environment variables");
     let args = Args::parse();
 
-    let (image, keypoints, descriptors) = read_and_extract_kp(args.img_path);
+    let extraction = read_and_extract_kp(&args.img_path);
 
-    let conn: DbType = Arc::new(Mutex::new(
-        Connection::establish(
-            &env::var("DATABASE_URL").expect("Error reading environment variable"),
-        )
-        .expect("Failed to connect to database"),
-    ));
+    // let conn: DbType = Arc::new(Mutex::new(
+    //     Connection::establish(
+    //         &env::var("DATABASE_URL").expect("Error reading environment variable"),
+    //     )
+    //     .expect("Failed to connect to database"),
+    // ));
 
     // retrieve keypoints from mosaic image
-    let ref_keypoints = feature_database::keypointdb::Keypoint::read_keypoints_from_lod(
-        &mut conn.lock().expect("Mutex poisoning"),
-        args.lod,
-    )
-    .expect("Failed to query database");
+    // let ref_keypoints = feature_database::keypointdb::Keypoint::read_keypoints_from_lod(
+    //     &mut conn.lock().expect("Mutex poisoning"),
+    //     args.lod,
+    // )
+    // .expect("Failed to query database");
 
     // Map keypoints to opencv compatible type
-    let (ref_keypoints, ref_descriptors): (Vec<_>, Vec<_>) = ref_keypoints
-        .into_iter()
-        .map(|f| {
-            (
-                opencv::core::KeyPoint::new_point(
-                    Point2f::new(f.x_coord as f32, f.y_coord as f32),
-                    f.size as f32,
-                    f.angle as f32,
-                    f.response as f32,
-                    f.octave,
-                    f.class_id,
-                )
-                .expect("error in converting db keypoint to opencv keypoint"),
-                f.descriptor,
-            )
-        })
-        .unzip();
+    // let (ref_keypoints, ref_descriptors): (Vec<_>, Vec<_>) = ref_keypoints
+    //     .into_iter()
+    //     .map(|f| {
+    //         (
+    //             opencv::core::KeyPoint::new_point(
+    //                 Point2f::new(f.x_coord as f32, f.y_coord as f32),
+    //                 f.size as f32,
+    //                 f.angle as f32,
+    //                 f.response as f32,
+    //                 f.octave,
+    //                 f.class_id,
+    //             )
+    //             .expect("error in converting db keypoint to opencv keypoint"),
+    //             f.descriptor,
+    //         )
+    //     })
+    //     .unzip();
 
-    let ref_keypoints = Vector::from_iter(ref_keypoints);
-    let ref_descriptors = Cmat::from_2d_slice(&ref_descriptors)
-        .expect("failed to convert to mosaic descriptors to opencv matrix type"); //? er ikke sikker på at dette er korrekt
+    // let (ref_keypoints, ref_descriptors) = ref_keypoints(&args);
+    // let ref_keypoints = Vector::from_iter(ref_keypoints);
+    // let ref_descriptors = Cmat::from_2d_slice(&ref_descriptors)
+    //     .expect("failed to convert to mosaic descriptors to opencv matrix type"); //? er ikke sikker på at dette er korrekt
 
-    const K: i32 = 2; // TODO: idk
-    const FILTER_STRENGTH: f32 = 0.8; //TODO: magic number :)
-    let dmatches = get_knn_matches(&descriptors.mat, &ref_descriptors.mat, K, FILTER_STRENGTH)
-        .expect("knn matches failed");
-    let (img_points, obj_points) = get_points_from_matches(&keypoints, &ref_keypoints, &dmatches)
-        .expect("failed to obtain point correspondences");
+    // const K: i32 = 2; // TODO: idk
+    // const FILTER_STRENGTH: f32 = 0.8; //TODO: magic number :)
+    // let dmatches = get_knn_matches(&descriptors.mat, &ref_descriptors.mat, K, FILTER_STRENGTH)
+    //     .expect("knn matches failed");
+    // let (img_points, obj_points) = get_points_from_matches(&keypoints, &ref_keypoints, &dmatches)
+    //     .expect("failed to obtain point correspondences");
 
-    // opencv's pnp solvers wont work with less than 4 point pairs
-    assert!(
-        img_points.len() >= 4,
-        "Image points length must be at least 4"
-    );
-    assert!(
-        obj_points.len() >= 4,
-        "Object points length must be at least 4"
-    );
+    // // opencv's pnp solvers wont work with less than 4 point pairs
+    // assert!(
+    //     img_points.len() >= 4,
+    //     "Image points length must be at least 4"
+    // );
+    // assert!(
+    //     obj_points.len() >= 4,
+    //     "Object points length must be at least 4"
+    // );
 
-    let ref_kp_woorld_coords: Vec<opencv::core::Point3f> = point2d_to_3d(
-        obj_points.into_iter().collect(),
-        Cmat::zeros(1000, 1000).expect("failed to construct matrix"), //TODO Skal bruge elevation dataset
-    );
+    // let ref_kp_woorld_coords: Vec<opencv::core::Point3f> = point2d_to_3d(
+    //     obj_points.into_iter().collect(),
+    //     Cmat::zeros(1000, 1000).expect("failed to construct matrix"), //TODO Skal bruge elevation dataset
+    // );
 
-    // opencv kræver f64 :D
-    let point_correspondences: Vec<ImgObjCorrespondence> = img_points
-        .into_iter()
-        .zip(ref_kp_woorld_coords)
-        .map(|f| ImgObjCorrespondence::new(point3f_to3d(f.1), point2f_to2d(f.0)))
-        .collect();
+    // // opencv kræver f64 :D
+    // let point_correspondences: Vec<ImgObjCorrespondence> = img_points
+    //     .into_iter()
+    //     .zip(ref_kp_woorld_coords)
+    //     .map(|f| ImgObjCorrespondence::new(point3f_to3d(f.1), point2f_to2d(f.0)))
+    //     .collect();
+    let point_correspondences = img_obj_corres(&args, extraction);
     let camera_matrix = get_camera_matrix(args.cam_matrix).expect("Failed to get camera matrix");
 
-    // TODO: needs real camera matrix. Probably also a good guess for reproj_thres and confidnce
+    // TODO: needs real camera matrix. Probably also a good guess for reproj_thres and confidence
     let solution = pnp_solver_ransac(
         &point_correspondences,
         &camera_matrix,
