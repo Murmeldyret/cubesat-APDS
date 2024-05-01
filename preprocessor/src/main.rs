@@ -21,7 +21,7 @@ pub mod level_of_detail;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-struct Args {
+pub struct Args {
     /// The path to the folder where datasets are stored on disk
     #[command(subcommand)]
     dataset_path: DatasetPath,
@@ -41,10 +41,18 @@ struct Args {
     /// The number of CPU threads to use for processing arg
     #[arg(short, long, default_value_t = 1)]
     cpu_num: usize,
+
+    /// Calculate the amount of levels of detail
+    #[arg(long, default_value_t = false)]
+    calculate_lod: bool,
+
+    /// The amount of levels of details that the reference image is going to be split into
+    #[arg(short, long)]
+    lod: u64,
 }
 
 #[derive(Subcommand, Debug, Clone)]
-enum DatasetPath {
+pub enum DatasetPath {
     /// Load a raw dataset from disk
     Dataset {
         /// The path to the raw dataset
@@ -63,6 +71,10 @@ fn main() {
     dotenv().expect("Could not read .env file");
 
     let args = Args::parse();
+
+    if args.calculate_lod == true {
+        level_of_detail::calculate_level_of_detail_resolution(&args);
+    }
 
     // Must be in mutex since diesel is a sync library.
     let db_connection: DbType =
@@ -84,9 +96,13 @@ fn main() {
 
     let temp_string = temp_dir.path().to_string_lossy().to_string();
 
-    let mosaic: Arc<Mutex<>>
+    let temp_string = args.temp_path.as_ref().unwrap_or(temp_string);
 
-    let mosaic: Arc<Mutex<MosaicedDataset>> = read_dataset(, temp_string);
+    // Not pretty, but it works.
+    let mosaic = match args.dataset_path {
+        DatasetPath::Dataset { path } => read_dataset(Some(path), None, &temp_string),
+        DatasetPath::Mosaic { path } => read_dataset(None, Some(path), &temp_string),
+    };
 
     thread_pool.scope(move |s| {
         // Scope prevents the main process from quiting before all threads are done.
@@ -97,7 +113,7 @@ fn main() {
     temp_dir.close().unwrap()
 }
 
-fn read_dataset(dataset_path: Option<String>, mosaic_path: Option<String>, temp_string: String) -> Arc<Mutex<MosaicedDataset>> {
+fn read_dataset(dataset_path: Option<String>, mosaic_path: Option<String>, temp_string: &str) -> Arc<Mutex<MosaicedDataset>> {
     let mosaic: Arc<Mutex<MosaicedDataset>>;
 
     if let Some(path) = mosaic_path {

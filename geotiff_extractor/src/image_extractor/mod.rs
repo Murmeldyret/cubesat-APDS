@@ -85,6 +85,7 @@ pub struct MosaicedDataset {
 pub trait Datasets {
     fn import_datasets(paths: &str) -> Result<RawDataset, errors::GdalError>;
     fn to_mosaic_dataset(&self, output_path: &str) -> Result<MosaicedDataset, errors::GdalError>;
+    fn to_vrt_dataset(&self) -> Result<MosaicedDataset, errors::GdalError>;
 }
 
 #[cfg_attr(test, automock)]
@@ -156,6 +157,17 @@ impl Datasets for RawDataset {
 
         Ok(MosaicedDataset {
             dataset: mosaic,
+            options: DatasetOptionsBuilder::new().build(),
+            min_max: None,
+            elevation: None,
+        })
+    }
+
+    fn to_vrt_dataset(&self) -> Result<MosaicedDataset, errors::GdalError> {
+        let vrt = build_vrt(None, &self.datasets, None)?;
+
+        Ok(MosaicedDataset {
+            dataset: vrt,
             options: DatasetOptionsBuilder::new().build(),
             min_max: None,
             elevation: None,
