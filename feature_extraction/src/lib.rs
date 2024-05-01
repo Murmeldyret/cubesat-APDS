@@ -9,6 +9,9 @@ use opencv::core::Ptr;
 
 use opencv::{self as cv, prelude::*};
 
+pub const MAX_POINTS_SHIFT: i32 = 18
+pub const MAX_POINTS: i32 = (1 << MAX_POINTS_SHIFT) - 1
+    
 pub struct ExtractedKeyPoint {
     keypoints: Vector<KeyPoint>,
     descriptors: Mat,
@@ -66,7 +69,7 @@ pub fn akaze_keypoint_descriptor_extraction_def(img: &Mat, max_points: Option<i3
         4,
         4,
         KAZE_DiffusivityType::DIFF_PM_G2,
-        max_points.unwrap_or(2_i32.pow(18)-1),
+        max_points.unwrap_or(MAX_POINTS),
     )?;
 
     let mut akaze_keypoints = Vector::default();
