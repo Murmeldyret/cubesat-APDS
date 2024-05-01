@@ -66,7 +66,7 @@ pub fn akaze_keypoint_descriptor_extraction_def(img: &Mat, max_points: Option<i3
         4,
         4,
         KAZE_DiffusivityType::DIFF_PM_G2,
-        max_points.unwrap_or(262143),
+        max_points.unwrap_or(2_i32.pow(18)-1),
     )?;
 
     let mut akaze_keypoints = Vector::default();
