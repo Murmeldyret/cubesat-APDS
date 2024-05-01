@@ -9,8 +9,8 @@ use opencv::core::Ptr;
 
 use opencv::{self as cv, prelude::*};
 
-pub const MAX_POINTS_SHIFT: i32 = 18
-pub const MAX_POINTS: i32 = (1 << MAX_POINTS_SHIFT) - 1
+pub const MAX_POINTS_SHIFT: i32 = 18;
+pub const MAX_POINTS: i32 = (1 << MAX_POINTS_SHIFT) - 1;
     
 pub struct ExtractedKeyPoint {
     keypoints: Vector<KeyPoint>,
