@@ -364,9 +364,10 @@ pub fn pnp_solver_ransac(
         method.unwrap_or(SolvePnPMethod::SOLVEPNP_EPNP) as i32,
     )
     .map_err(MatError::Opencv)?;
-let mut rmat = Cmat::<f64>::zeros(3, 3)?;
-let _ = opencv::calib3d::rodrigues_def(&rvec.mat, &mut rmat).map_err(|e| MatError::Opencv(e))?;
-let solution = PNPRANSACSolution {
+    let mut rmat = Cmat::<f64>::zeros(3, 3)?;
+    let _ =
+        opencv::calib3d::rodrigues_def(&rvec.mat, &mut rmat).map_err(|e| MatError::Opencv(e))?;
+    let solution = PNPRANSACSolution {
         rvec: rmat,
         tvec,
         inliers,
