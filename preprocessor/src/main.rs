@@ -77,7 +77,6 @@ fn main() {
         .expect("Could not create thread pool");
 
     // A GDAL Dataset is not threadsafe. Therefore Arc<Mutex<_>> is necessary.
-    let mosaic: Arc<Mutex<MosaicedDataset>>;
     let temp_dir = tempdir().expect(
         // Creates a tmp directory which stores the dataset if no path is provided.
         "Could not create temp directory\nPlease provide directory in the parameters",
@@ -85,24 +84,9 @@ fn main() {
 
     let temp_string = temp_dir.path().to_string_lossy().to_string();
 
-    match args.dataset_path {
-        DatasetPath::Dataset { path } => {
-            let temp_path = args.temp_path.unwrap_or(temp_string);
-            let dataset = image_extractor::RawDataset::import_datasets(&path)
-                .expect("Could not open datasets");
-            println!("Converting dataset to mosaic");
-            mosaic = Arc::new(Mutex::new(
-                dataset
-                    .to_mosaic_dataset(&temp_path)
-                    .expect("Could not convert dataset."),
-            ));
-        }
-        DatasetPath::Mosaic { path } => {
-            mosaic = Arc::new(Mutex::new(
-                MosaicedDataset::import_mosaic_dataset(&path).expect("Could not read mosaic"),
-            ));
-        }
-    }
+    let mosaic: Arc<Mutex<>>
+
+    let mosaic: Arc<Mutex<MosaicedDataset>> = read_dataset(, temp_string);
 
     thread_pool.scope(move |s| {
         // Scope prevents the main process from quiting before all threads are done.
@@ -111,6 +95,28 @@ fn main() {
         process_lod_from_mosaic(db_connection, mosaic, args.tile_size, s);
     });
     temp_dir.close().unwrap()
+}
+
+fn read_dataset(dataset_path: Option<String>, mosaic_path: Option<String>, temp_string: String) -> Arc<Mutex<MosaicedDataset>> {
+    let mosaic: Arc<Mutex<MosaicedDataset>>;
+
+    if let Some(path) = mosaic_path {
+        mosaic = Arc::new(Mutex::new(MosaicedDataset::import_mosaic_dataset(&path).expect("Could not open dataset")));
+    }
+
+    if let Some(path) = dataset_path {
+        let temp_path = args.temp_path.as_ref().unwrap_or(&temp_string);
+            let dataset = image_extractor::RawDataset::import_datasets(&path)
+                .expect("Could not open datasets");
+            println!("Converting dataset to mosaic");
+            mosaic = Arc::new(Mutex::new(
+                dataset
+                    .to_mosaic_dataset(&temp_path)
+                    .expect("Could not convert dataset."),
+            ));
+    }
+
+    mosaic
 }
 
 /// A function that initialize the downscaling and extraction of each level of detail.
