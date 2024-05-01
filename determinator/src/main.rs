@@ -100,5 +100,5 @@ fn main() {
         Some(SolvePnPMethod::SOLVEPNP_EPNP), // i think this method is most appropriate, optionally it could be program argument
     )
     .expect("Failed to solve PNP problem");
-    // dbg!(solution);
+    dbg!(solution);
 }

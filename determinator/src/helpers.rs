@@ -13,8 +13,8 @@ use feature_extraction::{
 use homographier::homographier::{Cmat, ImgObjCorrespondence};
 use opencv::{
     core::{
-        DataType, KeyPoint, MatTraitConst, Point2d, Point2f, Point3d, Point3f, Point_, Size2i,
-        Size_, Vector,
+        DataType, KeyPoint, KeyPointTraitConst, MatTraitConst, Point2d, Point2f, Point3d, Point3f,
+        Point_, Size2i, Size_, Vector,
     },
     imgcodecs::{IMREAD_COLOR, IMREAD_GRAYSCALE},
 };
@@ -138,10 +138,25 @@ pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjC
                     .mat,
                 Size2i::new(7, 7),
                 &mut img_points,
-            ).expect("msg").then_some(()).expect("msg");
+            )
+            .expect("msg")
+            .then_some(())
+            .expect("msg");
+            assert_eq!(ref_keypoints.len(), img_points.len());
+            let corres = ref_keypoints
+                .into_iter()
+                .zip(img_points)
+                .map(|(o, i)| {
+                    ImgObjCorrespondence::new(
+                        Point3d::from_point(o.pt().to().expect("f32 cast to f64 should not fail")),
+                        i.to().expect("f32 cast to f64 should not fail"),
+                    )
+                })
+                .collect::<Vec<_>>();
             // let obj_points = point2d_to_3d(ref_keypoints, todo!());
             // point_pair_to_correspondence(image.1, obj_points)
-            todo!()
+            corres
+            // todo!()
         }
     }
 }
@@ -176,8 +191,8 @@ pub fn ref_keypoints(args: &Args) -> (Vec<KeyPoint>, Option<Vec<Vec<u8>>>) {
     match args.demo {
         true => {
             // TIHI @Murmeldyret, here be no side effects
-            let points: Result<Vec<KeyPoint>, _> = (1..7)
-                .map(|f| (f, (1..7)))
+            let points: Result<Vec<KeyPoint>, _> = (1..=7)
+                .map(|f| (f, (1..=7)))
                 .flat_map(|row| {
                     row.1
                         .map(move |col| KeyPoint::new_coords_def(row.0 as f32, col as f32, 1.0))
