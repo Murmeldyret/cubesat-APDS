@@ -246,8 +246,6 @@ mod test {
             img1_matched_points.len(),
             img2_matched_points.len()
         );
-
-        assert!(true);
     }
 
     #[test]
