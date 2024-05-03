@@ -131,18 +131,21 @@ fn matching_test(bencher: Bencher, num_keypoints: i32) {
     }
 
     // The benchmark
-    bencher.bench(move || {
+    bencher.with_inputs(|| -> (Mat, Mat) {
         // Convert Vec<Vec<u8>> to Vec<&[u8]>, because from_slice_2d needs a slice
         let slice_of_slices1: Vec<&[u8]> = all_descriptors1.iter().map(AsRef::as_ref).collect();
         let slice_of_slices2: Vec<&[u8]> = all_descriptors2.iter().map(AsRef::as_ref).collect();
 
         // Locally creating Mat from slice of slices 
-        let reconstructed_mat1 = Mat::from_slice_2d(&slice_of_slices1)
-            .expect("Failed to reconstruct Mat");
-        let reconstructed_mat2 = Mat::from_slice_2d(&slice_of_slices2)
-            .expect("Failed to reconstruct Mat");
-
-        move || {
+        (
+            Mat::from_slice_2d(&slice_of_slices1)
+                .expect("Failed to reconstruct Mat"), 
+            Mat::from_slice_2d(&slice_of_slices2)
+                .expect("Failed to reconstruct Mat")
+        )
+    })
+    .bench_refs(|(reconstructed_mat1, reconstructed_mat2)| {
+        {
             get_knn_matches(
                 &reconstructed_mat1, 
                 &reconstructed_mat2, 
