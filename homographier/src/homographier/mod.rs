@@ -71,7 +71,7 @@ pub struct Cmat<T> {
 }
 
 impl<T> Cmat<T> {
-    fn from_mat(mat: Mat) -> Result<Self, MatError> {
+    pub fn from_mat(mat: Mat) -> Result<Self, MatError> {
         Cmat {
             mat,
             _marker: PhantomData,

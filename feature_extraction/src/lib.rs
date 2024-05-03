@@ -9,9 +9,10 @@ use opencv::core::Ptr;
 
 use opencv::{self as cv, prelude::*};
 
+#[derive(Debug)]
 pub struct ExtractedKeyPoint {
-    keypoints: Vector<KeyPoint>,
-    descriptors: Mat,
+    pub keypoints: Vector<KeyPoint>,
+    pub descriptors: Mat,
 }
 
 #[derive(Debug)]
