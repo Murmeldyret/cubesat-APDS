@@ -39,7 +39,7 @@ pub struct Args {
     cpu_num: usize,
 
     /// Calculate the amount of levels of detail
-    #[arg(long, default_value_t = false)]
+    #[arg(long)]
     calculate_lod: bool,
 
     /// The amount of levels of details that the reference image is going to be split into
