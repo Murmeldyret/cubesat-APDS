@@ -10,7 +10,7 @@ use feature_database::keypointdb::KeypointDatabase;
 use feature_extraction::{
     akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
 };
-use homographier::homographier::{Cmat, ImgObjCorrespondence};
+use homographier::homographier::{Cmat, ImgObjCorrespondence, PNPRANSACSolution};
 use opencv::{
     core::{
         DataType, KeyPoint, KeyPointTraitConst, MatTraitConst, Point2d, Point2f, Point3d, Point3f,
@@ -250,7 +250,7 @@ fn db_kp_to_opencv_kp(
     (ref_keypoints, ref_descriptors)
 }
 
-///
+// TODO: kan godt være topo parameter skal ændres til en anden type
 pub fn point2d_to_3d(points: Vec<Point2f>, topo: Cmat<f32>) -> Vec<Point3f> {
     points
         .into_iter()
@@ -272,4 +272,11 @@ pub fn point2f_to2d(p: Point2f) -> Point2d {
 
 pub fn point3f_to3d(p: Point3f) -> Point3d {
     Point3d::new(p.x as f64, p.y as f64, p.z as f64)
+}
+
+pub fn project_obj_point(obj_point: Point3d, solution: PNPRANSACSolution, cam_mat: &Cmat<f64>) -> Point2d {
+    let rt_mat = Mat
+
+    todo!().
+
 }

@@ -101,4 +101,6 @@ fn main() {
     )
     .expect("Failed to solve PNP problem");
     dbg!(solution);
+    // TODO: By using the obtained solution, we can map object points to image points, this must be done to find where the image points lie in 3d space
+    // evt kig på dette: https://en.wikipedia.org/wiki/Perspective-n-Point#Methods
 }
