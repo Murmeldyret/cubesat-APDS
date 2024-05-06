@@ -13,8 +13,7 @@ use feature_extraction::{
 use homographier::homographier::{Cmat, ImgObjCorrespondence, PNPRANSACSolution};
 use opencv::{
     core::{
-        DataType, KeyPoint, KeyPointTraitConst, MatTraitConst, Point2d, Point2f, Point3d, Point3f,
-        Point_, Size2i, Size_, Vector,
+        DataType, KeyPoint, KeyPointTraitConst, Mat, MatTraitConst, Point2d, Point2f, Point3d, Point3f, Point_, Size2i, Size_, Vector
     },
     imgcodecs::{IMREAD_COLOR, IMREAD_GRAYSCALE},
 };
@@ -275,8 +274,8 @@ pub fn point3f_to3d(p: Point3f) -> Point3d {
 }
 
 pub fn project_obj_point(obj_point: Point3d, solution: PNPRANSACSolution, cam_mat: &Cmat<f64>) -> Point2d {
-    let rt_mat = Mat
+    // solution.tvec
 
-    todo!().
+    todo!();
 
 }
