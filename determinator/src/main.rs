@@ -14,7 +14,7 @@ use homographier::homographier::{pnp_solver_ransac, raster_to_mat, Cmat, ImgObjC
 
 use diesel::{Connection, PgConnection};
 use opencv::calib3d::SolvePnPMethod;
-use opencv::core::{Point2f, Point3f, Vector};
+use opencv::core::{Point2f, Point3_, Point3d, Point3f, Vector};
 use rgb::alt::BGRA;
 use rgb::{alt::BGRA8, RGBA};
 use std::env;
@@ -23,7 +23,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::helpers::{point2d_to_3d, point2f_to2d, point3f_to3d, ref_keypoints};
+use crate::helpers::{point2d_to_3d, point2f_to2d, point3f_to3d, project_obj_point, ref_keypoints};
 
 pub mod helpers;
 
@@ -99,8 +99,10 @@ fn main() {
         args.dist_coeff.as_deref(),
         Some(SolvePnPMethod::SOLVEPNP_EPNP), // i think this method is most appropriate, optionally it could be program argument
     )
-    .expect("Failed to solve PNP problem");
-    dbg!(solution);
+    .expect("Failed to solve PNP problem")
+    .expect("No solution was obtained to the PNP problem");
+    // dbg!(solution);
     // TODO: By using the obtained solution, we can map object points to image points, this must be done to find where the image points lie in 3d space
     // evt kig på dette: https://en.wikipedia.org/wiki/Perspective-n-Point#Methods
+    project_obj_point(Point3d::new(0.0, 0.0, 0.0), solution, &camera_matrix);
 }
