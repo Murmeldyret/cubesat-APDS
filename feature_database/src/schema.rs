@@ -28,4 +28,7 @@ diesel::table! {
 
 diesel::joinable!(keypoint -> ref_image (image_id));
 
-diesel::allow_tables_to_appear_in_same_query!(keypoint, ref_image,);
+diesel::allow_tables_to_appear_in_same_query!(
+    keypoint,
+    ref_image,
+);
