@@ -16,7 +16,6 @@ fn main() {
     divan::main();
 }
 
-/* 
 #[divan::bench(args = (1..13).map(|step| 2_u32.pow(step)), sample_size = 1, sample_count = 1)]
 fn extract_features_from_image(bencher: Bencher, sample_size: u32) {
     let mut current_dir = env::current_dir().expect("Current directory not set.");
@@ -65,12 +64,7 @@ fn extract_features_from_image(bencher: Bencher, sample_size: u32) {
         .len()
     );
 }
-*/
 
-// Exponential increase the amount of keypoints for both images.
-//     Reach the limit if viable.
-// Increase resolution of only one image.
-//     One image should be at a constant 25 keypoints while the other increases as before, with every test.
 
 // QUICK NOTE: changed u32 to i32 because of akaze function
 #[divan::bench(args = (1..19).map(|step| 2_i32.pow(step)), sample_size = 1, sample_count = 10)]
@@ -87,8 +81,6 @@ fn matching_test(bencher: Bencher, num_keypoints: i32) {
     let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1, Some(num_keypoints)).unwrap();
     let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2, Some(num_keypoints)).unwrap();
     
-    // make mat into cmat (function from homo mod.rs called from_mat())
-    // Then for each row and col for descriptors run at_2d() and use type u8
     // Converting Mat type into Cmat - this is for later use in the benchmark due to '*mut c_void' not being thread safe
     let descriptor_cmat1: Result<Cmat<u8>, MatError> = Cmat::from_mat(img1_keypoints.descriptors.clone());
     let descriptor_cmat2: Result<Cmat<u8>, MatError> = Cmat::from_mat(img2_keypoints.descriptors.clone());
@@ -151,12 +143,5 @@ fn matching_test(bencher: Bencher, num_keypoints: i32) {
         }
 
     });
-
-    println!(
-        "Matches: {}, Keypoints: img1({}) img2({})",
-        get_knn_matches(&img1_keypoints.descriptors, &img2_keypoints.descriptors, 2, 0.3).unwrap().len(),
-        img1_keypoints.keypoints.len(),
-        img2_keypoints.keypoints.len()
-    );
 
 }
