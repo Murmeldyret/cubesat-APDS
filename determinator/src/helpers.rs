@@ -134,7 +134,7 @@ pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjC
         None => {
             // let points = get_points_from_matches(image.1, ref_keypoints, matches)
             let mut img_points: Vector<Point2f> = Vector::new();
-            let _ = opencv::calib3d::find_chessboard_corners_def(
+            opencv::calib3d::find_chessboard_corners_def(
                 &Cmat::<u8>::imread_checked(&args.img_path.to_string_lossy(), IMREAD_GRAYSCALE)
                     .expect("failed to read image")
                     .mat,
@@ -174,9 +174,9 @@ fn matching_with_descriptors(
     assert_eq!(img_points.len(), obj_points_2d.len());
 
     // map object points to real world coordinates
-    let obj_points = point2d_to_3d(obj_points_2d.into_iter().collect(), todo!());
+    let obj_points = get_3d_world_coord_from_2d_point(obj_points_2d.into_iter().map(|f|Point2d::new(f.x as f64, f.y as f64)).collect(), todo!());
 
-    Ok(point_pair_to_correspondence(img_points, obj_points))
+    Ok(point_pair_to_correspondence(img_points, obj_points.into_iter().map(|f| Point3f::new(f.x as f32, f.y as f32, f.z as f32)).collect::<Vec<_>>()))
 }
 
 fn point_pair_to_correspondence(
@@ -259,7 +259,7 @@ pub fn get_3d_world_coord_from_2d_point(points: Vec<Point2d>, db: DbType) -> Vec
     points
         .into_iter()
         .map(|p| {
-            let world_coord: (f64,f64,f64) = get_world_coordinates(db, p.x, p.y)?;
+            let world_coord: (f64,f64,f64) = todo!("@rasmus");//@Murmeldyret
             Point3d::new(
                 world_coord.0,
                 world_coord.1,
@@ -289,21 +289,21 @@ pub fn project_obj_point(
     // let third = solution.tvec.at_2d(0, 2).expect("Vector should have 3 columns");
 
     // let tvec = [first,second,third];
-    let mut rt_mat = Cmat::<f64>::zeros(4, 4).expect("TODO");
-    let _ = hconcat2(&solution.rvec.mat, &solution.tvec.mat, &mut rt_mat.mat).expect("TODO");
+    let mut rt_mat = Cmat::<f64>::zeros(4, 4).expect("Matrix initialization should not fail");
+    hconcat2(&solution.rvec.mat, &solution.tvec.mat, &mut rt_mat.mat).expect("Matrix operation should not fail");
     let rt_mat = rt_mat;
     // homogenous object point
     let obj_point_hom = Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64).to_vec();
     // dbg!(&obj_point_hom);
     // println!("{:?}\n{:?}\n{:?}\n",rt_mat.mat.at_row::<f64>(0).unwrap(),rt_mat.mat.at_row::<f64>(1).unwrap(),rt_mat.mat.at_row::<f64>(2).unwrap());
     let obj_point_hom_mat =
-        Mat::from_slice(&Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64).to_vec()).unwrap();
+        Mat::from_slice(&Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64).to_vec()).expect("Matrix construction should not fail");
 
     let mut temp = (cam_mat.mat * rt_mat.mat)
         .into_result()
-        .unwrap()
+        .expect("matrix expression should not failed")
         .to_mat()
-        .unwrap();
+        .expect("matrix construction should not fail");
     assert_eq!(temp.rows(),3,"Matrix multiplication between calibration matrix (A) and rotation+translation matix (Rt) should yield a 3X4 matrix");
     assert_eq!(temp.cols(),4,"Matrix multiplication between calibration matrix (A) and rotation+translation matix (Rt) should yield a 3X4 matrix");
     // println!("{:?}\n{:?}\n{:?}\n",temp.at_row::<f64>(0).unwrap(),temp.at_row::<f64>(1).unwrap(),temp.at_row::<f64>(2).unwrap());
@@ -313,18 +313,19 @@ pub fn project_obj_point(
     for i in 0..temp.rows() as usize {
         result[i] = temp
             .at_row::<f64>(i as i32)
-            .unwrap()
+            .expect("row index should be within range")
             .iter()
             .enumerate()
-            .map(|(i, e)| e * obj_point_hom.get(i).unwrap())
+            .map(|(i, e)| e * obj_point_hom.get(i).expect("index should not be out of range"))
             // .inspect(|f|{dbg!(f);})
             .reduce(|acc, elem| acc + elem)
             .expect("Reduce operation should yield a value");
     }
+    #[allow(clippy::eq_op)]
     Point3d::new(
         result[0] / result[2],
         result[1] / result[2],
-        result[2] / result[2],
+        1f64,
     )
     // let vector = temp.iter::<f64>().unwrap().map(|(p,e)|e*obj_point_hom.get(p.y as usize).unwrap()).collect::<Vec<f64>>();
     // let rhs = dbg!(temp.dot(&obj_point_hom));

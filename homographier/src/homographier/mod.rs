@@ -136,7 +136,7 @@ impl<T: DataType> Cmat<T> {
             output = format!(
                 "{}{:?}\n",
                 output,
-                self.mat.at_row::<T>(i as i32).expect("failed to read row")
+                self.mat.at_row::<T>(i).expect("failed to read row")
             );
         }
         output

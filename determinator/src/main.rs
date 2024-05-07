@@ -15,15 +15,12 @@ use homographier::homographier::{pnp_solver_ransac, raster_to_mat, Cmat, ImgObjC
 use diesel::{Connection, PgConnection};
 use opencv::calib3d::SolvePnPMethod;
 use opencv::core::{MatTraitConst, Point2f, Point3_, Point3d, Point3f, Vector};
-use rgb::alt::BGRA;
-use rgb::{alt::BGRA8, RGBA};
-use std::env;
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
 
-use crate::helpers::{point2d_to_3d, point2f_to2d, point3f_to3d, project_obj_point, ref_keypoints};
+use crate::helpers::project_obj_point;
 
 pub mod helpers;
 
