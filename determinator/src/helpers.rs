@@ -249,17 +249,17 @@ fn db_kp_to_opencv_kp(
     (ref_keypoints, ref_descriptors)
 }
 
+
 // TODO: kan godt være topo parameter skal ændres til en anden type
-pub fn point2d_to_3d(points: Vec<Point2f>, topo: Cmat<f32>) -> Vec<Point3f> {
+pub fn point2d_to_3d(points: Vec<Point2f>) -> Vec<Point3f> {
     points
         .into_iter()
         .map(|p| {
+            let world_coord: (f64,f64,f64) = get_world_coordinates(p.x, p.y)?;
             Point3f::new(
-                p.x,
-                p.y,
-                *topo
-                    .at_2d(p.x.floor() as i32, p.y.floor() as i32)
-                    .expect("Out of bounds"),
+                world_coord.0,
+                world_coord.1,
+                world_coord.2
             )
         })
         .collect::<Vec<_>>()
