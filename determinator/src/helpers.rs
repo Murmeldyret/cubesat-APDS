@@ -251,12 +251,12 @@ fn db_kp_to_opencv_kp(
 
 
 // TODO: kan godt være topo parameter skal ændres til en anden type
-pub fn point2d_to_3d(points: Vec<Point2f>) -> Vec<Point3f> {
+pub fn get_3d_world_coord_from_2d_point(points: Vec<Point2d>, db: DbType) -> Vec<Point3d> {
     points
         .into_iter()
         .map(|p| {
-            let world_coord: (f64,f64,f64) = get_world_coordinates(p.x, p.y)?;
-            Point3f::new(
+            let world_coord: (f64,f64,f64) = get_world_coordinates(db, p.x, p.y)?;
+            Point3d::new(
                 world_coord.0,
                 world_coord.1,
                 world_coord.2
