@@ -13,7 +13,10 @@ use feature_extraction::{
 use homographier::homographier::{Cmat, ImgObjCorrespondence, PNPRANSACSolution};
 use opencv::{
     core::{
-        DataType, KeyPoint, KeyPointTraitConst, Mat, MatTraitConst, Point2d, Point2f, Point3d, Point3f, Point_, Size2i, Size_, Vector
+        hconcat, hconcat2, DataType, ElemMul, KeyPoint, KeyPointTraitConst, Mat, MatExpr,
+        MatExprResult, MatExprTraitConst, MatTrait, MatTraitConst, MatTraitConstManual,
+        MatTraitManual, Point2d, Point2f, Point3d, Point3f, Point_, Scalar, Size2i, Size_, Vec4d,
+        Vector,
     },
     imgcodecs::{IMREAD_COLOR, IMREAD_GRAYSCALE},
 };
@@ -165,11 +168,12 @@ fn matching_with_descriptors(
     ref_desc: &Cmat<u8>,
     ref_kp: Vector<KeyPoint>,
 ) -> Result<Vec<ImgObjCorrespondence>, opencv::Error> {
-    let matches = get_knn_matches(&img.0.mat, &ref_desc.mat, 2, 0.8)?;
+    let matches = get_knn_matches(&img.2.mat, &ref_desc.mat, 2, 0.8)?;
 
     let (img_points, obj_points_2d) = get_points_from_matches(&img.1, &ref_kp, &matches)?;
     assert_eq!(img_points.len(), obj_points_2d.len());
 
+    // map object points to real world coordinates
     let obj_points = point2d_to_3d(obj_points_2d.into_iter().collect(), todo!());
 
     Ok(point_pair_to_correspondence(img_points, obj_points))
@@ -272,10 +276,63 @@ pub fn point2f_to2d(p: Point2f) -> Point2d {
 pub fn point3f_to3d(p: Point3f) -> Point3d {
     Point3d::new(p.x as f64, p.y as f64, p.z as f64)
 }
+// https://docs.opencv.org/4.x/dc/d2c/tutorial_real_time_pose.html
+/// # Returns
+/// a 2d homogenous point (z=1)
+pub fn project_obj_point(
+    obj_point: Point3d,
+    solution: PNPRANSACSolution,
+    cam_mat: Cmat<f64>,
+) -> Point3d {
+    // let first = solution.tvec.at_2d(0, 0).expect("Vector should have 1 column");
+    // let second = solution.tvec.at_2d(0, 1).expect("Vector should have 2 columns");
+    // let third = solution.tvec.at_2d(0, 2).expect("Vector should have 3 columns");
 
-pub fn project_obj_point(obj_point: Point3d, solution: PNPRANSACSolution, cam_mat: &Cmat<f64>) -> Point2d {
-    // solution.tvec
+    // let tvec = [first,second,third];
+    let mut rt_mat = Cmat::<f64>::zeros(4, 4).expect("TODO");
+    let _ = hconcat2(&solution.rvec.mat, &solution.tvec.mat, &mut rt_mat.mat).expect("TODO");
+    let rt_mat = rt_mat;
 
+    // homogenous object point
+    let obj_point_hom = Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 16f64).to_vec();
+    let obj_point_hom_mat =
+        Mat::from_slice(&Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 16f64).to_vec())
+            .unwrap();
+
+    // cam_mat.mat.mul_def(&rt_mat.mat).expect("elementwise matrix multiplication should not fail on (3X3)x(4x3)").mul_matexpr_def;
+    // let rhs = rt_mat
+    //     .mat
+    //     .mul_def(&obj_point_hom)
+    //     .expect("TODO")
+    //     .elem_mul(&cam_mat.mat)
+    //     .into_result()
+    //     .expect("TODO")
+    //     .to_mat()
+    //     .expect("TODO");
+    let mut temp = (cam_mat.mat * rt_mat.mat)
+        .into_result()
+        .unwrap()
+        .to_mat()
+        .unwrap();
+    assert_eq!(temp.rows(),3,"Matrix multiplication between calibration matrix (A) and rotation+translation matix (Rt) should yield a 3X4 matrix");
+    assert_eq!(temp.cols(),4,"Matrix multiplication between calibration matrix (A) and rotation+translation matix (Rt) should yield a 3X4 matrix");
+
+    // let a_rt = temp.at_mut::<f64>(0).unwrap();
+    let mut result: [f64; 3] = [0f64; 3];
+    for i in 0..temp.rows() as usize {
+        result[i] = temp
+            .at_row::<f64>(0)
+            .unwrap()
+            .iter()
+            .enumerate()
+            .map(|(i, e)| e * obj_point_hom.get(i).unwrap())
+            .reduce(|acc, elem| acc + elem)
+            .expect("Reduce operation should yield a value");
+    }
+    // let vector = temp.iter::<f64>().unwrap().map(|(p,e)|e*obj_point_hom.get(p.y as usize).unwrap()).collect::<Vec<f64>>();
+    // let rhs = dbg!(temp.dot(&obj_point_hom));
+    // dbg!(&rhs);
     todo!();
-
+    // let _ = temp.iter::<f64>().unwrap().inspect(|f|println!("({},{}) = {}",f.0.x,f.0.y,f.1)).collect::<Vec<_>>();
+    // let rhs = temp.elem_mul(obj_point_hom).into_result().unwrap().to_mat().unwrap();
 }
