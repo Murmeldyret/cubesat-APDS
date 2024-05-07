@@ -360,7 +360,10 @@ pub fn pnp_solver_ransac(
 
     let mut inliers = Cmat::<i32>::zeros(1, 1)?;
 
-    let dist_coeffs = Cmat::<f64>::zeros(4, 1)?;
+    let dist_coeffs = match dist_coeffs {
+        Some(val) => Cmat::<f64>::new(Mat::from_slice(val).map_err(MatError::Opencv)?)?,
+        None => Cmat::<f64>::zeros(4, 1)?
+    };
 
     // i think that Ok(false) means that there is no solution, but no errors happened
     let res = solve_pnp_ransac(

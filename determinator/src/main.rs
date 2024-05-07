@@ -42,7 +42,7 @@ struct Args {
     #[command(subcommand)]
     cam_matrix: CameraIntrinsic,
     /// List of distortion coefficients, if any is supplied, length should be either 4,5,8,8,12 or 14
-    #[arg(short,long,num_args(4..))]
+    #[arg(short,long,num_args(4..),allow_negative_numbers=true)]
     dist_coeff: Option<Vec<f64>>,
     /// Whether or not to run this program in demo mode
     #[arg(long, default_value_t = false)]

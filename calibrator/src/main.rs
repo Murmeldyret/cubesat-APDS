@@ -78,4 +78,5 @@ fn main() {
     let foc_y = cam_mat.at_2d(1, 1).expect("TODO");
     let princip_y = cam_mat.at_2d(1, 2).expect("TODO");
     println!("|{:.3},{:.3},{:.3}|\n|0.000,{:.3},{:.3}|\n|0.000,0.000,1.000|\nRMS reprojection error:{:.3}",foc_x,skew,princip_x,foc_y,princip_y,rms_reproj);
+    println!("distortion coefficients: \n{:.?}",dist_coeffs.into_iter().collect::<Vec<f64>>())
 }
