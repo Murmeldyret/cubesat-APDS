@@ -14,7 +14,7 @@ use homographier::homographier::{pnp_solver_ransac, raster_to_mat, Cmat, ImgObjC
 
 use diesel::{Connection, PgConnection};
 use opencv::calib3d::SolvePnPMethod;
-use opencv::core::{Point2f, Point3_, Point3d, Point3f, Vector};
+use opencv::core::{MatTraitConst, Point2f, Point3_, Point3d, Point3f, Vector};
 use rgb::alt::BGRA;
 use rgb::{alt::BGRA8, RGBA};
 use std::env;
@@ -94,15 +94,30 @@ fn main() {
         &point_correspondences,
         &camera_matrix,
         args.pnp_ransac_iter_count.try_into().unwrap_or(1000),
-        10000f32,
-        0.9,
+        1f32,
+        1.0 - f64::EPSILON, /*TIHI*/
         args.dist_coeff.as_deref(),
         Some(SolvePnPMethod::SOLVEPNP_EPNP), // i think this method is most appropriate, optionally it could be program argument
     )
     .expect("Failed to solve PNP problem")
     .expect("No solution was obtained to the PNP problem");
-    // dbg!(solution);
+    dbg!(solution.inliers.mat.size());
     // TODO: By using the obtained solution, we can map object points to image points, this must be done to find where the image points lie in 3d space
     // evt kig på dette: https://en.wikipedia.org/wiki/Perspective-n-Point#Methods
-    project_obj_point(Point3d::new(0.0, 0.0, 0.0), solution, camera_matrix);
+    println!(
+        "rotation matrix =\n{}translation matrix =\n{}",
+        solution.rvec.format_elems(),
+        solution.tvec.format_elems()
+    );
+    println!(
+        "Inlier ratio: {} ({}/{})",
+        (solution.inliers.mat.rows() as f64) / (point_correspondences.len() as f64),
+        solution.inliers.mat.rows(),
+        point_correspondences.len(),
+    );
+    dbg!(project_obj_point(
+        Point3d::new(1.0, 1.0, 1.0),
+        solution,
+        camera_matrix
+    ));
 }

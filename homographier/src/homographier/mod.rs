@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{fmt::Debug, marker::PhantomData};
 
 use opencv::{
     calib3d::{find_homography, solve_pnp_ransac, SolvePnPMethod, RANSAC},
@@ -126,6 +126,20 @@ impl<T: DataType> Cmat<T> {
     pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
         let res = Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)?;
         Ok(res)
+    }
+    pub fn format_elems(&self) -> String
+    where
+        T: Debug,
+    {
+        let mut output = String::new();
+        for i in 0..self.mat.rows() {
+            output = format!(
+                "{}{:?}\n",
+                output,
+                self.mat.at_row::<T>(i as i32).expect("failed to read row")
+            );
+        }
+        output
     }
     /// Checked element access
     ///
@@ -310,7 +324,7 @@ pub fn warp_image_perspective<T: DataType>(
 /// * point_correspondences: a slice of 3d-to-2d point correspondences, minimum length is 4 (even in the P3P case, where the 4th point is used to find the solution with least reprojection error)
 /// * camera_intrinsic: the camera calibration matrix 3X3
 /// * iter_count: How many iteration the ransac algorithm should perform
-/// * reproj_thres:
+/// * reproj_thres: Maximum allowed reprojection error. NOTE setting this value to a low number may result in a very low inlier ratio
 /// * confidence: //TODO
 /// * dist_coeffs: distortion coefficients from camera calibration, if [`None`], a zero length vector is assumed
 /// ## Returns
