@@ -1,3 +1,4 @@
+pub mod elevationdb;
 pub mod imagedb;
 pub mod keypointdb;
 pub mod models;
@@ -46,6 +47,15 @@ pub mod db_helpers {
             .execute(&mut connection)
             .unwrap();
         diesel::sql_query("ALTER SEQUENCE ref_image_id_seq RESTART WITH 1")
+            .execute(&mut connection)
+            .unwrap();
+        diesel::sql_query("DELETE FROM geotransform")
+            .execute(&mut connection)
+            .unwrap();
+        diesel::sql_query("DELETE FROM elevation")
+            .execute(&mut connection)
+            .unwrap();
+        diesel::sql_query("DELETE FROM elevation_properties")
             .execute(&mut connection)
             .unwrap();
 
