@@ -45,6 +45,10 @@ pub struct Args {
     /// The amount of levels of details that the reference image is going to be split into
     #[arg(short, long, default_value_t = 1)]
     lod: u64,
+
+    /// The path to the optional elevation dataset
+    #[arg(short, long)]
+    elevation_path: Option<String>,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -100,13 +104,39 @@ fn main() {
         DatasetPath::Mosaic { path } => read_dataset(None, Some(path), &temp_string).unwrap(),
     };
 
+    if args.elevation_path.is_some() {
+        mosaic.lock().unwrap().set_elevation_dataset(&args.elevation_path.unwrap(), &temp_string).unwrap();
+    }
+
+    if mosaic.lock().unwrap().elevation.is_some() {
+        add_elevation(db_connection.clone(), mosaic.clone());
+    }
+
     thread_pool.scope(move |s| {
         // Scope prevents the main process from quiting before all threads are done.
         println!("Processing mosaic");
 
         process_lod_from_mosaic(db_connection, mosaic, args.lod, s);
     });
+
+
     temp_dir.close().unwrap()
+}
+
+
+/// This function is only called when the elevation dataset is known to exist.
+fn add_elevation(conn: DbType, mosaic: Arc<Mutex<MosaicedDataset>>) {
+    use feature_database::elevationdb::{geotransform, elevation};
+    let mosaic = mosaic.lock().unwrap();
+    let conn = &mut conn.lock().unwrap();
+
+    let dataset_trans = mosaic.dataset.geo_transform().expect("Could not get geotransform from dataset");
+    let elevation_trans = mosaic.elevation.as_ref().unwrap().geo_transform().expect("Could not get geotransform from elevation");
+
+    geotransform::create_geotransform(conn, "dataset", dataset_trans).expect("Could not add dataset geotransform to database");
+    geotransform::create_geotransform(conn, "elevation", elevation_trans).expect("Could not add dataset geotransform to database");
+
+    elevation::add_elevation_data(conn, &mosaic.elevation.as_ref().unwrap()).unwrap();
 }
 
 fn read_dataset(dataset_path: Option<String>, mosaic_path: Option<String>, temp_string: &str) -> Result<Arc<Mutex<MosaicedDataset>>, std::io::Error> {
@@ -128,8 +158,6 @@ fn read_dataset(dataset_path: Option<String>, mosaic_path: Option<String>, temp_
     }
 
     Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Could not read dataset"))
-
-
 }
 
 // A function that initialize the downscaling and extraction of each level of detail.

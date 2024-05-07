@@ -52,10 +52,19 @@ pub mod db_helpers {
         diesel::sql_query("DELETE FROM geotransform")
             .execute(&mut connection)
             .unwrap();
+        diesel::sql_query("ALTER SEQUENCE geotransform_id_seq RESTART WITH 1")
+            .execute(&mut connection)
+            .unwrap();
         diesel::sql_query("DELETE FROM elevation")
             .execute(&mut connection)
             .unwrap();
+        diesel::sql_query("ALTER SEQUENCE elevation_id_seq RESTART WITH 1")
+            .execute(&mut connection)
+            .unwrap();
         diesel::sql_query("DELETE FROM elevation_properties")
+            .execute(&mut connection)
+            .unwrap();
+        diesel::sql_query("ALTER SEQUENCE elevation_properties_id_seq RESTART WITH 1")
             .execute(&mut connection)
             .unwrap();
 

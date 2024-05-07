@@ -60,14 +60,14 @@ pub struct InsertKeypoint<'a> {
 pub struct GeoTransform {
     pub id: i32,
     pub dataset_name: String,
-    pub transform: Vec<f64>,
+    pub transform: Vec<Option<f64>>,
 }
 
 #[derive(Insertable, Clone, Debug)]
 #[diesel(table_name = geotransform)]
 pub struct InsertGeoTransform<'a> {
     pub dataset_name: &'a str,
-    pub transform: &'a[f64],
+    pub transform: &'a [f64],
 }
 
 #[derive(Queryable, Selectable, Clone, Debug)]
