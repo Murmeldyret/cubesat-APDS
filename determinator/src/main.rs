@@ -107,7 +107,7 @@ fn main() {
         solution.tvec.format_elems()
     );
     println!(
-        "Inlier ratio: {} ({}/{})",
+        "Inlier ratio: {:.2} ({}/{})",
         (solution.inliers.mat.rows() as f64) / (point_correspondences.len() as f64),
         solution.inliers.mat.rows(),
         point_correspondences.len(),

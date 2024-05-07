@@ -174,9 +174,21 @@ fn matching_with_descriptors(
     assert_eq!(img_points.len(), obj_points_2d.len());
 
     // map object points to real world coordinates
-    let obj_points = get_3d_world_coord_from_2d_point(obj_points_2d.into_iter().map(|f|Point2d::new(f.x as f64, f.y as f64)).collect(), todo!());
+    let obj_points = get_3d_world_coord_from_2d_point(
+        obj_points_2d
+            .into_iter()
+            .map(|f| Point2d::new(f.x as f64, f.y as f64))
+            .collect(),
+        todo!(),
+    );
 
-    Ok(point_pair_to_correspondence(img_points, obj_points.into_iter().map(|f| Point3f::new(f.x as f32, f.y as f32, f.z as f32)).collect::<Vec<_>>()))
+    Ok(point_pair_to_correspondence(
+        img_points,
+        obj_points
+            .into_iter()
+            .map(|f| Point3f::new(f.x as f32, f.y as f32, f.z as f32))
+            .collect::<Vec<_>>(),
+    ))
 }
 
 fn point_pair_to_correspondence(
@@ -253,18 +265,13 @@ fn db_kp_to_opencv_kp(
     (ref_keypoints, ref_descriptors)
 }
 
-
 // TODO: kan godt være topo parameter skal ændres til en anden type
 pub fn get_3d_world_coord_from_2d_point(points: Vec<Point2d>, db: DbType) -> Vec<Point3d> {
     points
         .into_iter()
         .map(|p| {
-            let world_coord: (f64,f64,f64) = todo!("@rasmus");//@Murmeldyret
-            Point3d::new(
-                world_coord.0,
-                world_coord.1,
-                world_coord.2
-            )
+            let world_coord: (f64, f64, f64) = todo!("@rasmus"); //@Murmeldyret
+            Point3d::new(world_coord.0, world_coord.1, world_coord.2)
         })
         .collect::<Vec<_>>()
 }
@@ -290,14 +297,16 @@ pub fn project_obj_point(
 
     // let tvec = [first,second,third];
     let mut rt_mat = Cmat::<f64>::zeros(4, 4).expect("Matrix initialization should not fail");
-    hconcat2(&solution.rvec.mat, &solution.tvec.mat, &mut rt_mat.mat).expect("Matrix operation should not fail");
+    hconcat2(&solution.rvec.mat, &solution.tvec.mat, &mut rt_mat.mat)
+        .expect("Matrix operation should not fail");
     let rt_mat = rt_mat;
     // homogenous object point
     let obj_point_hom = Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64).to_vec();
     // dbg!(&obj_point_hom);
     // println!("{:?}\n{:?}\n{:?}\n",rt_mat.mat.at_row::<f64>(0).unwrap(),rt_mat.mat.at_row::<f64>(1).unwrap(),rt_mat.mat.at_row::<f64>(2).unwrap());
     let obj_point_hom_mat =
-        Mat::from_slice(&Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64).to_vec()).expect("Matrix construction should not fail");
+        Mat::from_slice(&Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64).to_vec())
+            .expect("Matrix construction should not fail");
 
     let mut temp = (cam_mat.mat * rt_mat.mat)
         .into_result()
@@ -316,17 +325,17 @@ pub fn project_obj_point(
             .expect("row index should be within range")
             .iter()
             .enumerate()
-            .map(|(i, e)| e * obj_point_hom.get(i).expect("index should not be out of range"))
+            .map(|(i, e)| {
+                e * obj_point_hom
+                    .get(i)
+                    .expect("index should not be out of range")
+            })
             // .inspect(|f|{dbg!(f);})
             .reduce(|acc, elem| acc + elem)
             .expect("Reduce operation should yield a value");
     }
     #[allow(clippy::eq_op)]
-    Point3d::new(
-        result[0] / result[2],
-        result[1] / result[2],
-        1f64,
-    )
+    Point3d::new(result[0] / result[2], result[1] / result[2], 1f64)
     // let vector = temp.iter::<f64>().unwrap().map(|(p,e)|e*obj_point_hom.get(p.y as usize).unwrap()).collect::<Vec<f64>>();
     // let rhs = dbg!(temp.dot(&obj_point_hom));
     // dbg!(&rhs);
