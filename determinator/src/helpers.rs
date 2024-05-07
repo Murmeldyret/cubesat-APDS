@@ -292,23 +292,13 @@ pub fn project_obj_point(
     let mut rt_mat = Cmat::<f64>::zeros(4, 4).expect("TODO");
     let _ = hconcat2(&solution.rvec.mat, &solution.tvec.mat, &mut rt_mat.mat).expect("TODO");
     let rt_mat = rt_mat;
-
     // homogenous object point
-    let obj_point_hom = Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 16f64).to_vec();
+    let obj_point_hom = Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64).to_vec();
+    // dbg!(&obj_point_hom);
+    // println!("{:?}\n{:?}\n{:?}\n",rt_mat.mat.at_row::<f64>(0).unwrap(),rt_mat.mat.at_row::<f64>(1).unwrap(),rt_mat.mat.at_row::<f64>(2).unwrap());
     let obj_point_hom_mat =
-        Mat::from_slice(&Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 16f64).to_vec())
-            .unwrap();
+        Mat::from_slice(&Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64).to_vec()).unwrap();
 
-    // cam_mat.mat.mul_def(&rt_mat.mat).expect("elementwise matrix multiplication should not fail on (3X3)x(4x3)").mul_matexpr_def;
-    // let rhs = rt_mat
-    //     .mat
-    //     .mul_def(&obj_point_hom)
-    //     .expect("TODO")
-    //     .elem_mul(&cam_mat.mat)
-    //     .into_result()
-    //     .expect("TODO")
-    //     .to_mat()
-    //     .expect("TODO");
     let mut temp = (cam_mat.mat * rt_mat.mat)
         .into_result()
         .unwrap()
@@ -316,23 +306,30 @@ pub fn project_obj_point(
         .unwrap();
     assert_eq!(temp.rows(),3,"Matrix multiplication between calibration matrix (A) and rotation+translation matix (Rt) should yield a 3X4 matrix");
     assert_eq!(temp.cols(),4,"Matrix multiplication between calibration matrix (A) and rotation+translation matix (Rt) should yield a 3X4 matrix");
-
+    // println!("{:?}\n{:?}\n{:?}\n",temp.at_row::<f64>(0).unwrap(),temp.at_row::<f64>(1).unwrap(),temp.at_row::<f64>(2).unwrap());
     // let a_rt = temp.at_mut::<f64>(0).unwrap();
     let mut result: [f64; 3] = [0f64; 3];
+    // this is because opencv does not allow matrix vector product for some reason :(
     for i in 0..temp.rows() as usize {
         result[i] = temp
-            .at_row::<f64>(0)
+            .at_row::<f64>(i as i32)
             .unwrap()
             .iter()
             .enumerate()
             .map(|(i, e)| e * obj_point_hom.get(i).unwrap())
+            // .inspect(|f|{dbg!(f);})
             .reduce(|acc, elem| acc + elem)
             .expect("Reduce operation should yield a value");
     }
+    Point3d::new(
+        result[0] / result[2],
+        result[1] / result[2],
+        result[2] / result[2],
+    )
     // let vector = temp.iter::<f64>().unwrap().map(|(p,e)|e*obj_point_hom.get(p.y as usize).unwrap()).collect::<Vec<f64>>();
     // let rhs = dbg!(temp.dot(&obj_point_hom));
     // dbg!(&rhs);
-    todo!();
+    // todo!();
     // let _ = temp.iter::<f64>().unwrap().inspect(|f|println!("({},{}) = {}",f.0.x,f.0.y,f.1)).collect::<Vec<_>>();
     // let rhs = temp.elem_mul(obj_point_hom).into_result().unwrap().to_mat().unwrap();
 }
