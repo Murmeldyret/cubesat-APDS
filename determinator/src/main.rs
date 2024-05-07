@@ -91,7 +91,7 @@ fn main() {
         &point_correspondences,
         &camera_matrix,
         args.pnp_ransac_iter_count.try_into().unwrap_or(1000),
-        1f32,
+        10f32,
         1.0 - f64::EPSILON, /*TIHI*/
         args.dist_coeff.as_deref(),
         Some(SolvePnPMethod::SOLVEPNP_EPNP), // i think this method is most appropriate, optionally it could be program argument
