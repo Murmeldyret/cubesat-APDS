@@ -1,20 +1,14 @@
 use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
 
-use feature_database::keypointdb::KeypointDatabase;
-use feature_database::models::Keypoint;
-use feature_database::schema::keypoint::descriptor;
-use feature_extraction::{
-    akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
-};
 use helpers::{
-    get_camera_matrix, img_obj_corres, read_and_extract_kp, Coordinates3d, ReadAndExtractKpResult,
+    get_camera_matrix, img_obj_corres, read_and_extract_kp
 };
-use homographier::homographier::{pnp_solver_ransac, raster_to_mat, Cmat, ImgObjCorrespondence};
+use homographier::homographier::pnp_solver_ransac;
 
-use diesel::{Connection, PgConnection};
+use diesel::PgConnection;
 use opencv::calib3d::SolvePnPMethod;
-use opencv::core::{MatTraitConst, Point2f, Point3_, Point3d, Point3f, Vector};
+use opencv::core::{MatTraitConst, Point3d};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -27,7 +21,7 @@ pub mod helpers;
 ///TODO:
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
-struct Args {
+pub struct Args {
     /// Path to the input image
     ///
     /// Image should be 8bit RGB, otherwise, opencv will try to convert
@@ -50,7 +44,7 @@ struct Args {
 }
 
 #[derive(Subcommand)]
-enum CameraIntrinsic {
+pub enum CameraIntrinsic {
     /// Load camera parameters from a file
     File {
         ///path to a file containing necesarry parameters

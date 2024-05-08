@@ -1,11 +1,11 @@
 use core::f64;
 use std::{
-    clone, env,
+    env,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
-use diesel::{Connection, PgConnection};
+use diesel::Connection;
 use feature_database::keypointdb::KeypointDatabase;
 use feature_extraction::{
     akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
@@ -13,14 +13,11 @@ use feature_extraction::{
 use homographier::homographier::{Cmat, ImgObjCorrespondence, PNPRANSACSolution};
 use opencv::{
     core::{
-        hconcat, hconcat2, DataType, ElemMul, KeyPoint, KeyPointTraitConst, Mat, MatExpr,
-        MatExprResult, MatExprTraitConst, MatTrait, MatTraitConst, MatTraitConstManual,
-        MatTraitManual, Point2d, Point2f, Point3d, Point3f, Point_, Scalar, Size2i, Size_, Vec4d,
-        Vector,
+        hconcat2, KeyPoint, KeyPointTraitConst, Mat, MatExprTraitConst, MatTraitConst, MatTraitConstManual, Point2d, Point2f, Point3d, Point3f, Point_, Size2i, Vec4d, Vector
     },
     imgcodecs::{IMREAD_COLOR, IMREAD_GRAYSCALE},
 };
-use rgb::alt::{BGR8, BGRA8};
+use rgb::alt::BGR8;
 
 use crate::{Args, CameraIntrinsic, DbType};
 
@@ -106,7 +103,7 @@ fn parse_into_matrix(path: String) -> Result<Cmat<f64>, ()> {
     let path = PathBuf::from(path);
     match path.extension().ok_or(())?.to_str().ok_or(())? {
         "json" => {
-            todo!("har ikke opsat parser endnu :)")
+            unimplemented!("har ikke opsat parser endnu :)")
         }
         _ => Err(()),
     }

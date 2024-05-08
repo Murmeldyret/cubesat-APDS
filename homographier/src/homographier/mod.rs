@@ -1,7 +1,7 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use opencv::{
-    calib3d::{find_homography, solve_pnp_ransac, SolvePnPMethod, RANSAC},
+    calib3d::{find_homography, solve_pnp_ransac, SolvePnPMethod},
     core::{
         Point2d, Point2f, Point3d, Scalar, Size2i, ToInputArray, ToOutputArray, Vec4b, Vector,
         BORDER_CONSTANT, CV_8UC4,
@@ -382,8 +382,7 @@ pub fn pnp_solver_ransac(
     )
     .map_err(MatError::Opencv)?;
     let mut rmat = Cmat::<f64>::zeros(3, 3)?;
-    let _ =
-        opencv::calib3d::rodrigues_def(&rvec.mat, &mut rmat).map_err(|e| MatError::Opencv(e))?;
+    opencv::calib3d::rodrigues_def(&rvec.mat, &mut rmat).map_err(MatError::Opencv)?;
     let solution = PNPRANSACSolution {
         rvec: rmat,
         tvec,
