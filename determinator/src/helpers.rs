@@ -8,15 +8,14 @@ use std::{
 use diesel::{Connection, PgConnection};
 use feature_database::keypointdb::KeypointDatabase;
 use feature_extraction::{
-    akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
+    akaze_keypoint_descriptor_extraction_def, export_matches, get_knn_matches, get_mat_from_dir, get_points_from_matches
 };
 use homographier::homographier::{Cmat, ImgObjCorrespondence};
 use opencv::{
     core::{
-        DataType, KeyPoint, MatTraitConst, Point2d, Point2f, Point3d, Point3f, Point_, Size2i,
-        Size_, Vector,
+        DataType, KeyPoint, KeyPointTraitConst, MatTraitConst, Point2d, Point2f, Point3d, Point3f, Point_, Size2i, Size_, Vector
     },
-    imgcodecs::{IMREAD_COLOR, IMREAD_GRAYSCALE},
+    imgcodecs::{IMREAD_COLOR, IMREAD_GRAYSCALE}, types::VectorOfDMatch,
 };
 use rgb::alt::{BGR8, BGRA8};
 
@@ -121,7 +120,6 @@ fn parse_into_matrix(path: String) -> Result<Cmat<f64>, ()> {
 
 pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjCorrespondence> {
     let (ref_keypoints, ref_descriptors) = ref_keypoints(args);
-    println!("{:#?}", ref_keypoints.len());
 
     match ref_descriptors {
         Some(val) => matching_with_descriptors(
@@ -152,11 +150,26 @@ fn matching_with_descriptors(
     ref_desc: &Cmat<u8>,
     ref_kp: Vector<KeyPoint>,
 ) -> Result<Vec<ImgObjCorrespondence>, opencv::Error> {
-    let matches = get_knn_matches(&img.0.mat, &ref_desc.mat, 2, 0.8)?;
+    let matches = get_knn_matches(&img.2.mat, &ref_desc.mat, 2, 0.9)?;
+    println!("origin keypoints: {}", img.1.len());
+    println!("matches: {}", matches.len());
 
     let (img_points, obj_points_2d) = get_points_from_matches(&img.1, &ref_kp, &matches)?;
     assert_eq!(img_points.len(), obj_points_2d.len());
 
+    let mut scaled_ref_kp = opencv::types::VectorOfKeyPoint::new();
+    for kp in &ref_kp {
+        // kp.pt() is divided by 32 as that is what it takes to convert a lod 0 (db) coordinate to lod5 (db_img)
+        scaled_ref_kp.push(opencv::core::KeyPoint::new_point(opencv::core::Point2f::new(kp.pt().x/32.0f32, kp.pt().y/32.0f32), kp.size(), kp.angle(), kp.response(), kp.octave(), kp.class_id()).unwrap());
+    }
+
+    // lod5 is used so that the image does not take too long to process
+    let db_img =  get_mat_from_dir("../DUNK/resources/test/images/danmark_lod5.png").unwrap();    
+    
+    let _ = export_matches(&img.0.mat, &img.1, &db_img, &scaled_ref_kp, &matches, "../out1.png");
+
+    let homography = opencv::calib3d::find_homography_def(&img_points, &obj_points_2d, &mut opencv::core::Mat::default());
+    dbg!(homography.unwrap());
     let obj_points = point2d_to_3d(obj_points_2d.into_iter().collect(), todo!());
 
     Ok(point_pair_to_correspondence(img_points, obj_points))
