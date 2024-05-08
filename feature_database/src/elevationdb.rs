@@ -90,9 +90,17 @@ pub mod geotransform {
 
             create_geotransform(connection, "dataset", transform).unwrap();
 
-            let fetched_transform: models::GeoTransform = dsl::geotransform.find(1).select(models::GeoTransform::as_select()).first(connection).unwrap();
+            let fetched_transform: models::GeoTransform = dsl::geotransform
+                .find(1)
+                .select(models::GeoTransform::as_select())
+                .first(connection)
+                .unwrap();
 
-            let fetched_transform: Vec<f64> = fetched_transform.transform.iter().map(|e| e.unwrap()).collect();
+            let fetched_transform: Vec<f64> = fetched_transform
+                .transform
+                .iter()
+                .map(|e| e.unwrap())
+                .collect();
 
             assert_eq!(fetched_transform, transform);
         }
@@ -109,11 +117,12 @@ pub mod geotransform {
                 transform: &transform,
             };
 
-            diesel::insert_into(crate::schema::geotransform::table).values(insert_tranform).execute(connection).unwrap();
+            diesel::insert_into(crate::schema::geotransform::table)
+                .values(insert_tranform)
+                .execute(connection)
+                .unwrap();
 
             let fetched_transform = read_geotransform(connection, "dataset").unwrap();
-
-
 
             assert_eq!(fetched_transform, transform);
         }
@@ -159,9 +168,9 @@ pub mod elevation {
         for i in 0..upload_limit {
             let insert_vec = insert_image[65535 * i..65535 * (i + 1)].to_vec();
             diesel::insert_into(crate::schema::elevation::table)
-            .values(insert_vec)
-            .execute(conn)
-            .map_err(|e| Errors::Diesel(e))?;
+                .values(insert_vec)
+                .execute(conn)
+                .map_err(|e| Errors::Diesel(e))?;
         }
         let insert_vec = insert_image[65535 * upload_limit..insert_image.len()].to_vec();
         diesel::insert_into(crate::schema::elevation::table)
@@ -193,8 +202,8 @@ pub mod elevation {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use gdal::Dataset;
         use crate::db_helpers::{obtain_lock, setup_database};
+        use gdal::Dataset;
         use std::env;
         #[test]
         fn add_elevation_data_to_db() {
@@ -204,14 +213,18 @@ pub mod elevation {
             let himmel_y = 1074;
             let mut current_dir = env::current_dir().expect("Current directory not set.");
 
-        current_dir.pop();
+            current_dir.pop();
             let path = "resources/test/Geotiff/Elevation_test/elevation/Copernicus_DSM_COG_30_N56_00_E009_00_DEM.tif";
             current_dir.push(path);
             let ds = Dataset::open(current_dir).unwrap();
 
             add_elevation_data(connection, &ds).unwrap();
 
-            let elevation_db: models::Elevation = crate::schema::elevation::dsl::elevation.find(himmel_y * 800 + himmel_x + 1).select(models::Elevation::as_select()).first(connection).unwrap();
+            let elevation_db: models::Elevation = crate::schema::elevation::dsl::elevation
+                .find(himmel_y * 800 + himmel_x + 1)
+                .select(models::Elevation::as_select())
+                .first(connection)
+                .unwrap();
 
             dbg!(&elevation_db.height);
 
@@ -226,7 +239,7 @@ pub mod elevation {
             let himmel_y = 1073.7972;
             let mut current_dir = env::current_dir().expect("Current directory not set.");
 
-        current_dir.pop();
+            current_dir.pop();
             let path = "resources/test/Geotiff/Elevation_test/elevation/Copernicus_DSM_COG_30_N56_00_E009_00_DEM.tif";
             current_dir.push(path);
             let ds = Dataset::open(current_dir).unwrap();
