@@ -1,24 +1,23 @@
 use core::f64;
 use std::{
-    clone, env,
+    env,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
-use diesel::{Connection, PgConnection};
+use diesel::Connection;
 use feature_database::keypointdb::KeypointDatabase;
 use feature_extraction::{
     akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
 };
-use homographier::homographier::{Cmat, ImgObjCorrespondence};
+use homographier::homographier::{Cmat, ImgObjCorrespondence, PNPRANSACSolution};
 use opencv::{
     core::{
-        DataType, KeyPoint, MatTraitConst, Point2d, Point2f, Point3d, Point3f, Point_, Size2i,
-        Size_, Vector,
+        hconcat2, KeyPoint, KeyPointTraitConst, Mat, MatExprTraitConst, MatTraitConst, MatTraitConstManual, Point2d, Point2f, Point3d, Point3f, Point_, Size2i, Vec4d, Vector
     },
     imgcodecs::{IMREAD_COLOR, IMREAD_GRAYSCALE},
 };
-use rgb::alt::{BGR8, BGRA8};
+use rgb::alt::BGR8;
 
 use crate::{Args, CameraIntrinsic, DbType};
 
@@ -51,15 +50,13 @@ pub struct ReadAndExtractKpResult(pub Cmat<BGR8>, pub Vector<KeyPoint>, pub Cmat
 
 pub fn read_and_extract_kp(im_path: &Path) -> ReadAndExtractKpResult {
     if !im_path.is_file() {
-        panic!(
-            "{} Provided image path does not point to a file",
-            im_path.to_str().expect("TODO")
-        );
+        panic!("{:?} Provided image path does not point to a file", im_path);
     }
 
     assert!(
-        matches!(im_path.extension().expect("").to_str(), Some(val) if ["png", "jpg", "jpeg", "tif", "tiff"].contains(&val.to_lowercase().as_str())),
-        "input image file format is unsupported"
+        matches!(im_path.extension().expect("Image has no file extension").to_str(), Some(val) if ["png", "jpg", "jpeg", "tif", "tiff"].contains(&val.to_lowercase().as_str())),
+        "input image of file format {:?} is unsupported",
+        im_path.extension()
     );
     let path = im_path
         .to_str()
@@ -68,20 +65,13 @@ pub fn read_and_extract_kp(im_path: &Path) -> ReadAndExtractKpResult {
     // it is assumed that input images will not contain an alpha channel
     let image = Cmat::<BGR8>::imread_checked(path, IMREAD_COLOR).expect("Failed to read image");
 
-    // dbg!(&image);
     let extracted = akaze_keypoint_descriptor_extraction_def(&image.mat)
         .expect("AKAZE keypoint extraction failed");
-
-    // assert_eq!(
-    //     descriptors.typ(),
-    //     u8::opencv_type(),
-    //     "keypoint descriptors are not of type u8"
-    // );
 
     ReadAndExtractKpResult(
         image,
         extracted.keypoints,
-        Cmat::<u8>::new(extracted.descriptors).expect("msg"),
+        Cmat::<u8>::new(extracted.descriptors).expect("Matrix construction should not fail"),
     )
 }
 
@@ -113,7 +103,7 @@ fn parse_into_matrix(path: String) -> Result<Cmat<f64>, ()> {
     let path = PathBuf::from(path);
     match path.extension().ok_or(())?.to_str().ok_or(())? {
         "json" => {
-            todo!("har ikke opsat parser endnu :)")
+            unimplemented!("har ikke opsat parser endnu :)")
         }
         _ => Err(()),
     }
@@ -129,20 +119,31 @@ pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjC
             &Cmat::<u8>::from_2d_slice(&val).expect("Failed to convert keypoints to matrix"),
             Vector::from_iter(ref_keypoints),
         )
-        .expect("TODO"),
+        .expect("keypoint matching failed"),
         None => {
-            // let points = get_points_from_matches(image.1, ref_keypoints, matches)
             let mut img_points: Vector<Point2f> = Vector::new();
-            let _ = opencv::calib3d::find_chessboard_corners_def(
+            opencv::calib3d::find_chessboard_corners_def(
                 &Cmat::<u8>::imread_checked(&args.img_path.to_string_lossy(), IMREAD_GRAYSCALE)
                     .expect("failed to read image")
                     .mat,
                 Size2i::new(7, 7),
                 &mut img_points,
-            ).expect("msg").then_some(()).expect("msg");
-            // let obj_points = point2d_to_3d(ref_keypoints, todo!());
-            // point_pair_to_correspondence(image.1, obj_points)
-            todo!()
+            )
+            .expect("failed to find chessboard corners")
+            .then_some(())
+            .expect("failed to find chessboard corners");
+            assert_eq!(ref_keypoints.len(), img_points.len());
+            let corres = ref_keypoints
+                .into_iter()
+                .zip(img_points)
+                .map(|(o, i)| {
+                    ImgObjCorrespondence::new(
+                        Point3d::from_point(o.pt().to().expect("f32 cast to f64 should not fail")),
+                        i.to().expect("f32 cast to f64 should not fail"),
+                    )
+                })
+                .collect::<Vec<_>>();
+            corres
         }
     }
 }
@@ -152,14 +153,27 @@ fn matching_with_descriptors(
     ref_desc: &Cmat<u8>,
     ref_kp: Vector<KeyPoint>,
 ) -> Result<Vec<ImgObjCorrespondence>, opencv::Error> {
-    let matches = get_knn_matches(&img.0.mat, &ref_desc.mat, 2, 0.8)?;
+    let matches = get_knn_matches(&img.2.mat, &ref_desc.mat, 2, 0.8)?;
 
     let (img_points, obj_points_2d) = get_points_from_matches(&img.1, &ref_kp, &matches)?;
     assert_eq!(img_points.len(), obj_points_2d.len());
 
-    let obj_points = point2d_to_3d(obj_points_2d.into_iter().collect(), todo!());
+    // map object points to real world coordinates
+    let obj_points = get_3d_world_coord_from_2d_point(
+        obj_points_2d
+            .into_iter()
+            .map(|f| Point2d::new(f.x as f64, f.y as f64))
+            .collect(),
+        todo!("det er ikke helt klart endnu"),
+    );
 
-    Ok(point_pair_to_correspondence(img_points, obj_points))
+    Ok(point_pair_to_correspondence(
+        img_points,
+        obj_points
+            .into_iter()
+            .map(|f| Point3f::new(f.x as f32, f.y as f32, f.z as f32))
+            .collect::<Vec<_>>(),
+    ))
 }
 
 fn point_pair_to_correspondence(
@@ -239,18 +253,13 @@ fn db_kp_to_opencv_kp(
     (ref_keypoints, ref_descriptors)
 }
 
-///
-pub fn point2d_to_3d(points: Vec<Point2f>, topo: Cmat<f32>) -> Vec<Point3f> {
+// TODO: kan godt være topo parameter skal ændres til en anden type
+pub fn get_3d_world_coord_from_2d_point(points: Vec<Point2d>, db: DbType) -> Vec<Point3d> {
     points
         .into_iter()
         .map(|p| {
-            Point3f::new(
-                p.x,
-                p.y,
-                *topo
-                    .at_2d(p.x.floor() as i32, p.y.floor() as i32)
-                    .expect("Out of bounds"),
-            )
+            let world_coord: (f64, f64, f64) = todo!("@rasmus"); //@Murmeldyret
+            Point3d::new(world_coord.0, world_coord.1, world_coord.2)
         })
         .collect::<Vec<_>>()
 }
@@ -261,4 +270,61 @@ pub fn point2f_to2d(p: Point2f) -> Point2d {
 
 pub fn point3f_to3d(p: Point3f) -> Point3d {
     Point3d::new(p.x as f64, p.y as f64, p.z as f64)
+}
+// https://docs.opencv.org/4.x/dc/d2c/tutorial_real_time_pose.html
+/// # Returns
+/// a 2d homogenous point (z=1)
+pub fn project_obj_point(
+    obj_point: Point3d,
+    solution: PNPRANSACSolution,
+    cam_mat: Cmat<f64>,
+) -> Point3d {
+    // let tvec = [first,second,third];
+    let mut rt_mat = Cmat::<f64>::zeros(4, 4).expect("Matrix initialization should not fail");
+    hconcat2(&solution.rvec.mat, &solution.tvec.mat, &mut rt_mat.mat)
+        .expect("Matrix operation should not fail");
+    let rt_mat = rt_mat;
+
+    // homogenous object point
+    let obj_point_hom = Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64).to_vec();
+
+    // dbg!(&obj_point_hom);
+    // println!("{:?}\n{:?}\n{:?}\n",rt_mat.mat.at_row::<f64>(0).unwrap(),rt_mat.mat.at_row::<f64>(1).unwrap(),rt_mat.mat.at_row::<f64>(2).unwrap());
+    let obj_point_hom_mat =
+        Mat::from_slice(&Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64).to_vec())
+            .expect("Matrix construction should not fail");
+
+    let mut temp = (cam_mat.mat * rt_mat.mat)
+        .into_result()
+        .expect("matrix expression should not failed")
+        .to_mat()
+        .expect("matrix construction should not fail");
+
+    assert_eq!(temp.rows(),3,"Matrix multiplication between calibration matrix (A) and rotation+translation matix (Rt) should yield a 3X4 matrix");
+    assert_eq!(temp.cols(),4,"Matrix multiplication between calibration matrix (A) and rotation+translation matix (Rt) should yield a 3X4 matrix");
+
+    // println!("{:?}\n{:?}\n{:?}\n",temp.at_row::<f64>(0).unwrap(),temp.at_row::<f64>(1).unwrap(),temp.at_row::<f64>(2).unwrap());
+    let mut result: [f64; 3] = [0f64; 3];
+    // this is because opencv does not allow matrix vector product for some reason :(
+    for (i, e) in result.iter_mut().enumerate().take(temp.rows() as usize) {
+        *e = temp
+            .at_row::<f64>(i as i32)
+            .expect("row index should be within range")
+            .iter()
+            .enumerate()
+            .map(|(i, e)| {
+                e * obj_point_hom
+                    .get(i)
+                    .expect("index should not be out of range")
+            })
+            // .inspect(|f|{dbg!(f);})
+            .reduce(|acc, elem| acc + elem)
+            .expect("Reduce operation should yield a value");
+    }
+    Point3d::new(result[0] / result[2], result[1] / result[2], 1f64)
+    // let vector = temp.iter::<f64>().unwrap().map(|(p,e)|e*obj_point_hom.get(p.y as usize).unwrap()).collect::<Vec<f64>>();
+    // let rhs = dbg!(temp.dot(&obj_point_hom));
+    // dbg!(&rhs);
+    // let _ = temp.iter::<f64>().unwrap().inspect(|f|println!("({},{}) = {}",f.0.x,f.0.y,f.1)).collect::<Vec<_>>();
+    // let rhs = temp.elem_mul(obj_point_hom).into_result().unwrap().to_mat().unwrap();
 }

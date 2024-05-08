@@ -1,36 +1,27 @@
 use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
 
-use feature_database::keypointdb::KeypointDatabase;
-use feature_database::models::Keypoint;
-use feature_database::schema::keypoint::descriptor;
-use feature_extraction::{
-    akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
-};
 use helpers::{
-    get_camera_matrix, img_obj_corres, read_and_extract_kp, Coordinates3d, ReadAndExtractKpResult,
+    get_camera_matrix, img_obj_corres, read_and_extract_kp
 };
-use homographier::homographier::{pnp_solver_ransac, raster_to_mat, Cmat, ImgObjCorrespondence};
+use homographier::homographier::pnp_solver_ransac;
 
-use diesel::{Connection, PgConnection};
+use diesel::PgConnection;
 use opencv::calib3d::SolvePnPMethod;
-use opencv::core::{Point2f, Point3f, Vector};
-use rgb::alt::BGRA;
-use rgb::{alt::BGRA8, RGBA};
-use std::env;
+use opencv::core::{MatTraitConst, Point3d};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
 
-use crate::helpers::{point2d_to_3d, point2f_to2d, point3f_to3d, ref_keypoints};
+use crate::helpers::project_obj_point;
 
 pub mod helpers;
 
 ///TODO:
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
-struct Args {
+pub struct Args {
     /// Path to the input image
     ///
     /// Image should be 8bit RGB, otherwise, opencv will try to convert
@@ -45,15 +36,15 @@ struct Args {
     #[command(subcommand)]
     cam_matrix: CameraIntrinsic,
     /// List of distortion coefficients, if any is supplied, length should be either 4,5,8,8,12 or 14
-    #[arg(short,long,num_args(4..))]
+    #[arg(short,long,num_args(4..),allow_negative_numbers=true)]
     dist_coeff: Option<Vec<f64>>,
     /// Whether or not to run this program in demo mode
-    #[arg(long, default_value_t = false)]
+    #[arg(long)]
     demo: bool,
 }
 
 #[derive(Subcommand)]
-enum CameraIntrinsic {
+pub enum CameraIntrinsic {
     /// Load camera parameters from a file
     File {
         ///path to a file containing necesarry parameters
@@ -83,8 +74,14 @@ type DbType = Arc<Mutex<PgConnection>>;
 fn main() {
     dotenv().expect("failed to read environment variables");
     let args = Args::parse();
-    println!("args loaded");
 
+    if let Some(coeffs) = &args.dist_coeff {
+        assert!(
+            matches!(coeffs.len(), 4 | 5 | 8 | 12 | 14),
+            "Distortion coefficient length does not have required length of 4|5|8|12|14, found {}",
+            coeffs.len()
+        );
+    }
     let extraction = read_and_extract_kp(&args.img_path);
     println!("extraction done");
     let point_correspondences = img_obj_corres(&args, extraction);
@@ -96,13 +93,31 @@ fn main() {
     let solution = pnp_solver_ransac(
         &point_correspondences,
         &camera_matrix,
-        args.pnp_ransac_iter_count.try_into().unwrap_or(1000),
-        10000f32,
-        0.9,
+        args.pnp_ransac_iter_count.try_into().unwrap_or(10000),
+        8f32,
+        1.0 - f64::EPSILON, /*TIHI*/
         args.dist_coeff.as_deref(),
         Some(SolvePnPMethod::SOLVEPNP_EPNP), // i think this method is most appropriate, optionally it could be program argument
     )
-    .expect("Failed to solve PNP problem");
-    println!("{:#?}", solution.unwrap());
-    // dbg!(solution);
+    .expect("Failed to solve PNP problem")
+    .expect("No solution was obtained to the PNP problem");
+    dbg!(solution.inliers.mat.size());
+    // TODO: By using the obtained solution, we can map object points to image points, this must be done to find where the image points lie in 3d space
+    // evt kig på dette: https://en.wikipedia.org/wiki/Perspective-n-Point#Methods
+    println!(
+        "rotation matrix =\n{}translation matrix =\n{}",
+        solution.rvec.format_elems(),
+        solution.tvec.format_elems()
+    );
+    println!(
+        "Inlier ratio: {:.2} ({}/{})",
+        (solution.inliers.mat.rows() as f64) / (point_correspondences.len() as f64),
+        solution.inliers.mat.rows(),
+        point_correspondences.len(),
+    );
+    dbg!(project_obj_point(
+        Point3d::new(1.0, 1.0, 1.0),
+        solution,
+        camera_matrix
+    ));
 }
