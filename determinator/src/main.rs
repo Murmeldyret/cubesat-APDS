@@ -80,7 +80,13 @@ type DbType = Arc<Mutex<PgConnection>>;
 fn main() {
     dotenv().expect("failed to read environment variables");
     let args = Args::parse();
-
+    if let Some(coeffs) = &args.dist_coeff {
+        assert!(
+            matches!(coeffs.len(), 4 | 5 | 8 | 12 | 14),
+            "Distortion coefficient length does not have required length of 4|5|8|12|14, found {}",
+            coeffs.len()
+        );
+    }
     let extraction = read_and_extract_kp(&args.img_path);
 
     let point_correspondences = img_obj_corres(&args, extraction);
