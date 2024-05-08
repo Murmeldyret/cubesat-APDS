@@ -154,7 +154,7 @@ fn matching_with_descriptors(
     ref_kp: Vector<KeyPoint>,
 ) -> Result<Vec<ImgObjCorrespondence>, opencv::Error> {
 
-    let matches = get_knn_matches(&img.2.mat, &ref_desc.mat, 2, 0.9)?;
+    let matches = get_knn_matches(&img.2.mat, &ref_desc.mat, 2, 0.5)?;
     println!("origin keypoints: {}", img.1.len());
     println!("matches: {}", matches.len());
 
@@ -173,7 +173,6 @@ fn matching_with_descriptors(
     let _ = export_matches(&img.0.mat, &img.1, &db_img, &scaled_ref_kp, &matches, "../out1.png");
 
     let homography = opencv::calib3d::find_homography_def(&img_points, &obj_points_2d, &mut opencv::core::Mat::default());
-    dbg!(homography.unwrap());
     // map object points to real world coordinates
     let obj_points = get_3d_world_coord_from_2d_point(
         obj_points_2d
