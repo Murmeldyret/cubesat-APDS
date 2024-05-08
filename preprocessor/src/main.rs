@@ -279,10 +279,10 @@ fn feature_extraction_to_database(
     // Insert the image into the database.
     let insert_image = models::InsertImage {
         level_of_detail: &(lod as i32),
-        x_start: &((column * tile_size.0) as i32),
-        x_end: &((column * tile_size.0 + tile_size.0 - 1) as i32),
-        y_start: &((row * tile_size.1) as i32),
-        y_end: &((row * tile_size.1 + tile_size.1 - 1) as i32),
+        x_start: &((column * tile_size.0 * 2_u64.pow(lod as u32)) as i32),
+        x_end: &((column * tile_size.0 * 2_u64.pow(lod as u32) + tile_size.0 * 2_u64.pow(lod as u32) - 1) as i32),
+        y_start: &((row * tile_size.1 * 2_u64.pow(lod as u32)) as i32),
+        y_end: &((row * tile_size.1 * 2_u64.pow(lod as u32) + tile_size.1 * 2_u64.pow(lod as u32) - 1) as i32),
     };
 
     let insert_image = imagedb::Image::One(insert_image);
