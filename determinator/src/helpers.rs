@@ -111,7 +111,6 @@ fn parse_into_matrix(path: String) -> Result<Cmat<f64>, ()> {
 
 pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjCorrespondence> {
     let (ref_keypoints, ref_descriptors) = ref_keypoints(args);
-    println!("{:#?}", ref_keypoints.len());
 
     match ref_descriptors {
         Some(val) => matching_with_descriptors(
@@ -188,7 +187,6 @@ fn point_pair_to_correspondence(
 }
 
 pub fn ref_keypoints(args: &Args) -> (Vec<KeyPoint>, Option<Vec<Vec<u8>>>) {
-    println!("entering ref_keypoints");
     match args.demo {
         true => {
             // TIHI @Murmeldyret, here be no side effects
@@ -217,13 +215,11 @@ fn keypoints_from_db(conn_url: &str, arg: &Args) -> (Vec<KeyPoint>, Vec<Vec<u8>>
     ));
 
     // retrieve keypoints from mosaic image
-    println!("keypoints_from_db connected");
     let ref_keypoints = feature_database::keypointdb::Keypoint::read_keypoints_from_lod(
         &mut conn.lock().expect("Mutex poisoning"),
         arg.lod,
     )
     .expect("Failed to query database");
-    println!("keypoints: {:#?}", ref_keypoints.len());
     // Map keypoints to opencv compatible type
     let (ref_keypoints, ref_descriptors) = db_kp_to_opencv_kp(ref_keypoints);
 

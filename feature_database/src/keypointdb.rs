@@ -52,8 +52,6 @@ impl<'a> KeypointDatabase for Keypoint<'a> {
         level_of_detail: i32,
     ) -> Result<Vec<models::Keypoint>, DieselError> {
         use crate::schema::ref_image;
-        println!("read_keypoints_from_lod");
-        println!("{}", level_of_detail);
 
         let keypoints_vec: Vec<models::Keypoint> = dsl::keypoint
             .inner_join(ref_image::dsl::ref_image)
@@ -62,8 +60,6 @@ impl<'a> KeypointDatabase for Keypoint<'a> {
             .limit(OPENCV_KEYPOINT_LIMIT)
             .select(models::Keypoint::as_select())
             .load(conn)?;
-
-        println!("finished");
 
         Ok(keypoints_vec)
     }
