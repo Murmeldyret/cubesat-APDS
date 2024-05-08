@@ -1,7 +1,7 @@
-use std::marker::PhantomData;
+use std::{fmt::Debug, marker::PhantomData};
 
 use opencv::{
-    calib3d::{find_homography, solve_pnp_ransac, SolvePnPMethod, RANSAC},
+    calib3d::{find_homography, solve_pnp_ransac, SolvePnPMethod},
     core::{
         Point2d, Point2f, Point3d, Scalar, Size2i, ToInputArray, ToOutputArray, Vec4b, Vector,
         BORDER_CONSTANT, CV_8UC4,
@@ -126,6 +126,20 @@ impl<T: DataType> Cmat<T> {
     pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
         let res = Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)?;
         Ok(res)
+    }
+    pub fn format_elems(&self) -> String
+    where
+        T: Debug,
+    {
+        let mut output = String::new();
+        for i in 0..self.mat.rows() {
+            output = format!(
+                "{}{:?}\n",
+                output,
+                self.mat.at_row::<T>(i).expect("failed to read row")
+            );
+        }
+        output
     }
     /// Checked element access
     ///
@@ -310,7 +324,7 @@ pub fn warp_image_perspective<T: DataType>(
 /// * point_correspondences: a slice of 3d-to-2d point correspondences, minimum length is 4 (even in the P3P case, where the 4th point is used to find the solution with least reprojection error)
 /// * camera_intrinsic: the camera calibration matrix 3X3
 /// * iter_count: How many iteration the ransac algorithm should perform
-/// * reproj_thres:
+/// * reproj_thres: Maximum allowed reprojection error. NOTE setting this value to a low number may result in a very low inlier ratio
 /// * confidence: //TODO
 /// * dist_coeffs: distortion coefficients from camera calibration, if [`None`], a zero length vector is assumed
 /// ## Returns
@@ -346,7 +360,10 @@ pub fn pnp_solver_ransac(
 
     let mut inliers = Cmat::<i32>::zeros(1, 1)?;
 
-    let dist_coeffs = Cmat::<f64>::zeros(4, 1)?;
+    let dist_coeffs = match dist_coeffs {
+        Some(val) => Cmat::<f64>::new(Mat::from_slice(val).map_err(MatError::Opencv)?)?,
+        None => Cmat::<f64>::zeros(4, 1)?,
+    };
 
     // i think that Ok(false) means that there is no solution, but no errors happened
     let res = solve_pnp_ransac(
@@ -364,8 +381,10 @@ pub fn pnp_solver_ransac(
         method.unwrap_or(SolvePnPMethod::SOLVEPNP_EPNP) as i32,
     )
     .map_err(MatError::Opencv)?;
+    let mut rmat = Cmat::<f64>::zeros(3, 3)?;
+    opencv::calib3d::rodrigues_def(&rvec.mat, &mut rmat).map_err(MatError::Opencv)?;
     let solution = PNPRANSACSolution {
-        rvec,
+        rvec: rmat,
         tvec,
         inliers,
     };
