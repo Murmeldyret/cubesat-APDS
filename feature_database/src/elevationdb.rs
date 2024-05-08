@@ -96,6 +96,37 @@ pub mod geotransform {
 
             assert_eq!(fetched_transform, transform);
         }
+
+        #[test]
+        fn read_geotransform_from_database() {
+            let _lock = obtain_lock();
+            let connection = &mut setup_database();
+
+            let transform: [f64; 6] = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+
+            let insert_tranform = models::InsertGeoTransform {
+                dataset_name: "dataset",
+                transform: &transform,
+            };
+
+            diesel::insert_into(crate::schema::geotransform::table).values(insert_tranform).execute(connection).unwrap();
+
+            let fetched_transform = read_geotransform(connection, "dataset").unwrap();
+
+
+
+            assert_eq!(fetched_transform, transform);
+        }
+
+        #[test]
+        fn read_geotransform_from_empty() {
+            let _lock = obtain_lock();
+            let connection = &mut setup_database();
+
+            let fetched_transform = read_geotransform(connection, "dataset");
+
+            assert!(fetched_transform.is_err());
+        }
     }
 }
 
@@ -152,10 +183,61 @@ pub mod elevation {
             .first(conn)?;
 
         let height: models::Elevation = elevation::dsl::elevation
-            .find(y.round() as i32 * properties.x_size + x.round() as i32)
+            .find(y.round() as i32 * properties.x_size + x.round() as i32 + 1)
             .select(models::Elevation::as_select())
             .first(conn)?;
 
         Ok(height.height)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use gdal::Dataset;
+        use crate::db_helpers::{obtain_lock, setup_database};
+        use std::env;
+        #[test]
+        fn add_elevation_data_to_db() {
+            let _lock = obtain_lock();
+            let connection = &mut setup_database();
+            let himmel_x = 549;
+            let himmel_y = 1074;
+            let mut current_dir = env::current_dir().expect("Current directory not set.");
+
+        current_dir.pop();
+            let path = "resources/test/Geotiff/Elevation_test/elevation/Copernicus_DSM_COG_30_N56_00_E009_00_DEM.tif";
+            current_dir.push(path);
+            let ds = Dataset::open(current_dir).unwrap();
+
+            add_elevation_data(connection, &ds).unwrap();
+
+            let elevation_db: models::Elevation = crate::schema::elevation::dsl::elevation.find(himmel_y * 800 + himmel_x + 1).select(models::Elevation::as_select()).first(connection).unwrap();
+
+            dbg!(&elevation_db.height);
+
+            assert!((elevation_db.height - 147.0).abs() < 2.0)
+        }
+
+        #[test]
+        fn get_elevation_data_from_db() {
+            let _lock = obtain_lock();
+            let connection = &mut setup_database();
+            let himmel_x = 549.04;
+            let himmel_y = 1073.7972;
+            let mut current_dir = env::current_dir().expect("Current directory not set.");
+
+        current_dir.pop();
+            let path = "resources/test/Geotiff/Elevation_test/elevation/Copernicus_DSM_COG_30_N56_00_E009_00_DEM.tif";
+            current_dir.push(path);
+            let ds = Dataset::open(current_dir).unwrap();
+
+            add_elevation_data(connection, &ds).unwrap(); // I know it makes it dependent on another function but it's a nightmare to do it directly in diesel, soo......
+
+            let elevation_db = get_elevation(connection, himmel_x, himmel_y).unwrap();
+
+            dbg!(&elevation_db);
+
+            assert!((elevation_db - 147.0).abs() < 2.0)
+        }
     }
 }
