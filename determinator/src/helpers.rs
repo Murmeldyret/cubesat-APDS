@@ -303,11 +303,10 @@ pub fn project_obj_point(
     assert_eq!(temp.cols(),4,"Matrix multiplication between calibration matrix (A) and rotation+translation matix (Rt) should yield a 3X4 matrix");
 
     // println!("{:?}\n{:?}\n{:?}\n",temp.at_row::<f64>(0).unwrap(),temp.at_row::<f64>(1).unwrap(),temp.at_row::<f64>(2).unwrap());
-    // let a_rt = temp.at_mut::<f64>(0).unwrap();
     let mut result: [f64; 3] = [0f64; 3];
     // this is because opencv does not allow matrix vector product for some reason :(
-    for i in 0..temp.rows() as usize {
-        result[i] = temp
+    for (i, e) in result.iter_mut().enumerate().take(temp.rows() as usize) {
+        *e = temp
             .at_row::<f64>(i as i32)
             .expect("row index should be within range")
             .iter()
