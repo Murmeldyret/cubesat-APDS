@@ -45,7 +45,7 @@ struct Args {
     #[arg(short,long,num_args(4..),allow_negative_numbers=true)]
     dist_coeff: Option<Vec<f64>>,
     /// Whether or not to run this program in demo mode
-    #[arg(long, default_value_t = false)]
+    #[arg(long)]
     demo: bool,
 }
 
