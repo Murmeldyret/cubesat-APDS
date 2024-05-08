@@ -13,7 +13,8 @@ use feature_extraction::{
 use homographier::homographier::{Cmat, ImgObjCorrespondence, PNPRANSACSolution};
 use opencv::{
     core::{
-        hconcat2, KeyPoint, KeyPointTraitConst, Mat, MatExprTraitConst, MatTraitConst, MatTraitConstManual, Point2d, Point2f, Point3d, Point3f, Point_, Size2i, Vec4d, Vector
+        hconcat2, KeyPoint, KeyPointTraitConst, Mat, MatExprTraitConst, MatTraitConst,
+        MatTraitConstManual, Point2d, Point2f, Point3d, Point3f, Point_, Size2i, Vec4d, Vector,
     },
     imgcodecs::{IMREAD_COLOR, IMREAD_GRAYSCALE},
 };
