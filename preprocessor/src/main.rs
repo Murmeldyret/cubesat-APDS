@@ -297,8 +297,8 @@ fn feature_extraction_to_database(
         .to_db_type(image_id)
         .into_iter()
         .map(|keypoint| DbKeypoints {
-            x_coord: keypoint.x_coord + (column * tile_size.0 * 2_u64.pow(lod as u32)) as f32,
-            y_coord: keypoint.y_coord + (row * tile_size.1 * 2_u64.pow(lod as u32)) as f32,
+            x_coord: keypoint.x_coord * 2_f32.powi(lod as i32) + (column * tile_size.0 * 2_u64.pow(lod as u32)) as f32,
+            y_coord: keypoint.y_coord * 2_f32.powi(lod as i32) + (row * tile_size.1 * 2_u64.pow(lod as u32)) as f32,
             ..keypoint
         })
         .collect();
