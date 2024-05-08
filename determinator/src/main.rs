@@ -74,6 +74,7 @@ type DbType = Arc<Mutex<PgConnection>>;
 fn main() {
     dotenv().expect("failed to read environment variables");
     let args = Args::parse();
+
     if let Some(coeffs) = &args.dist_coeff {
         assert!(
             matches!(coeffs.len(), 4 | 5 | 8 | 12 | 14),
@@ -82,9 +83,11 @@ fn main() {
         );
     }
     let extraction = read_and_extract_kp(&args.img_path);
-
+    println!("extraction done");
     let point_correspondences = img_obj_corres(&args, extraction);
+    println!("point correnspondences");
     let camera_matrix = get_camera_matrix(args.cam_matrix).expect("Failed to get camera matrix");
+    println!("camera matrix");
 
     // TODO: needs real camera matrix. Probably also a good guess for reproj_thres and confidence
     let solution = pnp_solver_ransac(
