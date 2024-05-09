@@ -262,6 +262,12 @@ fn db_kp_to_opencv_kp(
 }
 
 // TODO: kan godt være topo parameter skal ændres til en anden type
+/// Maps a 2d keypoint to a 3d object point, for use in creating image-object point correspondences
+/// # Parameters
+/// * points: a vector of keypoints from a reference image
+/// * db: connection to database
+/// # Returns
+/// a vector of object points in real world coordinates (/*TODO: cartesian or ellipsoidal coordinates? */)
 pub fn get_3d_world_coord_from_2d_point(points: Vec<Point2d>, db: DbType) -> Vec<Point3d> {
     points
         .into_iter()
@@ -280,6 +286,7 @@ pub fn point3f_to3d(p: Point3f) -> Point3d {
     Point3d::new(p.x as f64, p.y as f64, p.z as f64)
 }
 // https://docs.opencv.org/4.x/dc/d2c/tutorial_real_time_pose.html
+/// Finds where a given point would appear on the image
 /// # Returns
 /// a 2d homogenous point (z=1)
 pub fn project_obj_point(
@@ -338,6 +345,10 @@ pub fn project_obj_point(
 }
 
 /// implementation of equation found here: https://docs.opencv.org/4.x/d5/d1f/calib3d_solvePnP.html
+/// Maps a coordinate expressed in the world (global) frame to a coordinate expressed in the camera (local) frame
+/// # Note
+/// If the function returns (0,0,0), that means that the given object point is the world coordinate of the camera 
+/// 
 pub fn world_frame_to_camera_frame(obj_point: Point3d, solution: &PNPRANSACSolution) -> Point3d {
     let obj_point_hom = Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64);
     let obj_point_hom_mat =
