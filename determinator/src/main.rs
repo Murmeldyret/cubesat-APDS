@@ -12,7 +12,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::helpers::project_obj_point;
+use crate::helpers::{project_obj_point, world_frame_to_camera_frame};
 
 pub mod helpers;
 
@@ -110,9 +110,11 @@ fn main() {
         solution.inliers.mat.rows(),
         point_correspondences.len(),
     );
-    dbg!(project_obj_point(
-        Point3d::new(1.0, 1.0, 1.0),
-        solution,
-        camera_matrix
-    ));
+    // dbg!(project_obj_point(
+    //     Point3d::new(1.0, 1.0, 1.0),
+    //     solution,
+    //     camera_matrix
+    // ));
+    dbg!(world_frame_to_camera_frame(Point3d::new(0.0, 0.0, 0.0), &solution));
+    dbg!(world_frame_to_camera_frame(Point3d::new(6.0, 6.0, 0.0), &solution));
 }

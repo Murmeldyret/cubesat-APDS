@@ -13,8 +13,7 @@ use feature_extraction::{
 use homographier::homographier::{Cmat, ImgObjCorrespondence, PNPRANSACSolution};
 use opencv::{
     core::{
-        hconcat2, KeyPoint, KeyPointTraitConst, Mat, MatExprTraitConst, MatTraitConst,
-        MatTraitConstManual, Point2d, Point2f, Point3d, Point3f, Point_, Size2i, Vec4d, Vector,
+        hconcat2, KeyPoint, KeyPointTraitConst, Mat, MatExprTraitConst, MatTrait, MatTraitConst, MatTraitConstManual, Point2d, Point2f, Point3_, Point3d, Point3f, Point_, Size2i, Vec4d, Vector
     },
     imgcodecs::{IMREAD_COLOR, IMREAD_GRAYSCALE},
 };
@@ -324,4 +323,40 @@ pub fn project_obj_point(
     // dbg!(&rhs);
     // let _ = temp.iter::<f64>().unwrap().inspect(|f|println!("({},{}) = {}",f.0.x,f.0.y,f.1)).collect::<Vec<_>>();
     // let rhs = temp.elem_mul(obj_point_hom).into_result().unwrap().to_mat().unwrap();
+}
+
+
+/// implementation of equation found here: https://docs.opencv.org/4.x/d5/d1f/calib3d_solvePnP.html
+pub fn world_frame_to_camera_frame(obj_point: Point3d, solution: &PNPRANSACSolution ) -> Point3d {
+
+    let obj_point_hom = Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64);
+    let obj_point_hom_mat = Mat::from_slice(&obj_point_hom.to_vec()).expect("matrix initialization should not fail");
+
+    let mut rt_mat = Cmat::<f64>::zeros(4, 4).expect("matrix initialization should not fail");
+    hconcat2(&solution.rvec.mat, &solution.tvec.mat, &mut rt_mat.mat)
+        .expect("Matrix operation should not fail");
+    
+    // add row with values [0,0,0,1]
+    rt_mat.mat.resize(4).expect("matrix resize should not fail");
+    *rt_mat.mat.at_2d_mut(3, 3).expect("index should be within range") = 1f64;
+    let rt_mat = rt_mat.mat;
+
+    
+    let mut result: [f64;4] = [0f64;4];
+    for i in 0..rt_mat.rows() {
+        result[i as usize] = rt_mat.at_row::<f64>(i)
+        .expect("should be within bounds")
+        .iter()
+        .enumerate()
+        .map(|(i, e)| {
+            e * obj_point_hom
+                .get(i)
+                .expect("index should not be out of range")
+        })
+        // .inspect(|f|{dbg!(f);})
+        .reduce(|acc, elem| acc + elem)
+        .expect("Reduce operation should yield a value");
+    }
+    Point3d::new(result[0], result[1], result[2])
+
 }
