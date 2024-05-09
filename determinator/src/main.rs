@@ -1,16 +1,12 @@
 use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
 
-use helpers::{get_camera_matrix, img_obj_corres, read_and_extract_kp,validate_args};
+use helpers::{get_camera_matrix, img_obj_corres, read_and_extract_kp, validate_args};
 use homographier::homographier::pnp_solver_ransac;
 
-use diesel::PgConnection;
 use opencv::calib3d::SolvePnPMethod;
 use opencv::core::{MatTraitConst, Point3d};
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::path::PathBuf;
 
 use crate::helpers::{project_obj_point, world_frame_to_camera_frame};
 
@@ -66,7 +62,6 @@ pub enum CameraIntrinsic {
     },
 }
 
-type DbType = Arc<Mutex<PgConnection>>;
 #[allow(unreachable_code)]
 #[forbid(clippy::unwrap_used)]
 fn main() {
@@ -91,7 +86,6 @@ fn main() {
     .expect("Failed to solve PNP problem")
     .expect("No solution was obtained to the PNP problem");
     dbg!(solution.inliers.mat.size());
-    // TODO: By using the obtained solution, we can map object points to image points, this must be done to find where the image points lie in 3d space
     // evt kig på dette: https://en.wikipedia.org/wiki/Perspective-n-Point#Methods
     println!(
         "rotation matrix =\n{}translation matrix =\n{}",
@@ -118,5 +112,3 @@ fn main() {
         &solution
     ));
 }
-
-

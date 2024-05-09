@@ -1,6 +1,9 @@
 use core::f64;
 use std::{
-    env, num::FpCategory, path::{Path, PathBuf}, sync::{Arc, Mutex}
+    env,
+    num::FpCategory,
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
 };
 
 use diesel::Connection;
@@ -19,7 +22,9 @@ use opencv::{
 };
 use rgb::alt::BGR8;
 
-use crate::{Args, CameraIntrinsic, DbType};
+use crate::{Args, CameraIntrinsic};
+
+type DbType = Arc<Mutex<diesel::PgConnection>>;
 
 #[derive(Debug, Clone)]
 pub enum Coordinates3d {
@@ -342,8 +347,8 @@ pub fn project_obj_point(
 /// implementation of equation found here: https://docs.opencv.org/4.x/d5/d1f/calib3d_solvePnP.html
 /// Maps a coordinate expressed in the world (global) frame to a coordinate expressed in the camera (local) frame
 /// # Note
-/// If the function returns (0,0,0), that means that the given object point is the world coordinate of the camera 
-/// 
+/// If the function returns (0,0,0), that means that the given object point is the world coordinate of the camera
+///
 pub fn world_frame_to_camera_frame(obj_point: Point3d, solution: &PNPRANSACSolution) -> Point3d {
     let obj_point_hom = Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64);
 
@@ -387,12 +392,39 @@ pub fn validate_args(args: &Args) {
             coeffs.len()
         );
     }
-    if let CameraIntrinsic::Manual { focal_len_x, focal_len_y, skew, offset_x, offset_y } = &args.cam_matrix {
-        assert_eq!(focal_len_x.classify(),FpCategory::Normal,"Focal length must be a nonzero positive number, found {focal_len_x}");
-        assert_eq!(focal_len_y.classify(),FpCategory::Normal,"Focal length must be a nonzero positive number, found {focal_len_y}");
-        assert!(!matches!(skew.classify(),FpCategory::Infinite|FpCategory::Nan));
-        assert!(!matches!(offset_x.classify(),FpCategory::Infinite|FpCategory::Nan));
-        assert!(!matches!(offset_y.classify(),FpCategory::Infinite|FpCategory::Nan));
+    if let CameraIntrinsic::Manual {
+        focal_len_x,
+        focal_len_y,
+        skew,
+        offset_x,
+        offset_y,
+    } = &args.cam_matrix
+    {
+        assert_eq!(
+            focal_len_x.classify(),
+            FpCategory::Normal,
+            "Focal length must be a nonzero positive number, found {focal_len_x}"
+        );
+        assert_eq!(
+            focal_len_y.classify(),
+            FpCategory::Normal,
+            "Focal length must be a nonzero positive number, found {focal_len_y}"
+        );
+        assert!(!matches!(
+            skew.classify(),
+            FpCategory::Infinite | FpCategory::Nan
+        ));
+        assert!(!matches!(
+            offset_x.classify(),
+            FpCategory::Infinite | FpCategory::Nan
+        ));
+        assert!(!matches!(
+            offset_y.classify(),
+            FpCategory::Infinite | FpCategory::Nan
+        ));
     }
-    assert!(args.pnp_ransac_iter_count!=0,"RANSAC iteration count must be a nonzero positive number");
+    assert!(
+        args.pnp_ransac_iter_count != 0,
+        "RANSAC iteration count must be a nonzero positive number"
+    );
 }
