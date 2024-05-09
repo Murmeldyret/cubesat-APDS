@@ -105,12 +105,21 @@ fn parse_into_matrix(path: String) -> Result<Cmat<f64>, ()> {
     let path = PathBuf::from(path);
     match path.extension().ok_or(())?.to_str().ok_or(())? {
         "json" => {
-            unimplemented!("har ikke opsat parser endnu :)")
+            unimplemented!("har ikke opsat parser :)")
         }
         _ => Err(()),
     }
 }
 
+/// Finds Point correspondences between keypoints found in the input image and reference image
+/// # Parameters
+/// * args: command line arguments, used to read the input image and to determine what to consider as reference image
+/// * image: the input image and associated keypoints + descriptors
+/// # Notes
+/// If the program is set to demo mode, the input image is assumed to be a 7x7 chessboard pattern. Otherwise knn matching is attempted
+/// # Panics
+/// Will panic if demo mode is enabled and the input image is not a 7x7 chessboard pattern.
+/// Will panic on any database error
 pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjCorrespondence> {
     let (ref_keypoints, ref_descriptors) = ref_keypoints(args);
 
@@ -122,6 +131,7 @@ pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjC
         )
         .expect("keypoint matching failed"),
         None => {
+            //TODO: move to dedicated function
             let mut img_points: Vector<Point2f> = Vector::new();
             opencv::calib3d::find_chessboard_corners_def(
                 &Cmat::<u8>::imread_checked(&args.img_path.to_string_lossy(), IMREAD_GRAYSCALE)
