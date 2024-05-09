@@ -115,6 +115,12 @@ fn main() {
     //     solution,
     //     camera_matrix
     // ));
-    dbg!(world_frame_to_camera_frame(Point3d::new(0.0, 0.0, 0.0), &solution));
-    dbg!(world_frame_to_camera_frame(Point3d::new(6.0, 6.0, 0.0), &solution));
+    dbg!(world_frame_to_camera_frame(
+        Point3d::new(0.0, 0.0, 0.0),
+        &solution
+    ));
+    dbg!(world_frame_to_camera_frame(
+        Point3d::new(6.0, 6.0, 0.0),
+        &solution
+    ));
 }
