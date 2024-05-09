@@ -303,11 +303,8 @@ pub fn project_obj_point(
 
     // dbg!(&obj_point_hom);
     // println!("{:?}\n{:?}\n{:?}\n",rt_mat.mat.at_row::<f64>(0).unwrap(),rt_mat.mat.at_row::<f64>(1).unwrap(),rt_mat.mat.at_row::<f64>(2).unwrap());
-    let obj_point_hom_mat =
-        Mat::from_slice(&Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64).to_vec())
-            .expect("Matrix construction should not fail");
 
-    let mut temp = (cam_mat.mat * rt_mat.mat)
+    let temp = (cam_mat.mat * rt_mat.mat)
         .into_result()
         .expect("matrix expression should not failed")
         .to_mat()
@@ -349,8 +346,6 @@ pub fn project_obj_point(
 /// 
 pub fn world_frame_to_camera_frame(obj_point: Point3d, solution: &PNPRANSACSolution) -> Point3d {
     let obj_point_hom = Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64);
-    let obj_point_hom_mat =
-        Mat::from_slice(&obj_point_hom.to_vec()).expect("matrix initialization should not fail");
 
     let mut rt_mat = Cmat::<f64>::zeros(4, 4).expect("matrix initialization should not fail");
     hconcat2(&solution.rvec.mat, &solution.tvec.mat, &mut rt_mat.mat)
@@ -383,7 +378,7 @@ pub fn world_frame_to_camera_frame(obj_point: Point3d, solution: &PNPRANSACSolut
     Point3d::new(result[0], result[1], result[2])
 }
 
-/// Ensures that command line arguments are valid, panics 
+/// Ensures that command line arguments are valid, panics otherwise
 pub fn validate_args(args: &Args) {
     if let Some(coeffs) = &args.dist_coeff {
         assert!(
@@ -393,7 +388,6 @@ pub fn validate_args(args: &Args) {
         );
     }
     if let CameraIntrinsic::Manual { focal_len_x, focal_len_y, skew, offset_x, offset_y } = &args.cam_matrix {
-        // assert!(*focal_len_x>0f64,"Focal length must be a nonzero positive number, found {focal_len_x}");
         assert_eq!(focal_len_x.classify(),FpCategory::Normal,"Focal length must be a nonzero positive number, found {focal_len_x}");
         assert_eq!(focal_len_y.classify(),FpCategory::Normal,"Focal length must be a nonzero positive number, found {focal_len_y}");
         assert!(!matches!(skew.classify(),FpCategory::Infinite|FpCategory::Nan));
