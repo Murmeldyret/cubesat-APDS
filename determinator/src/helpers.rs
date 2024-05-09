@@ -1,8 +1,6 @@
 use core::f64;
 use std::{
-    env,
-    path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    env, num::FpCategory, path::{Path, PathBuf}, sync::{Arc, Mutex}
 };
 
 use diesel::Connection;
@@ -383,4 +381,24 @@ pub fn world_frame_to_camera_frame(obj_point: Point3d, solution: &PNPRANSACSolut
             .expect("Reduce operation should yield a value");
     }
     Point3d::new(result[0], result[1], result[2])
+}
+
+/// Ensures that command line arguments are valid, panics 
+pub fn validate_args(args: &Args) {
+    if let Some(coeffs) = &args.dist_coeff {
+        assert!(
+            matches!(coeffs.len(), 4 | 5 | 8 | 12 | 14),
+            "Distortion coefficient length does not have required length of 4|5|8|12|14, found {}",
+            coeffs.len()
+        );
+    }
+    if let CameraIntrinsic::Manual { focal_len_x, focal_len_y, skew, offset_x, offset_y } = &args.cam_matrix {
+        // assert!(*focal_len_x>0f64,"Focal length must be a nonzero positive number, found {focal_len_x}");
+        assert_eq!(focal_len_x.classify(),FpCategory::Normal,"Focal length must be a nonzero positive number, found {focal_len_x}");
+        assert_eq!(focal_len_y.classify(),FpCategory::Normal,"Focal length must be a nonzero positive number, found {focal_len_y}");
+        assert!(!matches!(skew.classify(),FpCategory::Infinite|FpCategory::Nan));
+        assert!(!matches!(offset_x.classify(),FpCategory::Infinite|FpCategory::Nan));
+        assert!(!matches!(offset_y.classify(),FpCategory::Infinite|FpCategory::Nan));
+    }
+    assert!(args.pnp_ransac_iter_count!=0,"RANSAC iteration count must be a nonzero positive number");
 }
