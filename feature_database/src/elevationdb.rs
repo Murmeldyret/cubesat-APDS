@@ -63,13 +63,13 @@ pub mod geotransform {
         x: f64,
         y: f64,
     ) -> Result<(f64, f64, f64), Errors> {
-        let transform = read_geotransform(conn, "dataset").map_err(|e| Errors::Diesel(e))?;
+        let transform = read_geotransform(conn, "dataset").map_err(Errors::Diesel)?;
 
         let coordinates = transform.apply(x, y);
 
         let elevation_transform = match read_geotransform(conn, "elevation") {
             Ok(transform) => transform,
-            Err(e) => return Ok((coordinates.0, coordinates.1, 0.0)),
+            Err(_e) => return Ok((coordinates.0, coordinates.1, 0.0)),
         };
 
         let inv_ele = elevation_transform
