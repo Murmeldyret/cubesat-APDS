@@ -1,20 +1,14 @@
 use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
 
-use helpers::{
-    get_camera_matrix, img_obj_corres, read_and_extract_kp
-};
+use helpers::{get_camera_matrix, img_obj_corres, read_and_extract_kp, validate_args};
 use homographier::homographier::pnp_solver_ransac;
 
-use diesel::PgConnection;
 use opencv::calib3d::SolvePnPMethod;
 use opencv::core::{MatTraitConst, Point3d};
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::path::PathBuf;
 
-use crate::helpers::project_obj_point;
+use crate::helpers::{project_obj_point, world_frame_to_camera_frame};
 
 pub mod helpers;
 
@@ -68,26 +62,16 @@ pub enum CameraIntrinsic {
     },
 }
 
-type DbType = Arc<Mutex<PgConnection>>;
 #[allow(unreachable_code)]
 #[forbid(clippy::unwrap_used)]
 fn main() {
-    dotenv().expect("failed to read environment variables");
     let args = Args::parse();
-
-    if let Some(coeffs) = &args.dist_coeff {
-        assert!(
-            matches!(coeffs.len(), 4 | 5 | 8 | 12 | 14),
-            "Distortion coefficient length does not have required length of 4|5|8|12|14, found {}",
-            coeffs.len()
-        );
-    }
+    validate_args(&args);
+    dotenv().expect("failed to read environment variables");
     let extraction = read_and_extract_kp(&args.img_path);
-    println!("extraction done");
+
     let point_correspondences = img_obj_corres(&args, extraction);
-    println!("point correnspondences");
     let camera_matrix = get_camera_matrix(args.cam_matrix).expect("Failed to get camera matrix");
-    println!("camera matrix");
 
     // TODO: needs real camera matrix. Probably also a good guess for reproj_thres and confidence
     let solution = pnp_solver_ransac(
@@ -102,7 +86,6 @@ fn main() {
     .expect("Failed to solve PNP problem")
     .expect("No solution was obtained to the PNP problem");
     dbg!(solution.inliers.mat.size());
-    // TODO: By using the obtained solution, we can map object points to image points, this must be done to find where the image points lie in 3d space
     // evt kig på dette: https://en.wikipedia.org/wiki/Perspective-n-Point#Methods
     println!(
         "rotation matrix =\n{}translation matrix =\n{}",
@@ -115,9 +98,17 @@ fn main() {
         solution.inliers.mat.rows(),
         point_correspondences.len(),
     );
-    dbg!(project_obj_point(
-        Point3d::new(1.0, 1.0, 1.0),
-        solution,
-        camera_matrix
+    // dbg!(project_obj_point(
+    //     Point3d::new(1.0, 1.0, 1.0),
+    //     solution,
+    //     camera_matrix
+    // ));
+    dbg!(world_frame_to_camera_frame(
+        Point3d::new(0.0, 0.0, 0.0),
+        &solution
+    ));
+    dbg!(world_frame_to_camera_frame(
+        Point3d::new(6.0, 6.0, 0.0),
+        &solution
     ));
 }

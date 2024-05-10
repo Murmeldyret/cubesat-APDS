@@ -127,6 +127,7 @@ impl<T: DataType> Cmat<T> {
         let res = Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)?;
         Ok(res)
     }
+    /// Returns a (debug) formatted string representation of the matrix, useful for printing all matrix elements
     pub fn format_elems(&self) -> String
     where
         T: Debug,

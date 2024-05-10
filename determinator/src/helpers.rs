@@ -1,6 +1,7 @@
 use core::f64;
 use std::{
     env,
+    num::FpCategory,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
@@ -13,14 +14,17 @@ use feature_extraction::{
 use homographier::homographier::{Cmat, ImgObjCorrespondence, PNPRANSACSolution};
 use opencv::{
     core::{
-
-        hconcat2, KeyPoint, KeyPointTraitConst, Mat, MatExprTraitConst, MatTraitConst, MatTraitConstManual, Point2d, Point2f, Point3d, Point3f, Point_, Size2i, Vec4d, Vector
+        hconcat2, KeyPoint, KeyPointTraitConst, Mat, MatExprTraitConst, MatTrait, MatTraitConst,
+        MatTraitConstManual, Point2d, Point2f, Point3_, Point3d, Point3f, Point_, Size2i, Vec4d,
+        Vector,
     },
     imgcodecs::{IMREAD_COLOR, IMREAD_GRAYSCALE}, types::VectorOfDMatch,
 };
 use rgb::alt::BGR8;
 
-use crate::{Args, CameraIntrinsic, DbType};
+use crate::{Args, CameraIntrinsic};
+
+type DbType = Arc<Mutex<diesel::PgConnection>>;
 
 #[derive(Debug, Clone)]
 pub enum Coordinates3d {
@@ -104,12 +108,21 @@ fn parse_into_matrix(path: String) -> Result<Cmat<f64>, ()> {
     let path = PathBuf::from(path);
     match path.extension().ok_or(())?.to_str().ok_or(())? {
         "json" => {
-            unimplemented!("har ikke opsat parser endnu :)")
+            unimplemented!("har ikke opsat parser :)")
         }
         _ => Err(()),
     }
 }
 
+/// Finds Point correspondences between keypoints found in the input image and reference image
+/// # Parameters
+/// * args: command line arguments, used to read the input image and to determine what to consider as reference image
+/// * image: the input image and associated keypoints + descriptors
+/// # Notes
+/// If the program is set to demo mode, the input image is assumed to be a 7x7 chessboard pattern. Otherwise knn matching is attempted
+/// # Panics
+/// Will panic if demo mode is enabled and the input image is not a 7x7 chessboard pattern.
+/// Will panic on any database error
 pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjCorrespondence> {
     let (ref_keypoints, ref_descriptors) = ref_keypoints(args);
 
@@ -121,6 +134,7 @@ pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjC
         )
         .expect("keypoint matching failed"),
         None => {
+            //TODO: move to dedicated function
             let mut img_points: Vector<Point2f> = Vector::new();
             opencv::calib3d::find_chessboard_corners_def(
                 &Cmat::<u8>::imread_checked(&args.img_path.to_string_lossy(), IMREAD_GRAYSCALE)
@@ -208,7 +222,6 @@ fn point_pair_to_correspondence(
 }
 
 pub fn ref_keypoints(args: &Args) -> (Vec<KeyPoint>, Option<Vec<Vec<u8>>>) {
-    println!("entering ref_keypoints");
     match args.demo {
         true => {
             // TIHI @Murmeldyret, here be no side effects
@@ -237,13 +250,11 @@ fn keypoints_from_db(conn_url: &str, arg: &Args) -> (Vec<KeyPoint>, Vec<Vec<u8>>
     ));
 
     // retrieve keypoints from mosaic image
-    println!("keypoints_from_db connected");
     let ref_keypoints = feature_database::keypointdb::Keypoint::read_keypoints_from_lod(
         &mut conn.lock().expect("Mutex poisoning"),
         arg.lod,
     )
     .expect("Failed to query database");
-    println!("keypoints: {:#?}", ref_keypoints.len());
     // Map keypoints to opencv compatible type
     let (ref_keypoints, ref_descriptors) = db_kp_to_opencv_kp(ref_keypoints);
 
@@ -274,6 +285,12 @@ fn db_kp_to_opencv_kp(
 }
 
 // TODO: kan godt være topo parameter skal ændres til en anden type
+/// Maps a 2d keypoint to a 3d object point, for use in creating image-object point correspondences
+/// # Parameters
+/// * points: a vector of keypoints from a reference image
+/// * db: connection to database
+/// # Returns
+/// a vector of object points in real world coordinates (/*TODO: cartesian or ellipsoidal coordinates? */)
 pub fn get_3d_world_coord_from_2d_point(points: Vec<Point2d>, db: DbType) -> Vec<Point3d> {
     points
         .into_iter()
@@ -292,6 +309,7 @@ pub fn point3f_to3d(p: Point3f) -> Point3d {
     Point3d::new(p.x as f64, p.y as f64, p.z as f64)
 }
 // https://docs.opencv.org/4.x/dc/d2c/tutorial_real_time_pose.html
+/// Finds where a given point would appear on the image
 /// # Returns
 /// a 2d homogenous point (z=1)
 pub fn project_obj_point(
@@ -310,11 +328,8 @@ pub fn project_obj_point(
 
     // dbg!(&obj_point_hom);
     // println!("{:?}\n{:?}\n{:?}\n",rt_mat.mat.at_row::<f64>(0).unwrap(),rt_mat.mat.at_row::<f64>(1).unwrap(),rt_mat.mat.at_row::<f64>(2).unwrap());
-    let obj_point_hom_mat =
-        Mat::from_slice(&Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64).to_vec())
-            .expect("Matrix construction should not fail");
 
-    let mut temp = (cam_mat.mat * rt_mat.mat)
+    let temp = (cam_mat.mat * rt_mat.mat)
         .into_result()
         .expect("matrix expression should not failed")
         .to_mat()
@@ -347,4 +362,89 @@ pub fn project_obj_point(
     // dbg!(&rhs);
     // let _ = temp.iter::<f64>().unwrap().inspect(|f|println!("({},{}) = {}",f.0.x,f.0.y,f.1)).collect::<Vec<_>>();
     // let rhs = temp.elem_mul(obj_point_hom).into_result().unwrap().to_mat().unwrap();
+}
+
+/// implementation of equation found here: https://docs.opencv.org/4.x/d5/d1f/calib3d_solvePnP.html
+/// Maps a coordinate expressed in the world (global) frame to a coordinate expressed in the camera (local) frame
+/// # Note
+/// If the function returns (0,0,0), that means that the given object point is the world coordinate of the camera
+///
+pub fn world_frame_to_camera_frame(obj_point: Point3d, solution: &PNPRANSACSolution) -> Point3d {
+    let obj_point_hom = Vec4d::new(obj_point.x, obj_point.y, obj_point.z, 1f64);
+
+    let mut rt_mat = Cmat::<f64>::zeros(4, 4).expect("matrix initialization should not fail");
+    hconcat2(&solution.rvec.mat, &solution.tvec.mat, &mut rt_mat.mat)
+        .expect("Matrix operation should not fail");
+
+    // add row with values [0,0,0,1]
+    rt_mat.mat.resize(4).expect("matrix resize should not fail");
+    *rt_mat
+        .mat
+        .at_2d_mut(3, 3)
+        .expect("index should be within range") = 1f64;
+    let rt_mat = rt_mat.mat;
+
+    let mut result: [f64; 4] = [0f64; 4];
+    for i in 0..rt_mat.rows() {
+        result[i as usize] = rt_mat
+            .at_row::<f64>(i)
+            .expect("should be within bounds")
+            .iter()
+            .enumerate()
+            .map(|(i, e)| {
+                e * obj_point_hom
+                    .get(i)
+                    .expect("index should not be out of range")
+            })
+            // .inspect(|f|{dbg!(f);})
+            .reduce(|acc, elem| acc + elem)
+            .expect("Reduce operation should yield a value");
+    }
+    Point3d::new(result[0], result[1], result[2])
+}
+
+/// Ensures that command line arguments are valid, panics otherwise
+pub fn validate_args(args: &Args) {
+    if let Some(coeffs) = &args.dist_coeff {
+        assert!(
+            matches!(coeffs.len(), 4 | 5 | 8 | 12 | 14),
+            "Distortion coefficient length does not have required length of 4|5|8|12|14, found {}",
+            coeffs.len()
+        );
+    }
+    if let CameraIntrinsic::Manual {
+        focal_len_x,
+        focal_len_y,
+        skew,
+        offset_x,
+        offset_y,
+    } = &args.cam_matrix
+    {
+        assert_eq!(
+            focal_len_x.classify(),
+            FpCategory::Normal,
+            "Focal length must be a nonzero positive number, found {focal_len_x}"
+        );
+        assert_eq!(
+            focal_len_y.classify(),
+            FpCategory::Normal,
+            "Focal length must be a nonzero positive number, found {focal_len_y}"
+        );
+        assert!(!matches!(
+            skew.classify(),
+            FpCategory::Infinite | FpCategory::Nan
+        ));
+        assert!(!matches!(
+            offset_x.classify(),
+            FpCategory::Infinite | FpCategory::Nan
+        ));
+        assert!(!matches!(
+            offset_y.classify(),
+            FpCategory::Infinite | FpCategory::Nan
+        ));
+    }
+    assert!(
+        args.pnp_ransac_iter_count != 0,
+        "RANSAC iteration count must be a nonzero positive number"
+    );
 }
