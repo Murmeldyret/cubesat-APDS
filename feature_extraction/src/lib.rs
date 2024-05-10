@@ -1,11 +1,14 @@
 use cv::{
-    core::{DMatch, KeyPoint, Mat, Point2f, Vector, NORM_HAMMING},
+    core::{DMatch, KeyPoint, Mat, Point2f, Point2i, Vector, NORM_HAMMING},
     features2d::{AKAZE_DescriptorType, BFMatcher, DrawMatchesFlags, KAZE_DiffusivityType, AKAZE},
     imgcodecs,
+    imgproc::{line, LINE_8},
     types::{VectorOfDMatch, VectorOfPoint2f, VectorOfVectorOfDMatch},
     Error,
 };
 use opencv::core::Ptr;
+
+use homographier::homographier::Cmat;
 
 use opencv::{self as cv, prelude::*};
 
@@ -174,6 +177,51 @@ pub fn get_points_from_matches(
     opencv::core::KeyPoint::convert_def(&img1_matched_keypoints, &mut img2_matched_points)?;
 
     Ok((img1_matched_points, img2_matched_points))
+}
+
+pub fn get_object_and_scene_corners(
+    img1: &Mat,
+    homography: &Cmat<f64>,
+) -> Result<(Vector<Point2f>, Vector<Point2f>), Error> {
+    let mut object_corners = VectorOfPoint2f::new();
+    object_corners.push(Point2f::new(0f32, 0f32));
+    object_corners.push(Point2f::new(img1.cols() as f32, 0f32));
+    object_corners.push(Point2f::new(img1.cols() as f32, img1.rows() as f32));
+    object_corners.push(Point2f::new(0f32, img1.rows() as f32));
+
+    let mut scene_corners = VectorOfPoint2f::new();
+
+    let _ = perspective_transform(&object_corners, &mut scene_corners, homography);
+
+    Ok((object_corners, scene_corners))
+}
+
+pub fn draw_homography_lines(
+    out_img: &mut Mat,
+    img1: &Mat,
+    homography: &Cmat<f64>,
+) -> Result<(), Error> {
+    let (_object_corners, scene_corners) = get_object_and_scene_corners(img1, homography)?;
+
+    for i in 0..4 {
+        let _ = line(
+            out_img,
+            Point2i::new(
+                scene_corners.get(i)?.x as i32 + img1.cols(),
+                scene_corners.get(i)?.y as i32,
+            ),
+            Point2i::new(
+                scene_corners.get((i + 1) % 4)?.x as i32 + img1.cols(),
+                scene_corners.get((i + 1) % 4)?.y as i32,
+            ),
+            opencv::core::VecN::new(0.0, 0.0, 255.0, 0.0),
+            2i32,
+            LINE_8,
+            0,
+        );
+    }
+
+    Ok(())
 }
 
 #[allow(clippy::unwrap_used)]
