@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
 
 use helpers::{get_camera_matrix, img_obj_corres, read_and_extract_kp, validate_args};
-use homographier::homographier::pnp_solver_ransac;
+use homographier::homographier::{pnp_solver_ransac, ImgObjCorrespondence};
 
 use opencv::calib3d::SolvePnPMethod;
 use opencv::core::{MatTraitConst, Point3d};
@@ -69,17 +69,18 @@ fn main() {
     validate_args(&args);
     dotenv().expect("failed to read environment variables");
     let extraction = read_and_extract_kp(&args.img_path);
-
+    // dbg!(&extraction.1);
     let point_correspondences = img_obj_corres(&args, extraction);
     let camera_matrix = get_camera_matrix(args.cam_matrix).expect("Failed to get camera matrix");
-
+    // dbg!(&point_correspondences.len());
+    // let _ = point_correspondences.iter().inspect(|f|{dbg!(f.obj_point);}).collect::<Vec<_>>();
     // TODO: needs real camera matrix. Probably also a good guess for reproj_thres and confidence
     let solution = pnp_solver_ransac(
         &point_correspondences,
         &camera_matrix,
         args.pnp_ransac_iter_count.try_into().unwrap_or(10000),
-        8f32,
-        1.0 - f64::EPSILON, /*TIHI*/
+        100f32,
+        0.99, /*TIHI*/
         args.dist_coeff.as_deref(),
         Some(SolvePnPMethod::SOLVEPNP_EPNP), // i think this method is most appropriate, optionally it could be program argument
     )

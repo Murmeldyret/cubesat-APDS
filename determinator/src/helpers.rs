@@ -1,13 +1,11 @@
 use core::f64;
 use std::{
-    env,
-    num::FpCategory,
-    path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    borrow::BorrowMut, env, num::FpCategory, path::{Path, PathBuf}, sync::{Arc, Mutex}
 };
 
-use diesel::Connection;
-use feature_database::keypointdb::KeypointDatabase;
+use diesel::{Connection, PgConnection};
+use dotenvy::dotenv;
+use feature_database::{elevationdb::geotransform::get_world_coordinates, keypointdb::KeypointDatabase};
 use feature_extraction::{
     akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
 };
@@ -125,7 +123,7 @@ fn parse_into_matrix(path: String) -> Result<Cmat<f64>, ()> {
 /// Will panic on any database error
 pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjCorrespondence> {
     let (ref_keypoints, ref_descriptors) = ref_keypoints(args);
-
+    // dbg!((&ref_descriptors.clone().unwrap().len(),&ref_keypoints.len()));
     match ref_descriptors {
         Some(val) => matching_with_descriptors(
             &image,
@@ -162,25 +160,32 @@ pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjC
     }
 }
 
+//TODO: DENNE FUNKTION ER CURSED
 fn matching_with_descriptors(
     img: &ReadAndExtractKpResult,
     ref_desc: &Cmat<u8>,
     ref_kp: Vector<KeyPoint>,
 ) -> Result<Vec<ImgObjCorrespondence>, opencv::Error> {
     let matches = get_knn_matches(&img.2.mat, &ref_desc.mat, 2, 0.8)?;
-
+    // dbg!(&ref_desc.mat.size());
+    // dbg!(&img.2.mat.size());
+    // dbg!(&matches);
+    // dbg!(&img.1);
+    // dbg!(&ref_kp);
     let (img_points, obj_points_2d) = get_points_from_matches(&img.1, &ref_kp, &matches)?;
     assert_eq!(img_points.len(), obj_points_2d.len());
-
+    // dbg!(&img_points);
+    // dbg!(&obj_points_2d);
     // map object points to real world coordinates
     let obj_points = get_3d_world_coord_from_2d_point(
         obj_points_2d
             .into_iter()
+            .inspect(|f|{dbg!(f);})
             .map(|f| Point2d::new(f.x as f64, f.y as f64))
             .collect(),
-        todo!("det er ikke helt klart endnu"),
+        Arc::new(Mutex::new(PgConnection::establish(env::var("DATABASE_URL").expect("failed to read DATABASE_URL").as_str()).expect("failed to establish connection")))
     );
-
+    // dbg!(&obj_points);
     Ok(point_pair_to_correspondence(
         img_points,
         obj_points
@@ -275,7 +280,7 @@ pub fn get_3d_world_coord_from_2d_point(points: Vec<Point2d>, db: DbType) -> Vec
     points
         .into_iter()
         .map(|p| {
-            let world_coord: (f64, f64, f64) = todo!("@rasmus"); //@Murmeldyret
+            let world_coord: (f64, f64, f64) = get_world_coordinates(db.lock().expect("mutex poisoning").borrow_mut(), p.x, p.y).expect("failed to retrieve world coordinates");
             Point3d::new(world_coord.0, world_coord.1, world_coord.2)
         })
         .collect::<Vec<_>>()

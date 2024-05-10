@@ -166,16 +166,14 @@ pub fn get_points_from_matches(
     let mut img1_matched_keypoints: Vector<KeyPoint> = Vector::default();
     let mut img2_matched_keypoints: Vector<KeyPoint> = Vector::default();
     for m in matches {
-        img1_matched_keypoints.push(img1_keypoints.get(m.img_idx.try_into()?)?);
+        img1_matched_keypoints.push(img1_keypoints.get(m.query_idx.try_into()?)?);
         img2_matched_keypoints.push(img2_keypoints.get(m.train_idx.try_into()?)?);
     }
 
     let mut img1_matched_points: Vector<Point2f> = VectorOfPoint2f::new();
     let mut img2_matched_points: Vector<Point2f> = VectorOfPoint2f::new();
-
     opencv::core::KeyPoint::convert_def(&img1_matched_keypoints, &mut img1_matched_points)?;
     opencv::core::KeyPoint::convert_def(&img1_matched_keypoints, &mut img2_matched_points)?;
-
     Ok((img1_matched_points, img2_matched_points))
 }
 
