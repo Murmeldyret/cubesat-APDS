@@ -5,7 +5,7 @@ use helpers::{get_camera_matrix, img_obj_corres, read_and_extract_kp, validate_a
 use homographier::homographier::{pnp_solver_ransac, ImgObjCorrespondence};
 
 use opencv::calib3d::SolvePnPMethod;
-use opencv::core::{MatTraitConst, Point3d};
+use opencv::core::{MatTraitConst, Point2f, Point3d, Point3f, Vector};
 use std::path::PathBuf;
 
 use crate::helpers::{project_obj_point, world_frame_to_camera_frame};
@@ -112,4 +112,7 @@ fn main() {
         Point3d::new(6.0, 6.0, 0.0),
         &solution
     ));
+    let mut img_point = Vector::<Point2f>::new();
+    let res = opencv::calib3d::project_points_def(&Vector::<Point3f>::from_slice(&vec![Point3f::new(57.1, 10.0, 5.0)]), &solution.rvec.mat,&solution.tvec.mat, &camera_matrix.mat, &Vector::<f32>::new(), &mut img_point).expect("msg");
+    dbg!(img_point);
 }
