@@ -70,7 +70,7 @@ pub fn read_and_extract_kp(im_path: &Path) -> ReadAndExtractKpResult {
     // it is assumed that input images will not contain an alpha channel
     let image = Cmat::<BGR8>::imread_checked(path, IMREAD_COLOR).expect("Failed to read image");
 
-    let extracted = akaze_keypoint_descriptor_extraction_def(&image.mat)
+    let extracted = akaze_keypoint_descriptor_extraction_def(&image.mat,None)
         .expect("AKAZE keypoint extraction failed");
 
     ReadAndExtractKpResult(
