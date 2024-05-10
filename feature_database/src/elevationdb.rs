@@ -46,11 +46,16 @@ pub mod geotransform {
             .iter()
             .map(|element| element.expect("Failed unwrap geotransform"))
             .collect();
-        let transform: GeoTransform = transform.try_into().unwrap();
+        let transform: GeoTransform = transform.try_into().expect("Could not convert from vector to array");
 
         Ok(transform)
     }
 
+    /// Returns the 3d world coordinates from image pixel coordinates
+    /// # Input
+    /// The inputs provided are x and y pixel coordinates from the reference image dataset. The keypoints from the database will have the correct coordinates for this.
+    /// # Returns
+    /// A touple with the (lattitude, longitude, elevation(in meter))
     pub fn get_world_coordinates(
         conn: &mut PgConnection,
         x: f64,
@@ -65,7 +70,7 @@ pub mod geotransform {
             Err(e) => return Ok((coordinates.0, coordinates.1, 0.0)),
         };
 
-        let inv_ele = elevation_transform.invert().unwrap();
+        let inv_ele = elevation_transform.invert().expect("Could not inverse transform");
 
         let elevation_pixels = inv_ele.apply(coordinates.0, coordinates.1);
 
@@ -143,6 +148,9 @@ pub mod elevation {
     use super::*;
     use crate::schema::{elevation, elevation_properties};
     use gdal::Dataset;
+
+    const DIESEL_LIMIT: usize = 65535;
+
     pub fn add_elevation_data(conn: &mut PgConnection, dataset: &Dataset) -> Result<(), Errors> {
         let rasterband = dataset.rasterband(1).map_err(|e| Errors::Gdal(e))?;
         let dimensions = rasterband.size();
@@ -162,17 +170,17 @@ pub mod elevation {
             .map(|pixel| models::InsertElevation { height: pixel })
             .collect();
 
-        let upload_limit = insert_image.len() / 65535;
+        let upload_limit = insert_image.len() / DIESEL_LIMIT;
 
         // Diesel has a limit of max 65535 parameters :)
         for i in 0..upload_limit {
-            let insert_vec = insert_image[65535 * i..65535 * (i + 1)].to_vec();
+            let insert_vec = insert_image[DIESEL_LIMIT * i..DIESEL_LIMIT * (i + 1)].to_vec();
             diesel::insert_into(crate::schema::elevation::table)
                 .values(insert_vec)
                 .execute(conn)
                 .map_err(|e| Errors::Diesel(e))?;
         }
-        let insert_vec = insert_image[65535 * upload_limit..insert_image.len()].to_vec();
+        let insert_vec = insert_image[DIESEL_LIMIT * upload_limit..insert_image.len()].to_vec();
         diesel::insert_into(crate::schema::elevation::table)
             .values(insert_vec)
             .execute(conn)

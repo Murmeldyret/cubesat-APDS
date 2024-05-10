@@ -105,7 +105,7 @@ fn main() {
     };
 
     if args.elevation_path.is_some() {
-        mosaic.lock().unwrap().set_elevation_dataset(&args.elevation_path.unwrap(), &temp_string).unwrap();
+        mosaic.lock().unwrap().set_elevation_dataset(&args.elevation_path.expect("Elevation dataset path not found"), &temp_string).expect("Could not add elevation data to dataset");
     }
 
     if mosaic.lock().unwrap().elevation.is_some() {
@@ -120,7 +120,7 @@ fn main() {
     });
 
 
-    temp_dir.close().unwrap()
+    temp_dir.close().expect("Failed to delete temporary data");
 }
 
 
@@ -136,7 +136,7 @@ fn add_elevation(conn: DbType, mosaic: Arc<Mutex<MosaicedDataset>>) {
     geotransform::create_geotransform(conn, "dataset", dataset_trans).expect("Could not add dataset geotransform to database");
     geotransform::create_geotransform(conn, "elevation", elevation_trans).expect("Could not add dataset geotransform to database");
 
-    elevation::add_elevation_data(conn, &mosaic.elevation.as_ref().unwrap()).unwrap();
+    elevation::add_elevation_data(conn, &mosaic.elevation.as_ref().expect("Elevation data not found")).expect("Elevation data could not be added to database");
 }
 
 fn read_dataset(dataset_path: Option<String>, mosaic_path: Option<String>, temp_string: &str) -> Result<Arc<Mutex<MosaicedDataset>>, std::io::Error> {
