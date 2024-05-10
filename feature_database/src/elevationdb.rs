@@ -57,7 +57,7 @@ pub mod geotransform {
     /// # Input
     /// The inputs provided are x and y pixel coordinates from the reference image dataset. The keypoints from the database will have the correct coordinates for this.
     /// # Returns
-    /// A touple with the (lattitude, longitude, elevation(in meter))
+    /// A tuple with the (lattitude, longitude, elevation(in meter))
     pub fn get_world_coordinates(
         conn: &mut PgConnection,
         x: f64,
