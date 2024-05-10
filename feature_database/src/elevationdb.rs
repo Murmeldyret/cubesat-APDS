@@ -44,7 +44,7 @@ pub mod geotransform {
         let transform: Vec<f64> = transform
             .transform
             .iter()
-            .map(|element| element.unwrap())
+            .map(|element| element.expect("Failed unwrap geotransform"))
             .collect();
         let transform: GeoTransform = transform.try_into().unwrap();
 
