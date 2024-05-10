@@ -46,7 +46,9 @@ pub mod geotransform {
             .iter()
             .map(|element| element.expect("Failed unwrap geotransform"))
             .collect();
-        let transform: GeoTransform = transform.try_into().expect("Could not convert from vector to array");
+        let transform: GeoTransform = transform
+            .try_into()
+            .expect("Could not convert from vector to array");
 
         Ok(transform)
     }
@@ -70,7 +72,9 @@ pub mod geotransform {
             Err(e) => return Ok((coordinates.0, coordinates.1, 0.0)),
         };
 
-        let inv_ele = elevation_transform.invert().expect("Could not inverse transform");
+        let inv_ele = elevation_transform
+            .invert()
+            .expect("Could not inverse transform");
 
         let elevation_pixels = inv_ele.apply(coordinates.0, coordinates.1);
 
