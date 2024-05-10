@@ -16,3 +16,4 @@ rgb = "0.8.37"
 
 [dev-dependencies]
 mockall = "0.12.1"
+tempfile = "3.10.1"

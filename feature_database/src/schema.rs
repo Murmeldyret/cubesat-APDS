@@ -1,6 +1,30 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    elevation (id) {
+        id -> Int4,
+        height -> Float8,
+    }
+}
+
+diesel::table! {
+    elevation_properties (id) {
+        id -> Int4,
+        x_size -> Int4,
+        y_size -> Int4,
+    }
+}
+
+diesel::table! {
+    geotransform (id) {
+        id -> Int4,
+        #[max_length = 64]
+        dataset_name -> Varchar,
+        transform -> Array<Nullable<Float8>>,
+    }
+}
+
+diesel::table! {
     keypoint (id) {
         id -> Int4,
         x_coord -> Float4,
@@ -28,4 +52,10 @@ diesel::table! {
 
 diesel::joinable!(keypoint -> ref_image (image_id));
 
-diesel::allow_tables_to_appear_in_same_query!(keypoint, ref_image,);
+diesel::allow_tables_to_appear_in_same_query!(
+    elevation,
+    elevation_properties,
+    geotransform,
+    keypoint,
+    ref_image,
+);

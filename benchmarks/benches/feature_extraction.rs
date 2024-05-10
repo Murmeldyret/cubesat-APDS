@@ -40,6 +40,7 @@ fn extract_features_from_image(bencher: Bencher, sample_size: u32) {
                 sample_size as usize,
             )
             .unwrap(),
+            None
         )
     });
 }

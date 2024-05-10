@@ -1,6 +1,6 @@
 use gdal::errors;
 use gdal::raster::{ColorInterpretation, RasterCreationOption, StatisticsMinMax};
-use gdal::Dataset;
+use gdal::{Dataset, GeoTransformEx};
 
 use std::path::PathBuf;
 
@@ -78,12 +78,14 @@ pub struct MosaicedDataset {
     pub dataset: Dataset,
     pub options: DatasetOptions,
     pub min_max: Option<BandsMinMax>,
+    pub elevation: Option<Dataset>,
 }
 
 #[cfg_attr(test, automock)]
 pub trait Datasets {
     fn import_datasets(paths: &str) -> Result<RawDataset, errors::GdalError>;
     fn to_mosaic_dataset(&self, output_path: &str) -> Result<MosaicedDataset, errors::GdalError>;
+    fn to_vrt_dataset(&self) -> Result<MosaicedDataset, errors::GdalError>;
 }
 
 #[cfg_attr(test, automock)]
@@ -101,6 +103,8 @@ pub trait MosaicDataset {
     fn detect_nodata(&self) -> bool;
     fn fill_nodata(&mut self);
     fn set_bands(&self, red_band: isize, green_band: isize, blue_band: isize);
+    fn set_elevation_dataset(&mut self, path: &str, output_path: &str) -> Result<(), errors::GdalError>;
+    fn get_world_coordinates(&self, x: f64, y: f64) -> Result<(f64,f64,f64), errors::GdalError>;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -124,23 +128,9 @@ impl Datasets for RawDataset {
     /// The function will import multiple datasets from a vector of paths.
     /// Providing the function of a slice of [Path]s then it will return a [Result<RawDataset>]
     fn import_datasets(path: &str) -> Result<RawDataset, errors::GdalError> {
-        let directory = match std::fs::read_dir(path) {
-            Ok(dir) => dir,
-            Err(_) => {
-                return Err(errors::GdalError::NullPointer {
-                    method_name: "read_dir",
-                    msg: String::from("No directory"),
-                })
-            }
-        };
-
-        let ds = directory
-            .into_iter()
-            .map(|p| Dataset::open(p.unwrap().path()))
-            .collect(); // Opens every dataset that a path points to.
-        let unwrapped_data = match ds {
-            Ok(data) => data,
-            Err(e) => return Err(e),
+        let unwrapped_data = match dataset_from_folder(path) {
+            Ok(value) => value,
+            Err(value) => return Err(value),
         };
         Ok(RawDataset {
             datasets: unwrapped_data,
@@ -169,10 +159,41 @@ impl Datasets for RawDataset {
             dataset: mosaic,
             options: DatasetOptionsBuilder::new().build(),
             min_max: None,
+            elevation: None,
         })
     }
 
-    // TODO: Gdal finds the collected min and max of datasets when they are turned into a virtual raster. Therefore this should just lookup the min and max of this raster instead of finding the average.
+    fn to_vrt_dataset(&self) -> Result<MosaicedDataset, errors::GdalError> {
+        let vrt = build_vrt(None, &self.datasets, None)?;
+
+        Ok(MosaicedDataset {
+            dataset: vrt,
+            options: DatasetOptionsBuilder::new().build(),
+            min_max: None,
+            elevation: None,
+        })
+    }
+}
+
+fn dataset_from_folder(path: &str) -> Result<Vec<Dataset>, errors::GdalError> {
+    let directory = match std::fs::read_dir(path) {
+        Ok(dir) => dir,
+        Err(_) => {
+            return Err(errors::GdalError::NullPointer {
+                method_name: "read_dir",
+                msg: String::from("No directory"),
+            })
+        }
+    };
+    let ds = directory
+        .into_iter()
+        .map(|p| Dataset::open(p.unwrap().path()))
+        .collect();
+    let unwrapped_data = match ds {
+        Ok(data) => data,
+        Err(e) => return Err(e),
+    };
+    Ok(unwrapped_data)
 }
 
 impl MosaicDataset for MosaicedDataset {
@@ -262,11 +283,49 @@ impl MosaicDataset for MosaicedDataset {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
             min_max: None,
+            elevation: None,
         })
     }
 
     fn set_bands(&self, _red_band: isize, _green_band: isize, _blue_band: isize) {
         todo!()
+    }
+
+    fn set_elevation_dataset(&mut self, path: &str, output_path: &str) -> Result<(), errors::GdalError> {
+        let ds = match dataset_from_folder(path) {
+            Ok(dataset) => dataset,
+            Err(e) => return Err(e),
+        };
+
+        let mut vrt_path = PathBuf::from(&output_path);
+
+        vrt_path.push("elevation.vrt");
+
+        let result_vrt = build_vrt(Some(vrt_path.as_path()), &ds, None)?;
+
+        self.elevation = Some(result_vrt);
+
+        Ok(())
+    }
+
+    fn get_world_coordinates(&self, x: f64, y: f64) -> Result<(f64,f64,f64), errors::GdalError> {
+        let geotransform = self.dataset.geo_transform()?;
+
+        let coordinates = geotransform.apply(x, y);
+
+        let elevation_transform = match &self.elevation {
+            Some(dataset) => dataset.geo_transform()?,
+            None => return Ok((coordinates.0, coordinates.1, 0.0))
+        };
+
+        let invers_elev = elevation_transform.invert()?;
+
+        let elev_pixels = invers_elev.apply(coordinates.0, coordinates.1);
+
+        let elevation = self.elevation.as_ref().unwrap().rasterband(1)?.read_as::<f64>((elev_pixels.0.round() as isize, elev_pixels.1.round() as isize), (1,1), (1,1), None)?.data;
+
+        Ok((coordinates.0, coordinates.1, elevation[0]))
+
     }
 }
 
@@ -366,6 +425,7 @@ fn f32_to_u8(input_value: f32, min: f32, max: f32) -> Result<u8, PixelConversion
 mod tests {
     use super::*;
     use std::env;
+    use tempfile::tempdir;
 
     #[test]
     fn import_dataset_missing() {
@@ -442,6 +502,7 @@ mod tests {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
             min_max: None,
+            elevation: None
         };
 
         let result = MosaicDataset::datasets_min_max(&mut dataset);
@@ -522,6 +583,7 @@ mod tests {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
             min_max: None,
+            elevation: None,
         };
 
         let window_size = dataset.dataset.raster_size();
@@ -547,6 +609,7 @@ mod tests {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
             min_max: None,
+            elevation: None,
         };
 
         let red_band = dataset.dataset.rasterband(1).expect("Could not open band");
@@ -611,5 +674,84 @@ mod tests {
         let dataset_options_from_builder: DatasetOptions = DatasetOptionsBuilder::new().build();
 
         assert_eq!(dataset_options, dataset_options_from_builder);
+    }
+
+    #[test]
+    fn get_elevation() {
+        let mountain_x = 9.68505;
+        let mountain_y = 56.105169;
+        let mountain_height = 147.0;
+
+        let temp_dir = tempdir().unwrap();
+        let temp_dir_path = temp_dir.into_path();
+
+        let mut current_dir = env::current_dir().expect("Current directory not set");
+        current_dir.pop();
+
+        let mut elevation_path = current_dir.clone();
+        elevation_path.push("resources/test/Geotiff/Elevation_test/elevation");
+
+        let mut dataset_path = current_dir.clone();
+        dataset_path.push("resources/test/Geotiff/Elevation_test/map_data");
+
+        let map_ds = dataset_from_folder(&dataset_path.to_str().unwrap()).unwrap();
+        let elevation_ds = dataset_from_folder(&elevation_path.to_str().unwrap()).unwrap();
+
+        let mut vrt_path = temp_dir_path.clone();
+        vrt_path.push("map.vrt");
+        let mut elevation_vrt_path = temp_dir_path.clone();
+        elevation_vrt_path.push("elevation.vrt");
+
+        let ds_vrt = build_vrt(Some(vrt_path.as_path()), &map_ds, None).unwrap();
+
+        let elevation_vrt = build_vrt(Some(elevation_vrt_path.as_path()), &elevation_ds, None).unwrap();
+
+        let options = DatasetOptions::builder().build();
+
+        let mosaic = MosaicedDataset { dataset: ds_vrt, options, min_max: None, elevation: Some(elevation_vrt) };
+
+        let coordinates = mosaic.get_world_coordinates(8220.6, 12000.0 - 1262.028);
+
+        assert!(coordinates.is_ok());
+        assert!((coordinates.as_ref().unwrap().0 - mountain_x).abs() <= f32::EPSILON.into());
+        assert!((coordinates.as_ref().unwrap().1 - mountain_y).abs() <= f32::EPSILON.into());
+        assert!((coordinates.as_ref().unwrap().2 - mountain_height).abs() <= 2.0);
+    }
+
+    #[test]
+    fn elevation_vrt_creation() {
+        let temp_dir = tempdir().unwrap();
+        let temp_dir_path = temp_dir.into_path();
+
+        let mut current_dir = env::current_dir().expect("Current directory not set");
+        current_dir.pop();
+
+        let mut elevation_path = current_dir.clone();
+        elevation_path.push("resources/test/Geotiff/Elevation_test/elevation");
+
+        let mut dataset_path = current_dir.clone();
+        dataset_path.push("resources/test/Geotiff/Elevation_test/map_data");
+
+        let map_ds = dataset_from_folder(&dataset_path.to_str().unwrap()).unwrap();
+
+        let mut vrt_path = temp_dir_path.clone();
+        vrt_path.push("map.vrt");
+
+        let ds_vrt = build_vrt(Some(vrt_path.as_path()), &map_ds, None).unwrap();
+
+        let options = DatasetOptions::builder().build();
+
+        let mut mosaic = MosaicedDataset { dataset: ds_vrt, options, min_max: None, elevation: None };
+
+        let elevation_vrt_path = temp_dir_path.clone();
+
+        let result = mosaic.set_elevation_dataset(elevation_path.to_str().unwrap(), elevation_vrt_path.to_str().unwrap());
+
+        assert!(result.is_ok());
+
+        assert!(mosaic.elevation.is_some());
+
+        assert_eq!(mosaic.elevation.unwrap().raster_count(), 1);
+
     }
 }
