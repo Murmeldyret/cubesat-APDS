@@ -79,7 +79,7 @@ pub mod geotransform {
         let elevation_pixels = inv_ele.apply(coordinates.0, coordinates.1);
 
         let height = super::elevation::get_elevation(conn, elevation_pixels.0, elevation_pixels.1)
-            .map_err(|e| Errors::Diesel(e))?;
+            .map_err(Errors::Diesel)?;
 
         Ok((coordinates.0, coordinates.1, height))
     }
@@ -156,7 +156,7 @@ pub mod elevation {
     const DIESEL_LIMIT: usize = 65535;
 
     pub fn add_elevation_data(conn: &mut PgConnection, dataset: &Dataset) -> Result<(), Errors> {
-        let rasterband = dataset.rasterband(1).map_err(|e| Errors::Gdal(e))?;
+        let rasterband = dataset.rasterband(1).map_err(Errors::Gdal)?;
         let dimensions = rasterband.size();
 
         let insert_properties = models::InsertElevationProperties {
@@ -166,7 +166,7 @@ pub mod elevation {
 
         let image: Vec<f64> = rasterband
             .read_as((0, 0), dimensions, dimensions, None)
-            .map_err(|e| Errors::Gdal(e))?
+            .map_err(Errors::Gdal)?
             .data;
 
         let insert_image: Vec<models::InsertElevation> = image
@@ -182,18 +182,18 @@ pub mod elevation {
             diesel::insert_into(crate::schema::elevation::table)
                 .values(insert_vec)
                 .execute(conn)
-                .map_err(|e| Errors::Diesel(e))?;
+                .map_err(Errors::Diesel)?;
         }
         let insert_vec = insert_image[DIESEL_LIMIT * upload_limit..insert_image.len()].to_vec();
         diesel::insert_into(crate::schema::elevation::table)
             .values(insert_vec)
             .execute(conn)
-            .map_err(|e| Errors::Diesel(e))?;
+            .map_err(Errors::Diesel)?;
 
         diesel::insert_into(crate::schema::elevation_properties::table)
             .values(insert_properties)
             .execute(conn)
-            .map_err(|e| Errors::Diesel(e))?;
+            .map_err(Errors::Diesel)?;
 
         Ok(())
     }
