@@ -66,7 +66,7 @@ pub fn read_and_extract_kp(im_path: &Path) -> ReadAndExtractKpResult {
     // it is assumed that input images will not contain an alpha channel
     let image = Cmat::<BGR8>::imread_checked(path, IMREAD_COLOR).expect("Failed to read image");
 
-    let extracted = akaze_keypoint_descriptor_extraction_def(&image.mat)
+    let extracted = akaze_keypoint_descriptor_extraction_def(&image.mat, None)
         .expect("AKAZE keypoint extraction failed");
 
     ReadAndExtractKpResult(
@@ -154,7 +154,7 @@ fn matching_with_descriptors(
     ref_kp: Vector<KeyPoint>,
 ) -> Result<Vec<ImgObjCorrespondence>, opencv::Error> {
 
-    let matches = get_knn_matches(&img.2.mat, &ref_desc.mat, 2, 0.5)?;
+    let matches = get_knn_matches(&img.2.mat, &ref_desc.mat, 2, 0.7)?;
     println!("origin keypoints: {}", img.1.len());
     println!("matches: {}", matches.len());
 
@@ -163,7 +163,7 @@ fn matching_with_descriptors(
 
     let mut scaled_ref_kp = opencv::types::VectorOfKeyPoint::new();
     for kp in &ref_kp {
-        // kp.pt() is divided by 32 as that is what it takes to convert a lod 0 (db) coordinate to lod5 (db_img)
+        // kp.pt() is divided by 32 as that is what it takes to convert a lod 0 (db) pixel coordinate to lod5 (db_img)
         scaled_ref_kp.push(opencv::core::KeyPoint::new_point(opencv::core::Point2f::new(kp.pt().x/32.0f32, kp.pt().y/32.0f32), kp.size(), kp.angle(), kp.response(), kp.octave(), kp.class_id()).unwrap());
     }
 
@@ -173,6 +173,11 @@ fn matching_with_descriptors(
     let _ = export_matches(&img.0.mat, &img.1, &db_img, &scaled_ref_kp, &matches, "../out1.png");
 
     let homography = opencv::calib3d::find_homography_def(&img_points, &obj_points_2d, &mut opencv::core::Mat::default());
+
+    // draw homo starts here
+    
+    // draw homo done
+
     // map object points to real world coordinates
     let obj_points = get_3d_world_coord_from_2d_point(
         obj_points_2d

@@ -39,10 +39,7 @@ pub fn akaze_keypoint_descriptor_extraction_def(
     //     DrawMatchesFlags::DEFAULT,
     // )?;
 
-    Ok(ExtractedKeyPoint {
-        keypoints: akaze_keypoints,
-        descriptors: akaze_desc,
-    })
+    Ok((akaze_keypoints, akaze_desc))
 }
 
 pub fn get_knn_matches(
