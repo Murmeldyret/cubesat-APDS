@@ -56,7 +56,7 @@ pub mod geotransform {
 
     /// Returns the 3d world coordinates from image pixel coordinates
     /// # Input
-    /// The inputs provided are x and y pixel coordinates from the reference image dataset. The keypoints from the database will have the correct coordinates for this.
+    /// The inputs provided are x and y pixel coordinates from the reference image dataset.
     /// # Returns
     /// A 3D point in space calculated from the center of earth.
     ///
