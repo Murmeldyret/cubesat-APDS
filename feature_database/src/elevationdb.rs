@@ -56,7 +56,7 @@ pub mod geotransform {
 
     /// Returns the 3d world coordinates from image pixel coordinates
     /// # Input
-    /// The inputs provided are x and y pixel coordinates from the reference image dataset. The keypoints from the database will have the correct coordinates for this.
+    /// The inputs provided are x and y pixel coordinates from the reference image dataset.
     /// # Returns
     /// A touple with the (longitude, lattitude, elevation(in meter))
     pub fn get_world_coordinates(
