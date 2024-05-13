@@ -58,7 +58,7 @@ pub mod geotransform {
     /// # Input
     /// The inputs provided are x and y pixel coordinates from the reference image dataset. The keypoints from the database will have the correct coordinates for this.
     /// # Returns
-    /// A touple with the (lattitude, longitude, elevation(in meter))
+    /// A touple with the (longitude, lattitude, elevation(in meter))
     pub fn get_world_coordinates(
         conn: &mut PgConnection,
         x: f64,
@@ -68,11 +68,9 @@ pub mod geotransform {
 
         let coordinates = transform.apply(x, y);
 
-
-
         let elevation_transform = match read_geotransform(conn, "elevation") {
             Ok(transform) => transform,
-            Err(_e) => return Ok(convert_coordinates(coordinates.0, coordinates.1, 0.0)),
+            Err(_e) => return Ok(convert_coordinates(coordinates.1, coordinates.0, 0.0)),
         };
 
         let inv_ele = elevation_transform
@@ -84,7 +82,7 @@ pub mod geotransform {
         let height = super::elevation::get_elevation(conn, elevation_pixels.0, elevation_pixels.1)
             .map_err(Errors::Diesel)?;
 
-        let coordinates = convert_coordinates(coordinates.0, coordinates.1, height);
+        let coordinates = convert_coordinates(coordinates.1, coordinates.0, height);
 
         Ok(coordinates)
     }
