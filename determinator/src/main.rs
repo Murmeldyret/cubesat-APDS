@@ -112,6 +112,7 @@ fn main() {
         Point3d::new(6.0, 6.0, 0.0),
         &solution
     ));
+    // kan godt fjernes
     let mut img_point = Vector::<Point2f>::new();
     let res = opencv::calib3d::project_points_def(&Vector::<Point3f>::from_slice(&vec![Point3f::new(57.1, 10.0, 5.0)]), &solution.rvec.mat,&solution.tvec.mat, &camera_matrix.mat, &Vector::<f32>::new(), &mut img_point).expect("msg");
     dbg!(img_point);
