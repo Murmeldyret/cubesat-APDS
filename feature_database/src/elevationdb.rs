@@ -14,6 +14,7 @@ pub mod geotransform {
     use crate::schema::geotransform::dsl;
     use gdal::GeoTransform;
     use gdal::GeoTransformEx;
+    use gdal::spatial_ref::{SpatialRef, CoordTransform};
 
     /// Stores a geotransform in the dataset. The name is not choosable by the user.
     /// The name of the transform should be either "dataset" or "elevation".
@@ -57,7 +58,9 @@ pub mod geotransform {
     /// # Input
     /// The inputs provided are x and y pixel coordinates from the reference image dataset.
     /// # Returns
-    /// A tuple with the (lattitude, longitude, elevation(in meter))
+    /// A 3D point in space calculated from the center of earth.
+    ///
+    /// Return type: Triple of f64.
     pub fn get_world_coordinates(
         conn: &mut PgConnection,
         x: f64,
@@ -69,7 +72,7 @@ pub mod geotransform {
 
         let elevation_transform = match read_geotransform(conn, "elevation") {
             Ok(transform) => transform,
-            Err(_e) => return Ok((coordinates.0, coordinates.1, 0.0)),
+            Err(_e) => return Ok(convert_coordinates(coordinates.1, coordinates.0, 0.0)),
         };
 
         let inv_ele = elevation_transform
@@ -81,7 +84,23 @@ pub mod geotransform {
         let height = super::elevation::get_elevation(conn, elevation_pixels.0, elevation_pixels.1)
             .map_err(Errors::Diesel)?;
 
-        Ok((coordinates.0, coordinates.1, height))
+        let coordinates = convert_coordinates(coordinates.1, coordinates.0, height);
+
+        Ok(coordinates)
+    }
+
+    fn convert_coordinates(x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        let mut x = [x];
+        let mut y = [y];
+        let mut z = [z];
+        let epsg_4326 = SpatialRef::from_epsg(4326).expect("Could not find spatialref");
+        let epsg_4978 = SpatialRef::from_epsg(4978).expect("Could not find spatialref");
+
+        let transformer = CoordTransform::new(&epsg_4326, &epsg_4978).expect("Could not make coordtransform");
+
+        transformer.transform_coords(&mut x, &mut y, &mut z).expect("Could not convert coordinates");
+
+        (x[0], y[0], z[0])
     }
 
     #[cfg(test)]
@@ -144,6 +163,20 @@ pub mod geotransform {
             let fetched_transform = read_geotransform(connection, "dataset");
 
             assert!(fetched_transform.is_err());
+        }
+
+        #[test]
+        fn coordinate_converter() {
+            let himmel_x = 56.105169;
+            let himmel_y = 9.68505;
+
+
+            let converted_coords = convert_coordinates(himmel_x, himmel_y, 0.0);
+
+            dbg!(&converted_coords);
+
+            assert!(converted_coords.0 - 3514316.2468943615 < f64::EPSILON);
+            assert!(converted_coords.1 - 599769.3477405359 < f64::EPSILON);
         }
     }
 }
