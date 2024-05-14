@@ -1,14 +1,9 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use opencv::{
-    calib3d::{find_homography, solve_pnp_ransac, SolvePnPMethod},
-    core::{
-        Point2d, Point2f, Point3d, Scalar, Size2i, ToInputArray, ToOutputArray, Vec4b, Vector,
-        BORDER_CONSTANT, CV_8UC4,
-    },
-    imgproc::{warp_perspective, INTER_LINEAR},
-    prelude::*,
-    Error,
+    boxed_ref::{BoxedRef, BoxedRefMut}, calib3d::{find_homography, solve_pnp_ransac, SolvePnPMethod}, core::{
+        Point2d, Point2f, Point3d, Scalar, Size2i, ToInputArray, ToOutputArray, Vec4b, Vector, _InputArray, _OutputArray, BORDER_CONSTANT, CV_8UC4
+    }, imgproc::{warp_perspective, INTER_LINEAR}, prelude::*, Error
 };
 use rgb::*;
 
@@ -166,7 +161,7 @@ impl<T: DataType> Cmat<T> {
 }
 
 impl<T> ToInputArray for Cmat<T> {
-    fn input_array(&self) -> opencv::Result<opencv::core::_InputArray> {
+    fn input_array(&self) -> std::result::Result<BoxedRef<'_, _InputArray>, opencv::Error> {
         self.check().map_err(|err| match err {
             MatError::Opencv(inner) => inner,
             _ => opencv::Error {
@@ -178,7 +173,7 @@ impl<T> ToInputArray for Cmat<T> {
     }
 }
 impl<T> ToOutputArray for Cmat<T> {
-    fn output_array(&mut self) -> opencv::Result<opencv::core::_OutputArray> {
+    fn output_array(&mut self) -> std::result::Result<BoxedRefMut<'_, _OutputArray>, opencv::Error> {
         self.check().map_err(|err| match err {
             MatError::Opencv(inner) => inner,
             _ => opencv::Error {
@@ -362,7 +357,7 @@ pub fn pnp_solver_ransac(
     let mut inliers = Cmat::<i32>::zeros(1, 1)?;
 
     let dist_coeffs = match dist_coeffs {
-        Some(val) => Cmat::<f64>::new(Mat::from_slice(val).map_err(MatError::Opencv)?)?,
+        Some(val) => Cmat::<f64>::new((Mat::from_slice(val).map_err(MatError::Opencv)?).clone_pointee())?,
         None => Cmat::<f64>::zeros(4, 1)?,
     };
 
@@ -446,8 +441,8 @@ mod test {
             0f64,
             0f64,
             1f64,
-        ];
-        let calib = Mat::from_slice_rows_cols(&s, 3, 3).unwrap();
+        ].chunks_exact(3).map(|f|f.to_vec()).collect::<Vec<Vec<_>>>();
+        let calib = Mat::from_slice_2d(&s).unwrap();
         Cmat::<f64>::new(calib).unwrap()
     }
 
