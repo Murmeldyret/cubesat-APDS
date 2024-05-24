@@ -12,9 +12,9 @@ pub enum Errors {
 pub mod geotransform {
     use super::*;
     use crate::schema::geotransform::dsl;
+    use gdal::spatial_ref::{CoordTransform, SpatialRef};
     use gdal::GeoTransform;
     use gdal::GeoTransformEx;
-    use gdal::spatial_ref::{SpatialRef, CoordTransform};
 
     /// Stores a geotransform in the dataset. The name is not choosable by the user.
     /// The name of the transform should be either "dataset" or "elevation".
@@ -96,9 +96,12 @@ pub mod geotransform {
         let epsg_4326 = SpatialRef::from_epsg(4326).expect("Could not find spatialref");
         let epsg_4978 = SpatialRef::from_epsg(4978).expect("Could not find spatialref");
 
-        let transformer = CoordTransform::new(&epsg_4326, &epsg_4978).expect("Could not make coordtransform");
+        let transformer =
+            CoordTransform::new(&epsg_4326, &epsg_4978).expect("Could not make coordtransform");
 
-        transformer.transform_coords(&mut x, &mut y, &mut z).expect("Could not convert coordinates");
+        transformer
+            .transform_coords(&mut x, &mut y, &mut z)
+            .expect("Could not convert coordinates");
 
         (x[0], y[0], z[0])
     }
@@ -169,7 +172,6 @@ pub mod geotransform {
         fn coordinate_converter() {
             let himmel_x = 56.105169;
             let himmel_y = 9.68505;
-
 
             let converted_coords = convert_coordinates(himmel_x, himmel_y, 0.0);
 

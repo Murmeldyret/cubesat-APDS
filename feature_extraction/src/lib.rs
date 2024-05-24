@@ -11,7 +11,7 @@ use opencv::{self as cv, prelude::*};
 
 pub const MAX_POINTS_SHIFT: i32 = 18;
 pub const MAX_POINTS: i32 = (1 << MAX_POINTS_SHIFT) - 1;
-    
+
 pub struct ExtractedKeyPoint {
     pub keypoints: Vector<KeyPoint>,
     pub descriptors: Mat,
@@ -58,7 +58,10 @@ impl ExtractedKeyPoint {
     }
 }
 
-pub fn akaze_keypoint_descriptor_extraction_def(img: &Mat, max_points: Option<i32>) -> Result<ExtractedKeyPoint, Error> {
+pub fn akaze_keypoint_descriptor_extraction_def(
+    img: &Mat,
+    max_points: Option<i32>,
+) -> Result<ExtractedKeyPoint, Error> {
     //let img: Mat = cv::imgcodecs::imread(file_location, cv::imgcodecs::IMREAD_COLOR).unwrap();
 
     let mut akaze: Ptr<AKAZE> = <AKAZE>::create(
@@ -254,19 +257,15 @@ mod test {
         let img1: Mat = get_mat_from_dir(img1_dir).unwrap();
         let img2: Mat = get_mat_from_dir(img2_dir).unwrap();
 
-        let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1, None).unwrap().keypoints;
-        let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2, None).unwrap().keypoints;
+        let img1_keypoints = akaze_keypoint_descriptor_extraction_def(&img1, None)
+            .unwrap()
+            .keypoints;
+        let img2_keypoints = akaze_keypoint_descriptor_extraction_def(&img2, None)
+            .unwrap()
+            .keypoints;
 
-        println!(
-            "{} - Keypoints: {}",
-            img1_dir,
-            img1_keypoints.len()
-        );
-        println!(
-            "{} - Keypoints: {}",
-            img2_dir,
-            img2_keypoints.len()
-        );
+        println!("{} - Keypoints: {}", img1_dir, img1_keypoints.len());
+        println!("{} - Keypoints: {}", img2_dir, img2_keypoints.len());
 
         assert!(img1_keypoints.len() == 9079 && img2_keypoints.len() == 9357);
     }
