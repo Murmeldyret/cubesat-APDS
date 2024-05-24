@@ -16,6 +16,7 @@ clap = { version = "4.5.4", features = ["derive"] }
 dotenvy = "0.15.7"
 rgb = "0.8.37"
 diesel = { version = "2.1.5", features = ["postgres"] }
+nalgebra = "0.32.5"
 
 [lints]
 workspace = true

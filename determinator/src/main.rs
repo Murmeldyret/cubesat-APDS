@@ -8,7 +8,10 @@ use opencv::calib3d::SolvePnPMethod;
 use opencv::core::{MatTraitConst, Point2f, Point3d, Point3f, Vector};
 use std::path::PathBuf;
 
-use crate::helpers::{project_obj_point, world_frame_to_camera_frame};
+use crate::helpers::{
+    camera_relative_to_earth, project_obj_point, rotation_matrix_to_euler,
+    world_frame_to_camera_frame,
+};
 
 pub mod helpers;
 
@@ -68,10 +71,14 @@ fn main() {
     let args = Args::parse();
     validate_args(&args);
     dotenv().expect("failed to read environment variables");
-    let extraction = read_and_extract_kp(&args.img_path);
+    let (extraction, image_resolution) = read_and_extract_kp(&args.img_path);
     // dbg!(&extraction.1);
     let point_correspondences = img_obj_corres(&args, extraction);
     let camera_matrix = get_camera_matrix(args.cam_matrix).expect("Failed to get camera matrix");
+    let dist_coeff = match &args.dist_coeff {
+        Some(values) => Vector::<f64>::from_slice(values),
+        None => Vector::<f64>::new(),
+    };
     // dbg!(&point_correspondences.len());
     // let _ = point_correspondences.iter().inspect(|f|{dbg!(f.obj_point);}).collect::<Vec<_>>();
     // TODO: needs real camera matrix. Probably also a good guess for reproj_thres and confidence
@@ -114,6 +121,50 @@ fn main() {
     ));
     // kan godt fjernes
     let mut img_point = Vector::<Point2f>::new();
-    let res = opencv::calib3d::project_points_def(&Vector::<Point3f>::from_slice(&vec![Point3f::new(57.1, 10.0, 5.0)]), &solution.rvec.mat,&solution.tvec.mat, &camera_matrix.mat, &Vector::<f32>::new(), &mut img_point).expect("msg");
+    let res = opencv::calib3d::project_points_def(
+        &Vector::<Point3f>::from_slice(&vec![Point3f::new(0.0 * 1.9, 0.0 * 1.9, 0.0)]),
+        &solution.rvec.mat,
+        &solution.tvec.mat,
+        &camera_matrix.mat,
+        &dist_coeff,
+        &mut img_point,
+    )
+    .expect("msg");
     dbg!(img_point);
+    let mut img_point = Vector::<Point2f>::new();
+    let res = opencv::calib3d::project_points_def(
+        &Vector::<Point3f>::from_slice(&vec![Point3f::new(1.0 * 1.9, 0.0 * 1.9, 0.0)]),
+        &solution.rvec.mat,
+        &solution.tvec.mat,
+        &camera_matrix.mat,
+        &dist_coeff,
+        &mut img_point,
+    )
+    .expect("msg");
+    dbg!(img_point);
+
+    let mut img_point = Vector::<Point2f>::new();
+    let res = opencv::calib3d::project_points_def(
+        &Vector::<Point3f>::from_slice(&vec![Point3f::new(0.0 * 1.9, 1.0 * 1.9, 0.0)]),
+        &solution.rvec.mat,
+        &solution.tvec.mat,
+        &camera_matrix.mat,
+        &dist_coeff,
+        &mut img_point,
+    )
+    .expect("msg");
+    dbg!(img_point);
+
+    let coordinates = camera_relative_to_earth(&solution).unwrap();
+
+    dbg!(&coordinates);
+
+    let distance = (coordinates.x.powi(2) + coordinates.y.powi(2) + coordinates.z.powi(2)).sqrt();
+
+    dbg!(distance);
+
+    let angles =
+        helpers::camera_angles(&solution, &camera_matrix).unwrap();
+
+    dbg!(angles.to_deg());
 }

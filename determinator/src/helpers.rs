@@ -1,24 +1,33 @@
 use core::f64;
 use std::{
-    borrow::BorrowMut, env, num::FpCategory, path::{Path, PathBuf}, sync::{Arc, Mutex}
+    borrow::BorrowMut,
+    env,
+    num::FpCategory,
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
 };
 
 use diesel::{Connection, PgConnection};
 use dotenvy::dotenv;
-use feature_database::{elevationdb::geotransform::get_world_coordinates, keypointdb::KeypointDatabase};
+use feature_database::{
+    elevationdb::geotransform::get_world_coordinates, keypointdb::KeypointDatabase,
+};
 use feature_extraction::{
     akaze_keypoint_descriptor_extraction_def, get_knn_matches, get_points_from_matches,
 };
-use homographier::homographier::{Cmat, ImgObjCorrespondence, PNPRANSACSolution};
+use homographier::homographier::{Cmat, ImgObjCorrespondence, MatError, PNPRANSACSolution};
 use opencv::{
     core::{
         hconcat2, KeyPoint, KeyPointTraitConst, Mat, MatExprTraitConst, MatTrait, MatTraitConst,
         MatTraitConstManual, Point2d, Point2f, Point3_, Point3d, Point3f, Point_, Size2i, Vec4d,
         Vector,
     },
+    calib3d,
     imgcodecs::{IMREAD_COLOR, IMREAD_GRAYSCALE},
 };
 use rgb::alt::BGR8;
+
+use nalgebra::{Dyn, Matrix, OMatrix, SMatrix, Vector3, Vector4, U1, U3, U4};
 
 use crate::{Args, CameraIntrinsic};
 
@@ -27,13 +36,20 @@ type DbType = Arc<Mutex<diesel::PgConnection>>;
 #[derive(Debug, Clone)]
 pub enum Coordinates3d {
     Ellipsoidal { lat: f32, lon: f32, height: f32 },
-    Cartesian { x: f32, y: f32, z: f32 },
+    Cartesian { x: f64, y: f64, z: f64 },
+}
+
+#[derive(Debug)]
+pub struct Cartesian3d {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
 
 #[derive(Debug, Clone)]
 pub enum Coordinates2d {
     Ellipsoidal { lat: f32, lon: f32 },
-    Cartesian { x: f32, y: f32 },
+    Cartesian { x: f64, y: f64 },
 }
 
 impl From<Coordinates3d> for Coordinates2d {
@@ -51,7 +67,25 @@ impl From<Coordinates3d> for Coordinates2d {
 
 pub struct ReadAndExtractKpResult(pub Cmat<BGR8>, pub Vector<KeyPoint>, pub Cmat<u8>);
 
-pub fn read_and_extract_kp(im_path: &Path) -> ReadAndExtractKpResult {
+#[derive(Debug)]
+pub struct EulerAngles {
+    pub roll: f64,
+    pub pitch: f64,
+    pub yaw: f64,
+}
+
+impl EulerAngles {
+    pub fn to_deg(&self) -> EulerAngles {
+        use std::f64::consts::PI;
+        EulerAngles {
+            roll: self.roll * 180.0 / PI,
+            pitch: self.pitch * 180.0 / PI,
+            yaw: self.yaw * 180.0 / PI,
+        }
+    }
+}
+
+pub fn read_and_extract_kp(im_path: &Path) -> (ReadAndExtractKpResult, (i64, i64)) {
     if !im_path.is_file() {
         panic!("{:?} Provided image path does not point to a file", im_path);
     }
@@ -68,13 +102,18 @@ pub fn read_and_extract_kp(im_path: &Path) -> ReadAndExtractKpResult {
     // it is assumed that input images will not contain an alpha channel
     let image = Cmat::<BGR8>::imread_checked(path, IMREAD_COLOR).expect("Failed to read image");
 
-    let extracted = akaze_keypoint_descriptor_extraction_def(&image.mat,None)
+    let resolution = image.mat.size().expect("Could not read image dimensions");
+
+    let extracted = akaze_keypoint_descriptor_extraction_def(&image.mat, None)
         .expect("AKAZE keypoint extraction failed");
 
-    ReadAndExtractKpResult(
-        image,
-        extracted.keypoints,
-        Cmat::<u8>::new(extracted.descriptors).expect("Matrix construction should not fail"),
+    (
+        ReadAndExtractKpResult(
+            image,
+            extracted.keypoints,
+            Cmat::<u8>::new(extracted.descriptors).expect("Matrix construction should not fail"),
+        ),
+        (resolution.width as i64, resolution.height as i64),
     )
 }
 
@@ -138,7 +177,7 @@ pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjC
                 &Cmat::<u8>::imread_checked(&args.img_path.to_string_lossy(), IMREAD_GRAYSCALE)
                     .expect("failed to read image")
                     .mat,
-                Size2i::new(7, 7),
+                Size2i::new(9, 9),
                 &mut img_points,
             )
             .expect("failed to find chessboard corners")
@@ -180,10 +219,19 @@ fn matching_with_descriptors(
     let obj_points = get_3d_world_coord_from_2d_point(
         obj_points_2d
             .into_iter()
-            .inspect(|f|{dbg!(f);})
+            .inspect(|f| {
+                dbg!(f);
+            })
             .map(|f| Point2d::new(f.x as f64, f.y as f64))
             .collect(),
-        Arc::new(Mutex::new(PgConnection::establish(env::var("DATABASE_URL").expect("failed to read DATABASE_URL").as_str()).expect("failed to establish connection")))
+        Arc::new(Mutex::new(
+            PgConnection::establish(
+                env::var("DATABASE_URL")
+                    .expect("failed to read DATABASE_URL")
+                    .as_str(),
+            )
+            .expect("failed to establish connection"),
+        )),
     );
     // dbg!(&obj_points);
     Ok(point_pair_to_correspondence(
@@ -210,11 +258,12 @@ pub fn ref_keypoints(args: &Args) -> (Vec<KeyPoint>, Option<Vec<Vec<u8>>>) {
     match args.demo {
         true => {
             // TIHI @Murmeldyret, here be no side effects
-            let points: Result<Vec<KeyPoint>, _> = (1..=7)
-                .map(|f| (f, (1..=7)))
+            let points: Result<Vec<KeyPoint>, _> = (-4..=4)
+                .map(|f| (f, (-4..=4)))
                 .flat_map(|row| {
-                    row.1
-                        .map(move |col| KeyPoint::new_coords_def(row.0 as f32, col as f32, 1.0))
+                    row.1.map(move |col| {
+                        KeyPoint::new_coords_def(row.0 as f32 * 1.9, col as f32 * 1.9, 1.0)
+                    })
                 })
                 .collect();
             (points.expect("Failed to create keypoints"), None)
@@ -280,7 +329,9 @@ pub fn get_3d_world_coord_from_2d_point(points: Vec<Point2d>, db: DbType) -> Vec
     points
         .into_iter()
         .map(|p| {
-            let world_coord: (f64, f64, f64) = get_world_coordinates(db.lock().expect("mutex poisoning").borrow_mut(), p.x, p.y).expect("failed to retrieve world coordinates");
+            let world_coord: (f64, f64, f64) =
+                get_world_coordinates(db.lock().expect("mutex poisoning").borrow_mut(), p.x, p.y)
+                    .expect("failed to retrieve world coordinates");
             Point3d::new(world_coord.0, world_coord.1, world_coord.2)
         })
         .collect::<Vec<_>>()
@@ -432,4 +483,239 @@ pub fn validate_args(args: &Args) {
         args.pnp_ransac_iter_count != 0,
         "RANSAC iteration count must be a nonzero positive number"
     );
+}
+
+pub fn camera_relative_to_earth(solution: &PNPRANSACSolution) -> Result<Cartesian3d, MatError> {
+    // Load the rotationmatrix and the transformation vector into a combined matrix.
+    let rvec = &solution.rvec;
+    let tvec = &solution.tvec;
+
+    let mut rot_vec: Cmat<f64> = Cmat::zeros(3, 1).expect("Failed to initialize matrix");
+
+    calib3d::rodrigues_def(rvec, &mut rot_vec).unwrap();
+
+    let rt_vec = solution_to_rt(rvec, tvec)?;
+
+    let rt_mat = OMatrix::<f64, U4, U4>::from_vec(rt_vec);
+
+    
+
+    let camera = OMatrix::<f64, U4, U1>::new(0.0, 0.0, 0.0, 1.0);
+
+
+    let world = rt_mat.try_inverse().expect("Could not inverse matrix") * camera;
+
+    Ok(Cartesian3d {
+        x: world[0] / world[3],
+        y: world[1] / world[3],
+        z: world[2] / world[3],
+    })
+}
+
+fn solution_to_rt(rvec: &Cmat<f64>, tvec: &Cmat<f64>) -> Result<Vec<f64>, MatError> {
+    let mut rt_vec: Vec<f64> = Vec::new();
+    for i in 0..3 * 3 {
+        rt_vec.push(rvec.at_2d(i % 3, i / 3)?.to_owned());
+        if i % 3 == 2 {
+            rt_vec.push(0.0);
+        }
+    }
+    for i in 0..4 {
+        if i == 3 {
+            rt_vec.push(1.0);
+        } else {
+            rt_vec.push(tvec.at_2d(i, 0)?.to_owned());
+        }
+    }
+    Ok(rt_vec)
+}
+
+pub fn rotation_matrix_to_euler(rotation_matrix: &Cmat<f64>) -> Result<EulerAngles, MatError> {
+    let a20 = rotation_matrix.at_2d(2, 0)?;
+    let a21 = rotation_matrix.at_2d(2, 1)?;
+
+    let phi = a20.atan2(a21.to_owned());
+
+    let a22 = rotation_matrix.at_2d(2, 2)?;
+
+    let theta = a22.acos();
+
+    let a02 = rotation_matrix.at_2d(0, 2)?;
+    let a12 = rotation_matrix.at_2d(1, 2)?;
+
+    let psi = -a02.atan2(a12.to_owned());
+
+    Ok(EulerAngles { roll: theta * -1.0 , pitch: psi, yaw: phi - std::f64::consts::PI })
+}
+
+fn mat_to_nalgebra(opencv_mat: &Cmat<f64>) -> Result<OMatrix<f64, Dyn, Dyn>, MatError> {
+    let size = opencv_mat
+        .mat
+        .size()
+        .expect("Could not obtain size of matrix.");
+    let mut vec = Vec::with_capacity((size.width * size.height) as usize);
+
+    for i in 0..(size.width * size.height) {
+        vec.push(opencv_mat.at_2d(i / size.width, i % size.width)?.to_owned());
+    }
+
+    let matrix =
+        OMatrix::<f64, Dyn, Dyn>::from_row_slice(size.height as usize, size.width as usize, &vec);
+
+    Ok(matrix)
+}
+
+pub fn camera_angles(
+    solution: &PNPRANSACSolution,
+    camera_matrix: &Cmat<f64>,
+) -> Result<EulerAngles, MatError> {
+    let rt_vec = solution_to_rt(&solution.rvec, &solution.tvec)?;
+    type Matrix4x4f64 = OMatrix<f64, U4, U4>;
+    let rt_matrix = Matrix4x4f64::from_vec(rt_vec);
+
+    let rotation = rotation_matrix_to_euler(&solution.rvec)?;
+
+    dbg!(&rotation.to_deg());
+
+    let point_3d_normal = Cartesian3d {
+        x: 0.0,
+        y: 0.0,
+        z: 1.0,
+    };
+
+    let earth_center = OMatrix::<f64,U4, U1>::new(0.0, 0.0, 0.0, 1.0);
+    let earth_center = rt_matrix * earth_center;
+    let earth_center = Cartesian3d {
+        x: earth_center[0] / earth_center[3],
+        y: earth_center[1] / earth_center[3],
+        z: earth_center[2] / earth_center[3],
+    };
+
+    let cam_coords = Cartesian3d {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
+
+
+
+    let roll = cosinus_relation_solver(
+        p2p_distance(
+            (earth_center.x, 0.0, earth_center.z),
+            (point_3d_normal.x, 0.0, point_3d_normal.z),
+        ),
+        p2p_distance(
+            (earth_center.x, 0.0, earth_center.z),
+            (cam_coords.x, 0.0, cam_coords.z),
+        ),
+        p2p_distance(
+            (point_3d_normal.x, 0.0, point_3d_normal.z),
+            (cam_coords.x, 0.0, cam_coords.z),
+        ),
+    );
+
+    let pitch = cosinus_relation_solver(
+        p2p_distance(
+            (0.0, earth_center.y, earth_center.z),
+            (0.0, point_3d_normal.y, point_3d_normal.z),
+        ),
+        p2p_distance(
+            (0.0, earth_center.y, earth_center.z),
+            (0.0, cam_coords.y, cam_coords.z),
+        ),
+        p2p_distance(
+            (0.0, point_3d_normal.y, point_3d_normal.z),
+            (0.0, point_3d_normal.y, cam_coords.z),
+        ),
+    );
+
+    let pms = plus_or_minus(&rt_matrix, roll, pitch);
+
+    
+    Ok(EulerAngles {roll: roll * pms.0, pitch: pitch * pms.1, yaw: rotation.yaw})
+}
+
+fn plus_or_minus(rt_matrix: &OMatrix<f64, U4, U4>, roll: f64, pitch: f64) -> (f64, f64) {
+    let point_3d_normal = Cartesian3d {
+        x: 0.0,
+        y: 0.0,
+        z: 1.0,
+    };
+
+    let earth_center = OMatrix::<f64,U4, U1>::new(f64::EPSILON * 1000000.0, f64::EPSILON * 1000000.0, 0.0, 1.0);
+    let earth_center = rt_matrix * earth_center;
+    let earth_center = Cartesian3d {
+        x: earth_center[0] / earth_center[3],
+        y: earth_center[1] / earth_center[3],
+        z: earth_center[2] / earth_center[3],
+    };
+
+    let cam_coords = Cartesian3d {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
+
+
+
+    let new_roll = cosinus_relation_solver(
+        p2p_distance(
+            (earth_center.x, 0.0, earth_center.z),
+            (point_3d_normal.x, 0.0, point_3d_normal.z),
+        ),
+        p2p_distance(
+            (earth_center.x, 0.0, earth_center.z),
+            (cam_coords.x, 0.0, cam_coords.z),
+        ),
+        p2p_distance(
+            (point_3d_normal.x, 0.0, point_3d_normal.z),
+            (cam_coords.x, 0.0, cam_coords.z),
+        ),
+    );
+
+    let new_pitch = cosinus_relation_solver(
+        p2p_distance(
+            (0.0, earth_center.y, earth_center.z),
+            (0.0, point_3d_normal.y, point_3d_normal.z),
+        ),
+        p2p_distance(
+            (0.0, earth_center.y, earth_center.z),
+            (0.0, cam_coords.y, cam_coords.z),
+        ),
+        p2p_distance(
+            (0.0, point_3d_normal.y, point_3d_normal.z),
+            (0.0, point_3d_normal.y, cam_coords.z),
+        ),
+    );
+
+    let mut roll_pm: f64;
+    let mut pitch_pm: f64;
+
+    if roll - new_roll > 0.0 {
+        roll_pm = -1.0;
+    } else {
+        roll_pm = 1.0;
+    }
+
+    if pitch - new_pitch > 0.0 {
+        pitch_pm = -1.0;
+    } else {
+        pitch_pm = 1.0;
+    }
+
+    (roll_pm, pitch_pm)
+
+}
+
+/// ec is earth center\
+/// pp is picture point\
+/// oc is origo camera
+fn cosinus_relation_solver(ec_to_pp: f64, ec_to_oc: f64, pp_to_oc: f64) -> f64 {
+    ((ec_to_oc.powi(2) + pp_to_oc.powi(2) - ec_to_pp.powi(2)) / (2.0 * ec_to_oc * pp_to_oc)).acos()
+}
+
+fn p2p_distance(a: (f64, f64, f64), b: (f64, f64, f64)) -> f64 {
+    let vector = (a.0 - b.0, a.1 - b.1, a.2 - b.2);
+
+    (vector.0.powi(2) + vector.1.powi(2) + vector.2.powi(2)).sqrt()
 }
