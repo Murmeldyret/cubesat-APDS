@@ -89,7 +89,7 @@ fn main() {
         100f32,
         0.99, /*TIHI*/
         args.dist_coeff.as_deref(),
-        Some(SolvePnPMethod::SOLVEPNP_EPNP), // i think this method is most appropriate, optionally it could be program argument
+        Some(SolvePnPMethod::SOLVEPNP_SQPNP), // i think this method is most appropriate, optionally it could be program argument
     )
     .expect("Failed to solve PNP problem")
     .expect("No solution was obtained to the PNP problem");
