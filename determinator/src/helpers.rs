@@ -199,7 +199,6 @@ pub fn img_obj_corres(args: &Args, image: ReadAndExtractKpResult) -> Vec<ImgObjC
     }
 }
 
-//TODO: DENNE FUNKTION ER CURSED
 fn matching_with_descriptors(
     img: &ReadAndExtractKpResult,
     ref_desc: &Cmat<u8>,
