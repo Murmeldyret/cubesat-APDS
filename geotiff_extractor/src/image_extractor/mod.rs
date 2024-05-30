@@ -103,8 +103,12 @@ pub trait MosaicDataset {
     fn detect_nodata(&self) -> bool;
     fn fill_nodata(&mut self);
     fn set_bands(&self, red_band: isize, green_band: isize, blue_band: isize);
-    fn set_elevation_dataset(&mut self, path: &str, output_path: &str) -> Result<(), errors::GdalError>;
-    fn get_world_coordinates(&self, x: f64, y: f64) -> Result<(f64,f64,f64), errors::GdalError>;
+    fn set_elevation_dataset(
+        &mut self,
+        path: &str,
+        output_path: &str,
+    ) -> Result<(), errors::GdalError>;
+    fn get_world_coordinates(&self, x: f64, y: f64) -> Result<(f64, f64, f64), errors::GdalError>;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -291,7 +295,11 @@ impl MosaicDataset for MosaicedDataset {
         todo!()
     }
 
-    fn set_elevation_dataset(&mut self, path: &str, output_path: &str) -> Result<(), errors::GdalError> {
+    fn set_elevation_dataset(
+        &mut self,
+        path: &str,
+        output_path: &str,
+    ) -> Result<(), errors::GdalError> {
         let ds = match dataset_from_folder(path) {
             Ok(dataset) => dataset,
             Err(e) => return Err(e),
@@ -308,24 +316,37 @@ impl MosaicDataset for MosaicedDataset {
         Ok(())
     }
 
-    fn get_world_coordinates(&self, x: f64, y: f64) -> Result<(f64,f64,f64), errors::GdalError> {
+    fn get_world_coordinates(&self, x: f64, y: f64) -> Result<(f64, f64, f64), errors::GdalError> {
         let geotransform = self.dataset.geo_transform()?;
 
         let coordinates = geotransform.apply(x, y);
 
         let elevation_transform = match &self.elevation {
             Some(dataset) => dataset.geo_transform()?,
-            None => return Ok((coordinates.0, coordinates.1, 0.0))
+            None => return Ok((coordinates.0, coordinates.1, 0.0)),
         };
 
         let invers_elev = elevation_transform.invert()?;
 
         let elev_pixels = invers_elev.apply(coordinates.0, coordinates.1);
 
-        let elevation = self.elevation.as_ref().unwrap().rasterband(1)?.read_as::<f64>((elev_pixels.0.round() as isize, elev_pixels.1.round() as isize), (1,1), (1,1), None)?.data;
+        let elevation = self
+            .elevation
+            .as_ref()
+            .unwrap()
+            .rasterband(1)?
+            .read_as::<f64>(
+                (
+                    elev_pixels.0.round() as isize,
+                    elev_pixels.1.round() as isize,
+                ),
+                (1, 1),
+                (1, 1),
+                None,
+            )?
+            .data;
 
         Ok((coordinates.0, coordinates.1, elevation[0]))
-
     }
 }
 
@@ -502,7 +523,7 @@ mod tests {
             dataset: ds,
             options: DatasetOptionsBuilder::new().build(),
             min_max: None,
-            elevation: None
+            elevation: None,
         };
 
         let result = MosaicDataset::datasets_min_max(&mut dataset);
@@ -704,11 +725,17 @@ mod tests {
 
         let ds_vrt = build_vrt(Some(vrt_path.as_path()), &map_ds, None).unwrap();
 
-        let elevation_vrt = build_vrt(Some(elevation_vrt_path.as_path()), &elevation_ds, None).unwrap();
+        let elevation_vrt =
+            build_vrt(Some(elevation_vrt_path.as_path()), &elevation_ds, None).unwrap();
 
         let options = DatasetOptions::builder().build();
 
-        let mosaic = MosaicedDataset { dataset: ds_vrt, options, min_max: None, elevation: Some(elevation_vrt) };
+        let mosaic = MosaicedDataset {
+            dataset: ds_vrt,
+            options,
+            min_max: None,
+            elevation: Some(elevation_vrt),
+        };
 
         let coordinates = mosaic.get_world_coordinates(8220.6, 12000.0 - 1262.028);
 
@@ -741,17 +768,24 @@ mod tests {
 
         let options = DatasetOptions::builder().build();
 
-        let mut mosaic = MosaicedDataset { dataset: ds_vrt, options, min_max: None, elevation: None };
+        let mut mosaic = MosaicedDataset {
+            dataset: ds_vrt,
+            options,
+            min_max: None,
+            elevation: None,
+        };
 
         let elevation_vrt_path = temp_dir_path.clone();
 
-        let result = mosaic.set_elevation_dataset(elevation_path.to_str().unwrap(), elevation_vrt_path.to_str().unwrap());
+        let result = mosaic.set_elevation_dataset(
+            elevation_path.to_str().unwrap(),
+            elevation_vrt_path.to_str().unwrap(),
+        );
 
         assert!(result.is_ok());
 
         assert!(mosaic.elevation.is_some());
 
         assert_eq!(mosaic.elevation.unwrap().raster_count(), 1);
-
     }
 }

@@ -11,7 +11,7 @@ homographier = { version = "0.1.0", path="../homographier"}
 
 clap = { version = "4.5.4", features = ["derive"] }
 rgb = "0.8.37"
-opencv ={ version = "0.88.8", features = ["clang-runtime","rgb"]}
+opencv = {version = "0.91.3",default-features = false, features = ["clang-runtime","calib3d"]}
 
 [lints]
 workspace = true

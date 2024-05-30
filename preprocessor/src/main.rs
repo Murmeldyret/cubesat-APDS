@@ -105,7 +105,16 @@ fn main() {
     };
 
     if args.elevation_path.is_some() {
-        mosaic.lock().unwrap().set_elevation_dataset(&args.elevation_path.expect("Elevation dataset path not found"), &temp_string).expect("Could not add elevation data to dataset");
+        mosaic
+            .lock()
+            .unwrap()
+            .set_elevation_dataset(
+                &args
+                    .elevation_path
+                    .expect("Elevation dataset path not found"),
+                &temp_string,
+            )
+            .expect("Could not add elevation data to dataset");
     }
 
     if mosaic.lock().unwrap().elevation.is_some() {
@@ -119,54 +128,70 @@ fn main() {
         process_lod_from_mosaic(db_connection, mosaic, args.lod, s);
     });
 
-
     temp_dir.close().expect("Failed to delete temporary data");
 }
 
-
 /// This function is only called when the elevation dataset is known to exist.
 fn add_elevation(conn: DbType, mosaic: Arc<Mutex<MosaicedDataset>>) {
-    use feature_database::elevationdb::{geotransform, elevation};
+    use feature_database::elevationdb::{elevation, geotransform};
     let mosaic = mosaic.lock().unwrap();
     let conn = &mut conn.lock().unwrap();
 
-    let dataset_trans = mosaic.dataset.geo_transform().expect("Could not get geotransform from dataset");
-    let elevation_trans = mosaic.elevation.as_ref().unwrap().geo_transform().expect("Could not get geotransform from elevation");
+    let dataset_trans = mosaic
+        .dataset
+        .geo_transform()
+        .expect("Could not get geotransform from dataset");
+    let elevation_trans = mosaic
+        .elevation
+        .as_ref()
+        .unwrap()
+        .geo_transform()
+        .expect("Could not get geotransform from elevation");
 
-    geotransform::create_geotransform(conn, "dataset", dataset_trans).expect("Could not add dataset geotransform to database");
-    geotransform::create_geotransform(conn, "elevation", elevation_trans).expect("Could not add dataset geotransform to database");
+    geotransform::create_geotransform(conn, "dataset", dataset_trans)
+        .expect("Could not add dataset geotransform to database");
+    geotransform::create_geotransform(conn, "elevation", elevation_trans)
+        .expect("Could not add dataset geotransform to database");
 
-    elevation::add_elevation_data(conn, &mosaic.elevation.as_ref().expect("Elevation data not found")).expect("Elevation data could not be added to database");
+    elevation::add_elevation_data(
+        conn,
+        &mosaic.elevation.as_ref().expect("Elevation data not found"),
+    )
+    .expect("Elevation data could not be added to database");
 }
 
-fn read_dataset(dataset_path: Option<String>, mosaic_path: Option<String>, temp_string: &str) -> Result<Arc<Mutex<MosaicedDataset>>, std::io::Error> {
+fn read_dataset(
+    dataset_path: Option<String>,
+    mosaic_path: Option<String>,
+    temp_string: &str,
+) -> Result<Arc<Mutex<MosaicedDataset>>, std::io::Error> {
     // let mosaic: Arc<Mutex<MosaicedDataset>>;
 
     if let Some(path) = mosaic_path {
-        return Ok(Arc::new(Mutex::new(MosaicedDataset::import_mosaic_dataset(&path).expect("Could not open dataset"))));
+        return Ok(Arc::new(Mutex::new(
+            MosaicedDataset::import_mosaic_dataset(&path).expect("Could not open dataset"),
+        )));
     }
 
     if let Some(path) = dataset_path {
-            let dataset = image_extractor::RawDataset::import_datasets(&path)
-                .expect("Could not open datasets");
-            println!("Converting dataset to mosaic");
-            return Ok(Arc::new(Mutex::new(
-                dataset
-                    .to_mosaic_dataset(&temp_string)
-                    .expect("Could not convert dataset."),
-            )));
+        let dataset =
+            image_extractor::RawDataset::import_datasets(&path).expect("Could not open datasets");
+        println!("Converting dataset to mosaic");
+        return Ok(Arc::new(Mutex::new(
+            dataset
+                .to_mosaic_dataset(&temp_string)
+                .expect("Could not convert dataset."),
+        )));
     }
 
-    Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Could not read dataset"))
+    Err(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "Could not read dataset",
+    ))
 }
 
 // A function that initialize the downscaling and extraction of each level of detail.
-fn process_lod_from_mosaic(
-    conn: DbType,
-    image: Arc<Mutex<MosaicedDataset>>,
-    lod: u64,
-    s: &Scope,
-) {
+fn process_lod_from_mosaic(conn: DbType, image: Arc<Mutex<MosaicedDataset>>, lod: u64, s: &Scope) {
     let image_resolution = image
         .lock()
         .unwrap()
@@ -182,14 +207,7 @@ fn process_lod_from_mosaic(
 
     // Loop that initiate the process for all levels of detail.
     for i in 0..lod {
-        downscale_from_lod(
-            conn.clone(),
-            image.clone(),
-            lod,
-            i,
-            multi_bar.clone(),
-            s,
-        )
+        downscale_from_lod(conn.clone(), image.clone(), lod, i, multi_bar.clone(), s)
     }
 }
 
@@ -209,7 +227,10 @@ fn downscale_from_lod(
     dbg!(&image_resolution);
     dbg!(&lod);
 
-    let tile_size = (image_resolution.0 as u64/ 2_u64.pow(amount_lod as u32 - 1), image_resolution.1 as u64 / 2_u64.pow(amount_lod as u32 - 1));
+    let tile_size = (
+        image_resolution.0 as u64 / 2_u64.pow(amount_lod as u32 - 1),
+        image_resolution.1 as u64 / 2_u64.pow(amount_lod as u32 - 1),
+    );
 
     // Calculate how many columns and rows there are in the level.
     let columns: u64 = image_resolution.0 as u64 / (tile_size.0 * 2_u64.pow(lod as u32));
@@ -280,9 +301,12 @@ fn feature_extraction_to_database(
     let insert_image = models::InsertImage {
         level_of_detail: &(lod as i32),
         x_start: &((column * tile_size.0 * 2_u64.pow(lod as u32)) as i32),
-        x_end: &((column * tile_size.0 * 2_u64.pow(lod as u32) + tile_size.0 * 2_u64.pow(lod as u32) - 1) as i32),
+        x_end: &((column * tile_size.0 * 2_u64.pow(lod as u32)
+            + tile_size.0 * 2_u64.pow(lod as u32)
+            - 1) as i32),
         y_start: &((row * tile_size.1 * 2_u64.pow(lod as u32)) as i32),
-        y_end: &((row * tile_size.1 * 2_u64.pow(lod as u32) + tile_size.1 * 2_u64.pow(lod as u32) - 1) as i32),
+        y_end: &((row * tile_size.1 * 2_u64.pow(lod as u32) + tile_size.1 * 2_u64.pow(lod as u32)
+            - 1) as i32),
     };
 
     let insert_image = imagedb::Image::One(insert_image);
@@ -297,8 +321,10 @@ fn feature_extraction_to_database(
         .to_db_type(image_id)
         .into_iter()
         .map(|keypoint| DbKeypoints {
-            x_coord: keypoint.x_coord * 2_f32.powi(lod as i32) + (column * tile_size.0 * 2_u64.pow(lod as u32)) as f32,
-            y_coord: keypoint.y_coord * 2_f32.powi(lod as i32) + (row * tile_size.1 * 2_u64.pow(lod as u32)) as f32,
+            x_coord: keypoint.x_coord * 2_f32.powi(lod as i32)
+                + (column * tile_size.0 * 2_u64.pow(lod as u32)) as f32,
+            y_coord: keypoint.y_coord * 2_f32.powi(lod as i32)
+                + (row * tile_size.1 * 2_u64.pow(lod as u32)) as f32,
             ..keypoint
         })
         .collect();
@@ -325,5 +351,3 @@ fn feature_extraction_to_database(
 
     bar.inc(1);
 }
-
-

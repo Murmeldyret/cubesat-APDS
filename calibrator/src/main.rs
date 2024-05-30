@@ -26,7 +26,7 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-    let images = read_images(&args.img_path);
+    let mut images = read_images(&args.img_path);
     assert!(
         images.len() >= 10,
         "At least 10 images are necesarry to perform image calibration, but only {} was found",
@@ -34,12 +34,11 @@ fn main() {
     );
     // dbg!(images.len());
     let size = opencv::core::Size::new(args.corners[0].into(), args.corners[1].into());
-    let obj_points = iter::repeat(img_points_from_size(&size))
-        .take(images.len())
-        .collect::<Vector<Vector<_>>>();
-    let mut corners: Vec<Vector<Point2f>> = Vec::with_capacity(images.len());
+    let mut corners: Vec<Vector<Point2f>> = Vec::new();
     // dbg!(corners);
     let mut corner_found: Vec<bool> = Vec::with_capacity(images.len());
+
+    let mut remove_index: Vec<usize> = Vec::new();
 
     for (i, elem) in images.iter().enumerate() {
         let mut corner: Vector<Point2f> = Vector::new();
@@ -50,9 +49,23 @@ fn main() {
             CALIB_CB_ADAPTIVE_THRESH,
         )
         .expect("Opencv error");
-        corners.push(corner);
-        corner_found.insert(i, res);
+        if corner.len() != 0 {
+            corners.push(corner);
+            //corner_found.insert(i, res);
+        } else {
+            remove_index.push(i);
+        }
     }
+
+    while let Some(i) = remove_index.pop() {
+        images.remove(i);
+    }
+
+    let obj_points = iter::repeat(img_points_from_size(&size))
+        .take(corners.len())
+        .collect::<Vector<Vector<_>>>();
+
+
     let img_points: Vector<Vector<opencv::core::Point_<f32>>> = Vector::from_iter(corners);
 
     let mut cam_mat = Cmat::<f64>::zeros(3, 3).expect("matrix intiliaztion should not fail");
@@ -78,4 +91,8 @@ fn main() {
     let foc_y = cam_mat.at_2d(1, 1).expect("TODO");
     let princip_y = cam_mat.at_2d(1, 2).expect("TODO");
     println!("|{:.3},{:.3},{:.3}|\n|0.000,{:.3},{:.3}|\n|0.000,0.000,1.000|\nRMS reprojection error:{:.3}",foc_x,skew,princip_x,foc_y,princip_y,rms_reproj);
+    println!(
+        "distortion coefficients: \n{:.?}",
+        dist_coeffs.into_iter().collect::<Vec<f64>>()
+    )
 }

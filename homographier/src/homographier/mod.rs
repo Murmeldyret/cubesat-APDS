@@ -1,10 +1,11 @@
-use std::marker::PhantomData;
+use std::{fmt::Debug, marker::PhantomData};
 
 use opencv::{
-    calib3d::{find_homography, solve_pnp_ransac, SolvePnPMethod, RANSAC},
+    boxed_ref::{BoxedRef, BoxedRefMut},
+    calib3d::{find_homography, solve_pnp_ransac, SolvePnPMethod},
     core::{
         Point2d, Point2f, Point3d, Scalar, Size2i, ToInputArray, ToOutputArray, Vec4b, Vector,
-        BORDER_CONSTANT, CV_8UC4,
+        _InputArray, _OutputArray, BORDER_CONSTANT, CV_8UC4,
     },
     imgproc::{warp_perspective, INTER_LINEAR},
     prelude::*,
@@ -39,6 +40,8 @@ pub enum MatError {
     Empty,
     /// Matrix is not rectangular (columns or rows with differing lengths)
     Jagged,
+    /// Tried to construct a matrix with element type `provided`, got `actual` instead
+    OpenCvTypeMismatch { provided: i32, actual: i32 },
     /// An unknown error
     Unknown,
 }
@@ -90,7 +93,7 @@ impl<T> Cmat<T> {
         }
     }
 
-    /// Creates a Cmat from a copied 1-dimensional slice
+    /// Creates a Cmat from a copied 2-dimensional slice
     pub fn from_2d_slice(slice: &[impl AsRef<[T]>]) -> Result<Self, MatError>
     where
         T: DataType,
@@ -114,13 +117,31 @@ impl<T: DataType> Cmat<T> {
     pub fn new(mat: Mat) -> Result<Self, MatError> {
         match T::opencv_type() == mat.typ() {
             true => Ok(Cmat::from_mat(mat)?),
-            false => Err(MatError::Empty),
+            false => Err(MatError::OpenCvTypeMismatch {
+                provided: T::opencv_type(),
+                actual: mat.typ(),
+            }),
         }
     }
 
     pub fn imread_checked(filename: &str, flags: i32) -> Result<Self, MatError> {
-        // let res =
-        Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)
+        let res = Cmat::new(opencv::imgcodecs::imread(filename, flags).map_err(MatError::Opencv)?)?;
+        Ok(res)
+    }
+    /// Returns a (debug) formatted string representation of the matrix, useful for printing all matrix elements
+    pub fn format_elems(&self) -> String
+    where
+        T: Debug,
+    {
+        let mut output = String::new();
+        for i in 0..self.mat.rows() {
+            output = format!(
+                "{}{:?}\n",
+                output,
+                self.mat.at_row::<T>(i).expect("failed to read row")
+            );
+        }
+        output
     }
     /// Checked element access
     ///
@@ -129,7 +150,7 @@ impl<T: DataType> Cmat<T> {
     /// If the type T does not match the inner Mat's type, an error is returned
     pub fn at_2d(&self, row: i32, col: i32) -> Result<&T, MatError> {
         let size = self.mat.size().map_err(|_err| MatError::Unknown)?;
-        if (row > size.width) || (col > size.height) {
+        if (row >= size.height) || (col >= size.width) {
             return Err(MatError::Opencv(Error::new(-211, "")));
         }
 
@@ -146,7 +167,7 @@ impl<T: DataType> Cmat<T> {
 }
 
 impl<T> ToInputArray for Cmat<T> {
-    fn input_array(&self) -> opencv::Result<opencv::core::_InputArray> {
+    fn input_array(&self) -> std::result::Result<BoxedRef<'_, _InputArray>, opencv::Error> {
         self.check().map_err(|err| match err {
             MatError::Opencv(inner) => inner,
             _ => opencv::Error {
@@ -158,7 +179,9 @@ impl<T> ToInputArray for Cmat<T> {
     }
 }
 impl<T> ToOutputArray for Cmat<T> {
-    fn output_array(&mut self) -> opencv::Result<opencv::core::_OutputArray> {
+    fn output_array(
+        &mut self,
+    ) -> std::result::Result<BoxedRefMut<'_, _OutputArray>, opencv::Error> {
         self.check().map_err(|err| match err {
             MatError::Opencv(inner) => inner,
             _ => opencv::Error {
@@ -305,7 +328,7 @@ pub fn warp_image_perspective<T: DataType>(
 /// * point_correspondences: a slice of 3d-to-2d point correspondences, minimum length is 4 (even in the P3P case, where the 4th point is used to find the solution with least reprojection error)
 /// * camera_intrinsic: the camera calibration matrix 3X3
 /// * iter_count: How many iteration the ransac algorithm should perform
-/// * reproj_thres:
+/// * reproj_thres: Maximum allowed reprojection error. NOTE setting this value to a low number may result in a very low inlier ratio
 /// * confidence: //TODO
 /// * dist_coeffs: distortion coefficients from camera calibration, if [`None`], a zero length vector is assumed
 /// ## Returns
@@ -341,7 +364,12 @@ pub fn pnp_solver_ransac(
 
     let mut inliers = Cmat::<i32>::zeros(1, 1)?;
 
-    let dist_coeffs = Cmat::<f64>::zeros(4, 1)?;
+    let dist_coeffs = match dist_coeffs {
+        Some(val) => {
+            Cmat::<f64>::new((Mat::from_slice(val).map_err(MatError::Opencv)?).clone_pointee())?
+        }
+        None => Cmat::<f64>::zeros(4, 1)?,
+    };
 
     // i think that Ok(false) means that there is no solution, but no errors happened
     let res = solve_pnp_ransac(
@@ -359,11 +387,14 @@ pub fn pnp_solver_ransac(
         method.unwrap_or(SolvePnPMethod::SOLVEPNP_EPNP) as i32,
     )
     .map_err(MatError::Opencv)?;
+    let mut rmat = Cmat::<f64>::zeros(3, 3)?;
+    opencv::calib3d::rodrigues_def(&rvec.mat, &mut rmat).map_err(MatError::Opencv)?;
     let solution = PNPRANSACSolution {
-        rvec,
+        rvec: rmat,
         tvec,
         inliers,
     };
+    // dbg!(&solution.inliers.mat.size());
     let solution = res.then_some(solution);
     Ok(solution)
 }
@@ -420,8 +451,11 @@ mod test {
             0f64,
             0f64,
             1f64,
-        ];
-        let calib = Mat::from_slice_rows_cols(&s, 3, 3).unwrap();
+        ]
+        .chunks_exact(3)
+        .map(|f| f.to_vec())
+        .collect::<Vec<Vec<_>>>();
+        let calib = Mat::from_slice_2d(&s).unwrap();
         Cmat::<f64>::new(calib).unwrap()
     }
 

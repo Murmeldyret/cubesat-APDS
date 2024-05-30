@@ -1,5 +1,5 @@
 use crate::{Args, DatasetPath};
-use geotiff_lib::image_extractor::{Datasets, RawDataset, MosaicDataset, MosaicedDataset};
+use geotiff_lib::image_extractor::{Datasets, MosaicDataset, MosaicedDataset, RawDataset};
 
 const MINIMUM_RESOLUTION: i64 = 500;
 
@@ -22,16 +22,23 @@ pub fn calc_offset_from_lod(coordinates: (u64, u64), lod: u64) -> (u64, u64) {
 }
 
 pub fn calculate_level_of_detail_resolution(args: &Args) {
-    if let DatasetPath::Dataset{ path } = &args.dataset_path {
+    if let DatasetPath::Dataset { path } = &args.dataset_path {
         let dataset = RawDataset::import_datasets(&path).expect("Could not read datasets");
 
-        let resolution = dataset.to_vrt_dataset().expect("Could not create vrt").get_dimensions().expect("Could not get resolution");
+        let resolution = dataset
+            .to_vrt_dataset()
+            .expect("Could not create vrt")
+            .get_dimensions()
+            .expect("Could not get resolution");
 
         print_resolution(resolution.0, resolution.1);
     }
 
     if let DatasetPath::Mosaic { path } = &args.dataset_path {
-        let resolution = MosaicedDataset::import_mosaic_dataset(&path).expect("Could not read dataset").get_dimensions().expect("Could not get resolution");
+        let resolution = MosaicedDataset::import_mosaic_dataset(&path)
+            .expect("Could not read dataset")
+            .get_dimensions()
+            .expect("Could not get resolution");
 
         print_resolution(resolution.0, resolution.1);
     }
@@ -39,16 +46,16 @@ pub fn calculate_level_of_detail_resolution(args: &Args) {
 
 pub fn print_resolution(x: i64, y: i64) {
     let mut x = x;
-        let mut y = y;
-        let mut lod = 0;
+    let mut y = y;
+    let mut lod = 0;
 
-        while x >= MINIMUM_RESOLUTION && y >= MINIMUM_RESOLUTION {
-            println!("lod: {} | x: {} | y: {}", lod + 1, x, y);
+    while x >= MINIMUM_RESOLUTION && y >= MINIMUM_RESOLUTION {
+        println!("lod: {} | x: {} | y: {}", lod + 1, x, y);
 
-            x = x / 2;
-            y = y / 2;
-            lod += 1;
-        }
+        x = x / 2;
+        y = y / 2;
+        lod += 1;
+    }
 }
 
 #[cfg(test)]
