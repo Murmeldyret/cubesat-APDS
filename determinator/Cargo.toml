@@ -11,7 +11,7 @@ feature_database = { version = "0.1.0", path = "../feature_database" }
 feature_extraction = {version = "0.1.0", path = "../feature_extraction"}
 geotiff_extractor = {version = "0.1.0", path = "../geotiff_extractor"}
 
-opencv ={ version = "0.88.8", features = ["rgb"]}
+opencv = { version = "0.92.0", features = ["rgb"]}
 clap = { version = "4.5.4", features = ["derive"] }
 dotenvy = "0.15.7"
 rgb = "0.8.37"

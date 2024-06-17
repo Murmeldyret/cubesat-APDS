@@ -136,14 +136,13 @@ pub fn export_matches(
     let mut out_img = Mat::default();
     let matches_mask = Vector::new();
 
-    cv::features2d::draw_matches_1(
+    cv::features2d::draw_matches(
         &img1,
         img1_keypoints,
         &img2,
         img2_keypoints,
         matches,
         &mut out_img,
-        1i32,
         opencv::core::VecN::new(255.0f64, 0.0f64, 0.0f64, 0.0f64),
         opencv::core::VecN::new(0.0f64, 0.0f64, 255.0f64, 0.0f64),
         &matches_mask,
