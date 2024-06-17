@@ -1,22 +1,17 @@
 use core::f64;
 use std::{
-    env,
-    num::FpCategory,
-    path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    borrow::BorrowMut, env, num::FpCategory, path::{Path, PathBuf}, process, sync::{Arc, Mutex}
 };
 
 use diesel::Connection;
 use feature_database::keypointdb::KeypointDatabase;
 use feature_extraction::{
-    akaze_keypoint_descriptor_extraction_def, export_matches, get_knn_matches, get_mat_from_dir, get_points_from_matches
+    akaze_keypoint_descriptor_extraction_def, draw_homography_lines, export_matches, get_bruteforce_matches, get_knn_matches, get_mat_from_dir, get_matched_points_vec, get_points_from_matches
 };
-use homographier::homographier::{Cmat, ImgObjCorrespondence, PNPRANSACSolution};
+use homographier::homographier::{find_homography_mat, warp_image_perspective, Cmat, HomographyMethod, ImgObjCorrespondence, PNPRANSACSolution};
 use opencv::{
     core::{
-        hconcat2, KeyPoint, KeyPointTraitConst, Mat, MatExprTraitConst, MatTrait, MatTraitConst,
-        MatTraitConstManual, Point2d, Point2f, Point3_, Point3d, Point3f, Point_, Size2i, Vec4d,
-        Vector,
+        hconcat2, perspective_transform, ElemMul, KeyPoint, KeyPointTraitConst, Mat, MatExprTraitConst, MatTrait, MatTraitConst, MatTraitConstManual, Point2d, Point2f, Point3_, Point3d, Point3f, Point_, Size2i, Vec4d, Vector
     },
     imgcodecs::{IMREAD_COLOR, IMREAD_GRAYSCALE}, types::VectorOfDMatch,
 };
@@ -168,7 +163,9 @@ fn matching_with_descriptors(
     ref_kp: Vector<KeyPoint>,
 ) -> Result<Vec<ImgObjCorrespondence>, opencv::Error> {
 
-    let matches = get_knn_matches(&img.2.mat, &ref_desc.mat, 2, 0.7)?;
+    let matches = get_knn_matches(&img.2.mat, &ref_desc.mat, 2, 0.6)?;
+    //let matches = get_bruteforce_matches(&img.2.mat, &ref_desc.mat).unwrap();
+    println!("ref keypoints: {}", &ref_kp.len());
     println!("origin keypoints: {}", img.1.len());
     println!("matches: {}", matches.len());
 
@@ -178,19 +175,57 @@ fn matching_with_descriptors(
     let mut scaled_ref_kp = opencv::types::VectorOfKeyPoint::new();
     for kp in &ref_kp {
         // kp.pt() is divided by 32 as that is what it takes to convert a lod 0 (db) pixel coordinate to lod5 (db_img)
-        scaled_ref_kp.push(opencv::core::KeyPoint::new_point(opencv::core::Point2f::new(kp.pt().x/32.0f32, kp.pt().y/32.0f32), kp.size(), kp.angle(), kp.response(), kp.octave(), kp.class_id()).unwrap());
+        // divided by 4 for lod2
+        // @lod5 1°x1° = 375x375px, @lod2 it is therefore 3000x3000px
+        // njutland-lod2 covers 9.5°-11° and 56.5°-58° (1.5°x1.5°), the dataset starts at 8° and 58°, therefore an offset of 1.5° on the x-axis is needed
+        // njutland-lod23: 9.75°-10.25°, 56.75°-57.25° (0.5°x0.5°), offset: 5250x (1.75°) and 2250y (0.75°) 
+        scaled_ref_kp.push(opencv::core::KeyPoint::new_point(opencv::core::Point2f::new(kp.pt().x/4.0f32-5250.0f32, kp.pt().y/4.0f32-2250.0f32), kp.size(), kp.angle(), kp.response(), kp.octave(), kp.class_id()).unwrap());
+        //scaled_ref_kp.push(opencv::core::KeyPoint::new_point(opencv::core::Point2f::new(kp.pt().x/32.0f32, kp.pt().y/32.0f32), kp.size(), kp.angle(), kp.response(), kp.octave(), kp.class_id()).unwrap());
+        //test6-qgis covers 9.8-10.2° and 56.9-57.2°
     }
 
     // lod5 is used so that the image does not take too long to process
-    let db_img =  get_mat_from_dir("../DUNK/resources/test/images/danmark_lod5.png").unwrap();    
+    let db_img =  get_mat_from_dir("../DUNK/resources/test/images/njutland-lod23.tif").unwrap();
+    //let db_img =  get_mat_from_dir("../danmark_lod0.jpg").unwrap(); 
     
-    let _ = export_matches(&img.0.mat, &img.1, &db_img, &scaled_ref_kp, &matches, "../out1.png");
-
-    let homography = opencv::calib3d::find_homography_def(&img_points, &obj_points_2d, &mut opencv::core::Mat::default());
-
-    // draw homo starts here
+    // scaled_ref_kp
+    let mut out_img = export_matches(&img.0.mat, &img.1, &db_img, &scaled_ref_kp, &matches, "../out1matches.png").unwrap();
     
-    // draw homo done
+    // Homo starts here
+    let (img1_matched_points_vec, img2_matched_points_vec) = get_matched_points_vec(&img.1, &scaled_ref_kp, &matches).unwrap();
+    let res = find_homography_mat(&img1_matched_points_vec, &img2_matched_points_vec, Some(HomographyMethod::RANSAC), Some(100.0f64));
+
+    let res = res.inspect_err(|e| {
+        dbg!(e);
+    });
+    assert!(res.is_ok());
+    
+    let res = res.unwrap();
+    let homography = res.0;
+
+    let _ = draw_homography_lines(&mut out_img, &img.0.mat, &homography);
+    opencv::imgcodecs::imwrite(
+        "../out1homo.jpg",
+        &out_img,
+        &opencv::core::Vector::default(),
+    )
+    .unwrap();
+
+    //let mut mut_db_img = db_img.clone();
+
+    let _ = perspective_transform(&img.0.mat, &mut out_img, &homography);
+
+    let yo = warp_image_perspective(&img.0, &homography, None).unwrap();
+
+    opencv::imgcodecs::imwrite(
+        "../out1homoproj.jpg",
+        &yo.mat,
+        &opencv::core::Vector::default(),
+    )
+    .unwrap();
+    // homo done
+
+    process::exit(0x0100);
 
     // map object points to real world coordinates
     let obj_points = get_3d_world_coord_from_2d_point(

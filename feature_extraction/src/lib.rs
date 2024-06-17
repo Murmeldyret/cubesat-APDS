@@ -132,26 +132,27 @@ pub fn export_matches(
     img2_keypoints: &Vector<KeyPoint>,
     matches: &Vector<DMatch>,
     export_location: &str,
-) -> Result<(), Error> {
+) -> Result<Mat, Error> {
     let mut out_img = Mat::default();
     let matches_mask = Vector::new();
 
-    cv::features2d::draw_matches(
+    cv::features2d::draw_matches_1(
         &img1,
         img1_keypoints,
         &img2,
         img2_keypoints,
         matches,
         &mut out_img,
-        opencv::core::VecN::all(-1.0),
-        opencv::core::VecN::all(-1.0),
+        1i32,
+        opencv::core::VecN::new(255.0f64, 0.0f64, 0.0f64, 0.0f64),
+        opencv::core::VecN::new(0.0f64, 0.0f64, 255.0f64, 0.0f64),
         &matches_mask,
-        DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS,
+        DrawMatchesFlags::DEFAULT,
     )?;
 
     imgcodecs::imwrite(export_location, &out_img, &Vector::default())?;
 
-    Ok(())
+    Ok(out_img)
 }
 
 pub fn get_mat_from_dir(img_dir: &str) -> Result<Mat, Error> {
@@ -166,7 +167,7 @@ pub fn get_points_from_matches(
     let mut img1_matched_keypoints: Vector<KeyPoint> = Vector::default();
     let mut img2_matched_keypoints: Vector<KeyPoint> = Vector::default();
     for m in matches {
-        img1_matched_keypoints.push(img1_keypoints.get(m.img_idx.try_into()?)?);
+        img1_matched_keypoints.push(img1_keypoints.get(m.query_idx.try_into()?)?);
         img2_matched_keypoints.push(img2_keypoints.get(m.train_idx.try_into()?)?);
     }
 
@@ -215,13 +216,38 @@ pub fn draw_homography_lines(
                 scene_corners.get((i + 1) % 4)?.y as i32,
             ),
             opencv::core::VecN::new(0.0, 0.0, 255.0, 0.0),
-            2i32,
+            4i32,
             LINE_8,
             0,
         );
     }
 
     Ok(())
+}
+
+pub fn get_matched_points_vec(
+    img1_keypoints: &Vector<KeyPoint>,
+    img2_keypoints: &Vector<KeyPoint>,
+    matches: &Vector<DMatch>,
+) -> Result<(Vec<Point2f>, Vec<Point2f>), Error> {
+    let mut img1_matched_points = Vec::new();
+    let mut img2_matched_points = Vec::new();
+
+    for dmatch in matches {
+        img1_matched_points.push(
+            img1_keypoints
+                .get(dmatch.query_idx.try_into()?)?
+                .pt(),
+        );
+        img2_matched_points.push(
+            img2_keypoints
+                .get(dmatch.train_idx.try_into()?)?
+                .pt(),
+        );
+
+    }
+
+    Ok((img1_matched_points, img2_matched_points))
 }
 
 #[allow(clippy::unwrap_used)]
