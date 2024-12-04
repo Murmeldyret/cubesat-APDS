@@ -1,0 +1,49 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:            
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Setup PostgreSQL for Linux/macOS/Windows
+      uses: ikalnytskyi/action-setup-postgres@v5
+
+    - name: Build
+      uses: actions/checkout@v3
+
+    - uses: Swatinem/rust-cache@v2
+      with:
+        cache-on-failure: true
+
+    - name: Install apt https
+      run: sudo apt-get update && sudo apt-get install -y apt-transport-https
+      
+    - name: Setup OpenCV
+      run: sudo apt-get install -y libopencv-dev
+
+    - name: Setup GDAL
+      run: sudo apt-get install libgdal-dev
+
+    - name: Setup Diesel
+      run: cargo install diesel_cli
+
+    - name: Run Migrations
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost/postgres
+      run: diesel migration run --migration-dir feature_database/
+      
+    - name: Run tests
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost/postgres
+      run: cargo test --verbose
+
